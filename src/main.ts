@@ -52,66 +52,75 @@ async function bootstrap() {
   // Global response transformer
   app.useGlobalInterceptors(new TransformInterceptor());
 
-  // Swagger documentation
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('Football Tournament Platform API')
-    .setDescription(
-      `
-      ## Overview
-      API for the Football Tournament Management Platform.
-      
-      ## Authentication
-      Most endpoints require JWT authentication. Include the access token in the Authorization header:
-      \`Authorization: Bearer <access_token>\`
-      
-      ## User Roles
-      - **ADMIN**: Full platform access
-      - **ORGANIZER**: Can create and manage tournaments
-      - **PARTICIPANT**: Can manage clubs and register for tournaments
-      
-      ## Rate Limiting
-      - Standard endpoints: 100 requests per minute
-      - Authentication endpoints: 10 requests per minute
-      `,
-    )
-    .setVersion('1.0')
-    .setContact(
-      'Football Tournament Platform',
-      'https://football-tournament.example.com',
-      'support@football-tournament.example.com',
-    )
-    .addBearerAuth(
-      {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-        name: 'JWT',
-        description: 'Enter JWT token',
-        in: 'header',
-      },
-      'JWT-auth',
-    )
-    .addTag('Auth', 'Authentication and authorization endpoints')
-    .addTag('Users', 'User management endpoints')
-    .addTag('Clubs', 'Club management endpoints')
-    .addTag('Tournaments', 'Tournament management endpoints')
-    .addTag('Registrations', 'Tournament registration endpoints')
-    .addTag('Groups', 'Group draw and management endpoints')
-    .addTag('Payments', 'Payment processing endpoints')
-    .addTag('Notifications', 'Notification management endpoints')
-    .addTag('Files', 'File upload and management endpoints')
-    .addTag('Admin', 'Admin panel endpoints')
-    .build();
+  // Swagger documentation (development only)
+  if (configService.get<string>('nodeEnv') === 'development') {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('Football Tournament Platform API')
+      .setDescription(
+        `
+## Overview
+API for the Football Tournament Management Platform.
 
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document, {
-    swaggerOptions: {
-      persistAuthorization: true,
-      tagsSorter: 'alpha',
-      operationsSorter: 'alpha',
-    },
-    customSiteTitle: 'Football Tournament API Docs',
-  });
+## Authentication
+Most endpoints require JWT authentication. Include the access token in the Authorization header:
+\`Authorization: Bearer <access_token>\`
+
+## User Roles
+- **ADMIN**: Full platform access
+- **ORGANIZER**: Can create and manage tournaments
+- **PARTICIPANT**: Can manage clubs and register for tournaments
+
+## Rate Limiting
+- Standard endpoints: 100 requests per minute
+- Authentication endpoints: 10 requests per minute
+        `,
+      )
+      .setVersion('1.0')
+      .setContact(
+        'Football Tournament Platform',
+        'https://football-tournament.example.com',
+        'support@football-tournament.example.com',
+      )
+      .addBearerAuth(
+        {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+          name: 'JWT',
+          description: 'Enter JWT token',
+          in: 'header',
+        },
+        'JWT-auth',
+      )
+      .addTag('Auth', 'Authentication and authorization endpoints')
+      .addTag('Users', 'User management endpoints')
+      .addTag('Clubs', 'Club management endpoints')
+      .addTag('Tournaments', 'Tournament management endpoints')
+      .addTag('Registrations', 'Tournament registration endpoints')
+      .addTag('Groups', 'Group draw and management endpoints')
+      .addTag('Payments', 'Payment processing endpoints')
+      .addTag('Notifications', 'Notification management endpoints')
+      .addTag('Files', 'File upload and management endpoints')
+      .addTag('Admin', 'Admin panel endpoints')
+      .build();
+
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('api/docs', app, document, {
+      swaggerOptions: {
+        persistAuthorization: true,
+        tagsSorter: 'alpha',
+        operationsSorter: 'alpha',
+      },
+      customSiteTitle: 'Football Tournament API Docs',
+    });
+
+    // Swagger JSON endpoint
+    app.use('/api/swagger-json', (req, res) => {
+      res.json(document);
+    });
+
+    logger.log('Swagger documentation enabled at /api/docs');
+  }
 
   // Health check endpoint
   app.getHttpAdapter().get('/health', (req, res) => {
@@ -123,11 +132,15 @@ async function bootstrap() {
   });
 
   const port = configService.get<number>('port') || 3000;
+  const nodeEnv = configService.get<string>('nodeEnv') || 'development';
   await app.listen(port);
 
   logger.log(`Application is running on: http://localhost:${port}`);
-  logger.log(`API Documentation: http://localhost:${port}/api/docs`);
-  logger.log(`Environment: ${configService.get<string>('nodeEnv') || 'development'}`);
+  if (nodeEnv === 'development') {
+    logger.log(`API Documentation: http://localhost:${port}/api/docs`);
+    logger.log(`Swagger JSON: http://localhost:${port}/api/swagger-json`);
+  }
+  logger.log(`Environment: ${nodeEnv}`);
 }
 
 bootstrap();
