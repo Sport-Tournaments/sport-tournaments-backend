@@ -1,0 +1,88 @@
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  OneToOne,
+  Index,
+  JoinColumn,
+} from 'typeorm';
+import { RegistrationStatus, PaymentStatus } from '../../../common/enums';
+import { Tournament } from '../../tournaments/entities/tournament.entity';
+import { Club } from '../../clubs/entities/club.entity';
+import { Payment } from '../../payments/entities/payment.entity';
+
+@Entity('registrations')
+@Index(['tournamentId', 'clubId'], { unique: true })
+export class Registration {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Index()
+  @Column({ name: 'tournament_id' })
+  tournamentId: string;
+
+  @ManyToOne(() => Tournament, (tournament) => tournament.registrations, {
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'tournament_id' })
+  tournament: Tournament;
+
+  @Index()
+  @Column({ name: 'club_id' })
+  clubId: string;
+
+  @ManyToOne(() => Club, (club) => club.registrations, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'club_id' })
+  club: Club;
+
+  @Column({
+    type: 'enum',
+    enum: RegistrationStatus,
+    default: RegistrationStatus.PENDING,
+  })
+  status: RegistrationStatus;
+
+  @Column({ name: 'group_assignment', nullable: true })
+  groupAssignment?: string;
+
+  @Column({ name: 'number_of_players', nullable: true })
+  numberOfPlayers?: number;
+
+  @Column({ name: 'coach_name', nullable: true })
+  coachName?: string;
+
+  @Column({ name: 'coach_phone', nullable: true })
+  coachPhone?: string;
+
+  @Column({ name: 'emergency_contact', nullable: true })
+  emergencyContact: string;
+
+  @Column({ type: 'text', nullable: true })
+  notes: string;
+
+  @Column({
+    name: 'payment_status',
+    type: 'enum',
+    enum: PaymentStatus,
+    default: PaymentStatus.PENDING,
+  })
+  paymentStatus: PaymentStatus;
+
+  @Column({ name: 'payment_id', nullable: true })
+  paymentId: string;
+
+  @CreateDateColumn({ name: 'registration_date' })
+  registrationDate: Date;
+
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt: Date;
+
+  @OneToOne(() => Payment, (payment) => payment.registration)
+  payment: Payment;
+}
