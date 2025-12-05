@@ -62,6 +62,29 @@ export class User {
   @Column({ name: 'profile_image_url', nullable: true })
   profileImageUrl?: string;
 
+  // Team/Organization branding colors for dashboard theming
+  @Column({ name: 'team_colors', type: 'json', nullable: true })
+  teamColors?: {
+    primary: string;
+    secondary: string;
+    accent: string;
+  };
+
+  // Organizer-specific profile fields
+  @Column({ name: 'organization_name', nullable: true })
+  organizationName?: string;
+
+  @Column({ name: 'organization_logo', nullable: true })
+  organizationLogo?: string;
+
+  @Column({ name: 'default_location', type: 'json', nullable: true })
+  defaultLocation?: {
+    latitude: number;
+    longitude: number;
+    address: string;
+    venueName: string;
+  };
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

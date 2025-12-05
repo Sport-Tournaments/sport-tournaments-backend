@@ -36,8 +36,11 @@ export class TournamentsService {
       throw new BadRequestException('End date must be after start date');
     }
 
+    // Extract nested DTO arrays to handle separately
+    const { ageGroups, locations, ...tournamentData } = createTournamentDto;
+
     const tournament = this.tournamentsRepository.create({
-      ...createTournamentDto,
+      ...tournamentData,
       organizerId,
       startDate,
       endDate,

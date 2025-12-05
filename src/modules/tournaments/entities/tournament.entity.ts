@@ -18,6 +18,8 @@ import {
 import { User } from '../../users/entities/user.entity';
 import { Registration } from '../../registrations/entities/registration.entity';
 import { Group } from '../../groups/entities/group.entity';
+import { TournamentAgeGroup } from './tournament-age-group.entity';
+import { TournamentLocation } from './tournament-location.entity';
 
 @Entity('tournaments')
 export class Tournament {
@@ -140,6 +142,73 @@ export class Tournament {
   @Column({ name: 'draw_completed', default: false })
   drawCompleted: boolean;
 
+  // Privacy setting: YES = private (invitation only), NO = public
+  @Index()
+  @Column({ name: 'is_private', default: false })
+  isPrivate: boolean;
+
+  // Visibility configuration for private tournaments
+  @Column({ name: 'visibility_settings', type: 'json', nullable: true })
+  visibilitySettings?: {
+    partnerTeams?: string[];     // Club IDs of partner teams
+    pastParticipants?: string[]; // Club IDs from past tournaments
+    manualEmailList?: string[];  // Additional emails to notify
+    isPublicListing?: boolean;   // Whether to show in public listings
+  };
+
+  // Bracket data for playoff structure
+  @Column({ name: 'bracket_data', type: 'json', nullable: true })
+  bracketData?: {
+    type: 'groups_only' | 'groups_and_playoffs' | 'single_elimination';
+    groupCount: number;
+    teamsPerGroup: number;
+    playoffRounds: string[];
+    matches: Array<{
+      matchId: string;
+      stage: string;
+      group?: string;
+      team1Id?: string;
+      team2Id?: string;
+      winner?: string;
+      scheduledDate?: string;
+      score?: { team1: number; team2: number };
+    }>;
+  };
+
+  // Regulations type tracking
+  @Column({ name: 'regulations_type', type: 'enum', enum: ['UPLOADED', 'GENERATED'], nullable: true })
+  regulationsType?: 'UPLOADED' | 'GENERATED';
+
+  // Generated regulations data (when using form-based generation)
+  @Column({ name: 'regulations_data', type: 'json', nullable: true })
+  regulationsData?: {
+    matchDuration: number;
+    substitutionsAllowed: number;
+    substitutionTiming: string;
+    tieBreakingCriteria: string[];
+    yellowCardRules: string;
+    redCardOffenses: string[];
+    fieldDimensions: string;
+    equipmentRequirements: string[];
+    playerEligibility: string;
+  };
+
+  // Brochure/Poster data
+  @Column({ name: 'brochure_url', nullable: true })
+  brochureUrl?: string;
+
+  @Column({ name: 'social_media_assets', type: 'json', nullable: true })
+  socialMediaAssets?: {
+    instagramSquare?: string;
+    facebookCover?: string;
+    storyFormat?: string;
+    pinterest?: string;
+  };
+
+  // URL slug for public tournament page
+  @Column({ name: 'url_slug', nullable: true, unique: true })
+  urlSlug?: string;
+
   @Index()
   @Column({ nullable: true })
   country?: string;
@@ -155,4 +224,10 @@ export class Tournament {
 
   @OneToMany(() => Group, (group) => group.tournament)
   groups: Group[];
+
+  @OneToMany(() => TournamentAgeGroup, (ageGroup) => ageGroup.tournament)
+  ageGroups: TournamentAgeGroup[];
+
+  @OneToMany(() => TournamentLocation, (location) => location.tournament)
+  locations: TournamentLocation[];
 }
