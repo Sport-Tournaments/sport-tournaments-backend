@@ -3,6 +3,10 @@ export default () => ({
   port: parseInt(process.env.PORT || '3000', 10),
   apiPrefix: process.env.API_PREFIX || 'api/v1',
 
+  // DATABASE_URL takes priority over individual DB_ variables
+  databaseUrl: process.env.DATABASE_URL,
+
+  // Fallback individual database config (used if DATABASE_URL is not set)
   database: {
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT || '3306', 10),

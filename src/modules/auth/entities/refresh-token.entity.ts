@@ -25,7 +25,7 @@ export class RefreshToken {
   @Column({ unique: true })
   token: string;
 
-  @Column({ name: 'expires_at', type: 'datetime' })
+  @Column({ name: 'expires_at', type: 'timestamp' })
   expiresAt: Date;
 
   @Column({ name: 'is_revoked', default: false })

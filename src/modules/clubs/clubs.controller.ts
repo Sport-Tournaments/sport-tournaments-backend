@@ -18,7 +18,6 @@ import {
 } from '@nestjs/swagger';
 import { ClubsService } from './clubs.service';
 import { CreateClubDto, UpdateClubDto, ClubFilterDto, AdminUpdateClubDto } from './dto';
-import { PaginationDto } from '../../common/dto';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards';
 import { Roles, CurrentUser, Public } from '../../common/decorators';
 import { UserRole } from '../../common/enums';
@@ -44,8 +43,8 @@ export class ClubsController {
   @Public()
   @ApiOperation({ summary: 'Get all clubs with pagination and filters' })
   @ApiResponse({ status: 200, description: 'List of clubs' })
-  findAll(@Query() pagination: PaginationDto, @Query() filters: ClubFilterDto) {
-    return this.clubsService.findAll(pagination, filters);
+  findAll(@Query() filters: ClubFilterDto) {
+    return this.clubsService.findAll(filters, filters);
   }
 
   @Get('my-clubs')

@@ -10,6 +10,7 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { RegistrationStatus, PaymentStatus } from '../../../common/enums';
+import { PaginationDto } from '../../../common/dto';
 
 export class CreateRegistrationDto {
   @ApiProperty({ description: 'Club ID to register' })
@@ -92,7 +93,7 @@ export class AdminUpdateRegistrationDto extends UpdateRegistrationDto {
   paymentStatus?: PaymentStatus;
 }
 
-export class RegistrationFilterDto {
+export class RegistrationFilterDto extends PaginationDto {
   @ApiPropertyOptional({ enum: RegistrationStatus })
   @IsOptional()
   @IsEnum(RegistrationStatus)

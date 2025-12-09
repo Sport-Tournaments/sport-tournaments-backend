@@ -78,11 +78,11 @@ export class TournamentInvitation {
   message?: string;
 
   // Expiration date for the invitation
-  @Column({ name: 'expires_at', type: 'datetime', nullable: true })
+  @Column({ name: 'expires_at', type: 'timestamp', nullable: true })
   expiresAt?: Date;
 
   // Response date
-  @Column({ name: 'responded_at', type: 'datetime', nullable: true })
+  @Column({ name: 'responded_at', type: 'timestamp', nullable: true })
   respondedAt?: Date;
 
   // Response message from invitee
@@ -93,14 +93,14 @@ export class TournamentInvitation {
   @Column({ name: 'email_sent', default: false })
   emailSent: boolean;
 
-  @Column({ name: 'email_sent_at', type: 'datetime', nullable: true })
+  @Column({ name: 'email_sent_at', type: 'timestamp', nullable: true })
   emailSentAt?: Date;
 
   // Reminder sent tracking
   @Column({ name: 'reminder_sent', default: false })
   reminderSent: boolean;
 
-  @Column({ name: 'reminder_sent_at', type: 'datetime', nullable: true })
+  @Column({ name: 'reminder_sent_at', type: 'timestamp', nullable: true })
   reminderSentAt?: Date;
 
   @Column({ name: 'reminder_count', default: 0 })

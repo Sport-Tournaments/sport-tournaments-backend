@@ -24,6 +24,7 @@ import {
   AgeCategory,
 } from '../../../common/enums';
 import { BracketType } from '../../groups/services/bracket-generator.service';
+import { PaginationDto } from '../../../common/dto';
 
 // Nested DTOs for complex types
 export class VisibilitySettingsDto {
@@ -597,7 +598,7 @@ export class UpdateTournamentDto {
   urlSlug?: string;
 }
 
-export class TournamentFilterDto {
+export class TournamentFilterDto extends PaginationDto {
   @ApiPropertyOptional({ enum: TournamentStatus })
   @IsOptional()
   @IsEnum(TournamentStatus)

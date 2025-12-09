@@ -12,6 +12,7 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
+import { PaginationDto } from '../../../common/dto';
 
 export class CreateClubDto {
   @ApiProperty({ example: 'FC Barcelona Youth' })
@@ -156,7 +157,7 @@ export class UpdateClubDto {
   contactPhone?: string;
 }
 
-export class ClubFilterDto {
+export class ClubFilterDto extends PaginationDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

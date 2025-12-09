@@ -85,7 +85,7 @@ export class Payment {
   @Column({ name: 'refund_reason', nullable: true })
   refundReason?: string;
 
-  @Column({ name: 'transaction_date', type: 'datetime', nullable: true })
+  @Column({ name: 'transaction_date', type: 'timestamp', nullable: true })
   transactionDate?: Date;
 
   @Column({ type: 'json', nullable: true })

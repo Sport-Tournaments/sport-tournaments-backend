@@ -23,7 +23,6 @@ import {
   AdminUpdateRegistrationDto,
   RegistrationFilterDto,
 } from './dto';
-import { PaginationDto } from '../../common/dto';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards';
 import { Roles, CurrentUser } from '../../common/decorators';
 import { UserRole } from '../../common/enums';
@@ -59,12 +58,11 @@ export class RegistrationsController {
   @ApiResponse({ status: 200, description: 'List of registrations' })
   findByTournament(
     @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
-    @Query() pagination: PaginationDto,
     @Query() filters: RegistrationFilterDto,
   ) {
     return this.registrationsService.findByTournament(
       tournamentId,
-      pagination,
+      filters,
       filters,
     );
   }

@@ -18,7 +18,6 @@ import {
 } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { UpdateUserDto, UserFilterDto } from './dto';
-import { PaginationDto } from '../../common/dto';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards';
 import { Roles, CurrentUser } from '../../common/decorators';
 import { UserRole } from '../../common/enums';
@@ -52,11 +51,8 @@ export class UsersController {
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Get all users (Admin only)' })
   @ApiResponse({ status: 200, description: 'List of users' })
-  findAll(
-    @Query() pagination: PaginationDto,
-    @Query() filters: UserFilterDto,
-  ) {
-    return this.usersService.findAll(pagination, filters);
+  findAll(@Query() filters: UserFilterDto) {
+    return this.usersService.findAll(filters, filters);
   }
 
   @Get('statistics')

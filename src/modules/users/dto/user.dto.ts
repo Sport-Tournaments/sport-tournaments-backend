@@ -9,6 +9,7 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { UserRole } from '../../../common/enums';
+import { PaginationDto } from '../../../common/dto';
 
 export class CreateUserDto {
   @ApiProperty({ example: 'john@example.com' })
@@ -95,7 +96,7 @@ export class AdminUpdateUserDto extends PartialType(UpdateUserDto) {
   isVerified?: boolean;
 }
 
-export class UserFilterDto {
+export class UserFilterDto extends PaginationDto {
   @ApiPropertyOptional({ enum: UserRole })
   @IsOptional()
   @IsEnum(UserRole)

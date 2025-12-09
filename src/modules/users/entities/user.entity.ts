@@ -56,7 +56,7 @@ export class User {
   @Column({ name: 'password_reset_token', nullable: true })
   passwordResetToken?: string;
 
-  @Column({ name: 'password_reset_expires', type: 'datetime', nullable: true })
+  @Column({ name: 'password_reset_expires', type: 'timestamp', nullable: true })
   passwordResetExpires?: Date;
 
   @Column({ name: 'profile_image_url', nullable: true })

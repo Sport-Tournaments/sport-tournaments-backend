@@ -23,7 +23,6 @@ import {
   TournamentFilterDto,
   AdminUpdateTournamentDto,
 } from './dto';
-import { PaginationDto } from '../../common/dto';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards';
 import { Roles, CurrentUser, Public } from '../../common/decorators';
 import { UserRole } from '../../common/enums';
@@ -51,22 +50,16 @@ export class TournamentsController {
   @Public()
   @ApiOperation({ summary: 'Get all tournaments with pagination and filters' })
   @ApiResponse({ status: 200, description: 'List of tournaments' })
-  findAll(
-    @Query() pagination: PaginationDto,
-    @Query() filters: TournamentFilterDto,
-  ) {
-    return this.tournamentsService.findAll(pagination, filters);
+  findAll(@Query() filters: TournamentFilterDto) {
+    return this.tournamentsService.findAll(filters, filters);
   }
 
   @Get('search')
   @Public()
   @ApiOperation({ summary: 'Search tournaments with advanced filters' })
   @ApiResponse({ status: 200, description: 'Search results' })
-  search(
-    @Query() pagination: PaginationDto,
-    @Query() filters: TournamentFilterDto,
-  ) {
-    return this.tournamentsService.findAll(pagination, filters);
+  search(@Query() filters: TournamentFilterDto) {
+    return this.tournamentsService.findAll(filters, filters);
   }
 
   @Get('featured')
