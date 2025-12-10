@@ -49,7 +49,9 @@ export class CreateClubDto {
   @Max(180)
   longitude?: number;
 
-  @ApiPropertyOptional({ example: 'One of the best youth academies in the world' })
+  @ApiPropertyOptional({
+    example: 'One of the best youth academies in the world',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(2000)
@@ -122,7 +124,9 @@ export class UpdateClubDto {
   @Max(180)
   longitude?: number;
 
-  @ApiPropertyOptional({ example: 'One of the best youth academies in the world' })
+  @ApiPropertyOptional({
+    example: 'One of the best youth academies in the world',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(2000)

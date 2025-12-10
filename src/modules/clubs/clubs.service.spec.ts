@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { ClubsService } from './clubs.service';
 import { Club } from './entities/club.entity';
 import { CreateClubDto, UpdateClubDto } from './dto';
@@ -13,7 +12,6 @@ import { UserRole } from '../../common/enums';
 
 describe('ClubsService', () => {
   let service: ClubsService;
-  let repository: Repository<Club>;
 
   const mockClub: Partial<Club> = {
     id: 'club-1',
@@ -62,7 +60,6 @@ describe('ClubsService', () => {
     }).compile();
 
     service = module.get<ClubsService>(ClubsService);
-    repository = module.get<Repository<Club>>(getRepositoryToken(Club));
   });
 
   afterEach(() => {
@@ -195,7 +192,12 @@ describe('ClubsService', () => {
         .mockResolvedValueOnce(existingClub); // Check for existing name
 
       await expect(
-        service.update('club-1', 'owner-1', UserRole.ORGANIZER, updateDtoWithName),
+        service.update(
+          'club-1',
+          'owner-1',
+          UserRole.ORGANIZER,
+          updateDtoWithName,
+        ),
       ).rejects.toThrow(ConflictException);
     });
   });
@@ -257,7 +259,10 @@ describe('ClubsService', () => {
     it('should unverify a club', async () => {
       const verifiedClub = { ...mockClub, isVerified: true };
       mockRepository.findOne.mockResolvedValue(verifiedClub);
-      mockRepository.save.mockResolvedValue({ ...verifiedClub, isVerified: false });
+      mockRepository.save.mockResolvedValue({
+        ...verifiedClub,
+        isVerified: false,
+      });
 
       const result = await service.unverify('club-1');
 

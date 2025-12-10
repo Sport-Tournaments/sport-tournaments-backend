@@ -150,10 +150,10 @@ export class Tournament {
   // Visibility configuration for private tournaments
   @Column({ name: 'visibility_settings', type: 'json', nullable: true })
   visibilitySettings?: {
-    partnerTeams?: string[];     // Club IDs of partner teams
+    partnerTeams?: string[]; // Club IDs of partner teams
     pastParticipants?: string[]; // Club IDs from past tournaments
-    manualEmailList?: string[];  // Additional emails to notify
-    isPublicListing?: boolean;   // Whether to show in public listings
+    manualEmailList?: string[]; // Additional emails to notify
+    isPublicListing?: boolean; // Whether to show in public listings
   };
 
   // Bracket data for playoff structure
@@ -176,7 +176,12 @@ export class Tournament {
   };
 
   // Regulations type tracking
-  @Column({ name: 'regulations_type', type: 'enum', enum: ['UPLOADED', 'GENERATED'], nullable: true })
+  @Column({
+    name: 'regulations_type',
+    type: 'enum',
+    enum: ['UPLOADED', 'GENERATED'],
+    nullable: true,
+  })
   regulationsType?: 'UPLOADED' | 'GENERATED';
 
   // Generated regulations data (when using form-based generation)

@@ -1,13 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
-import { Repository } from 'typeorm';
 import { PaymentsService } from './payments.service';
 import { Payment } from './entities/payment.entity';
 import { Registration } from '../registrations/entities/registration.entity';
 import { Tournament } from '../tournaments/entities/tournament.entity';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
-import { PaymentStatus, Currency } from '../../common/enums';
+import { PaymentStatus } from '../../common/enums';
 
 // Mock Stripe
 jest.mock('stripe', () => {
@@ -26,9 +25,6 @@ jest.mock('stripe', () => {
 
 describe('PaymentsService', () => {
   let service: PaymentsService;
-  let paymentsRepository: Repository<Payment>;
-  let registrationsRepository: Repository<Registration>;
-  let tournamentsRepository: Repository<Tournament>;
 
   const mockTournament: Partial<Tournament> = {
     id: 'tournament-1',
@@ -48,7 +44,7 @@ describe('PaymentsService', () => {
     tournamentId: 'tournament-1',
     clubId: 'club-1',
     tournament: mockTournament as Tournament,
-    club: mockClub as any,
+    club: mockClub as unknown as Registration['club'],
   };
 
   const mockPayment: Partial<Payment> = {
@@ -85,7 +81,7 @@ describe('PaymentsService', () => {
 
   const mockConfigService = {
     get: jest.fn((key: string) => {
-      const config: Record<string, any> = {
+      const config: Record<string, string> = {
         'stripe.secretKey': 'sk_test_xxx',
         'stripe.webhookSecret': 'whsec_xxx',
       };
@@ -117,15 +113,6 @@ describe('PaymentsService', () => {
     }).compile();
 
     service = module.get<PaymentsService>(PaymentsService);
-    paymentsRepository = module.get<Repository<Payment>>(
-      getRepositoryToken(Payment),
-    );
-    registrationsRepository = module.get<Repository<Registration>>(
-      getRepositoryToken(Registration),
-    );
-    tournamentsRepository = module.get<Repository<Tournament>>(
-      getRepositoryToken(Tournament),
-    );
   });
 
   afterEach(() => {
@@ -139,7 +126,10 @@ describe('PaymentsService', () => {
       mockPaymentsRepo.create.mockReturnValue(mockPayment);
       mockPaymentsRepo.save.mockResolvedValue(mockPayment);
 
-      const result = await service.createPaymentIntent('registration-1', 'user-1');
+      const result = await service.createPaymentIntent(
+        'registration-1',
+        'user-1',
+      );
 
       expect(result).toHaveProperty('clientSecret');
       expect(result).toHaveProperty('paymentId');
@@ -187,7 +177,10 @@ describe('PaymentsService', () => {
       mockPaymentsRepo.findOne.mockResolvedValue(existingPayment);
       mockPaymentsRepo.save.mockResolvedValue(existingPayment);
 
-      const result = await service.createPaymentIntent('registration-1', 'user-1');
+      const result = await service.createPaymentIntent(
+        'registration-1',
+        'user-1',
+      );
 
       expect(result).toBeDefined();
       expect(mockPaymentsRepo.save).toHaveBeenCalled();
@@ -229,7 +222,10 @@ describe('PaymentsService', () => {
 
     it('should return empty array when no registrations', async () => {
       mockRegistrationsRepo.find.mockResolvedValue([]);
-      mockTournamentsRepo.findOne.mockResolvedValue({ id: 'tournament-1', currency: 'EUR' });
+      mockTournamentsRepo.findOne.mockResolvedValue({
+        id: 'tournament-1',
+        currency: 'EUR',
+      });
 
       const result = await service.getPaymentsByTournament('tournament-1');
 
@@ -253,13 +249,18 @@ describe('PaymentsService', () => {
       mockRegistrationsRepo.update.mockResolvedValue({ affected: 1 });
 
       // Mock stripe refund
-      (service as any).stripe = {
+      (
+        service as unknown as { stripe: { refunds: { create: jest.Mock } } }
+      ).stripe = {
         refunds: {
           create: jest.fn().mockResolvedValue({ id: 're_test123' }),
         },
       };
 
-      const result = await service.initiateRefund('payment-1', 'Admin requested refund');
+      const result = await service.initiateRefund(
+        'payment-1',
+        'Admin requested refund',
+      );
 
       expect(result.status).toBe(PaymentStatus.REFUNDED);
     });
@@ -280,7 +281,7 @@ describe('PaymentsService', () => {
       mockPaymentsRepo.findOne.mockResolvedValue(completedPayment);
 
       // Clear stripe instance
-      (service as any).stripe = null;
+      (service as unknown as { stripe: null }).stripe = null;
 
       await expect(service.initiateRefund('payment-1', 'Test')).rejects.toThrow(
         BadRequestException,

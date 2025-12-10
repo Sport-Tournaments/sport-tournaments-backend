@@ -5,7 +5,6 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
-  Req,
   Ip,
   Headers,
 } from '@nestjs/common';
@@ -68,7 +67,11 @@ export class AuthController {
     @Ip() ipAddress: string,
     @Headers('user-agent') userAgent: string,
   ) {
-    return this.authService.refreshTokens(refreshTokenDto, ipAddress, userAgent);
+    return this.authService.refreshTokens(
+      refreshTokenDto,
+      ipAddress,
+      userAgent,
+    );
   }
 
   @Post('verify-email')
@@ -85,7 +88,10 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Request password reset' })
-  @ApiResponse({ status: 200, description: 'Password reset email sent (if account exists)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Password reset email sent (if account exists)',
+  })
   async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
     return this.authService.forgotPassword(forgotPasswordDto);
   }

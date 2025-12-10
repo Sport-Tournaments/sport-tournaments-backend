@@ -21,7 +21,9 @@ describe('RolesGuard', () => {
     jest.clearAllMocks();
   });
 
-  const createMockExecutionContext = (user: any = null): ExecutionContext => ({
+  const createMockExecutionContext = (
+    user: { sub?: string; email?: string; role?: UserRole } | null = null,
+  ): ExecutionContext => ({
     getHandler: jest.fn(),
     getClass: jest.fn(),
     getArgs: jest.fn(),
@@ -48,7 +50,9 @@ describe('RolesGuard', () => {
 
     it('should return true when roles is null', () => {
       mockReflector.getAllAndOverride.mockReturnValue(null);
-      const context = createMockExecutionContext({ role: UserRole.PARTICIPANT });
+      const context = createMockExecutionContext({
+        role: UserRole.PARTICIPANT,
+      });
 
       const result = guard.canActivate(context);
 
@@ -141,10 +145,10 @@ describe('RolesGuard', () => {
 
       guard.canActivate(context);
 
-      expect(mockReflector.getAllAndOverride).toHaveBeenCalledWith(
-        ROLES_KEY,
-        [context.getHandler(), context.getClass()],
-      );
+      expect(mockReflector.getAllAndOverride).toHaveBeenCalledWith(ROLES_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]);
     });
 
     it('should work with USER role', () => {

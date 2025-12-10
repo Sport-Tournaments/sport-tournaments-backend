@@ -1,11 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { RegistrationsService } from './registrations.service';
 import { Registration } from './entities/registration.entity';
 import { Tournament } from '../tournaments/entities/tournament.entity';
 import { Club } from '../clubs/entities/club.entity';
-import { CreateRegistrationDto, UpdateRegistrationDto } from './dto';
+import { CreateRegistrationDto } from './dto';
 import {
   NotFoundException,
   ForbiddenException,
@@ -21,9 +20,6 @@ import {
 
 describe('RegistrationsService', () => {
   let service: RegistrationsService;
-  let registrationsRepository: Repository<Registration>;
-  let tournamentsRepository: Repository<Tournament>;
-  let clubsRepository: Repository<Club>;
 
   const mockTournament: Partial<Tournament> = {
     id: 'tournament-1',
@@ -105,13 +101,6 @@ describe('RegistrationsService', () => {
     }).compile();
 
     service = module.get<RegistrationsService>(RegistrationsService);
-    registrationsRepository = module.get<Repository<Registration>>(
-      getRepositoryToken(Registration),
-    );
-    tournamentsRepository = module.get<Repository<Tournament>>(
-      getRepositoryToken(Tournament),
-    );
-    clubsRepository = module.get<Repository<Club>>(getRepositoryToken(Club));
   });
 
   afterEach(() => {
@@ -386,7 +375,10 @@ describe('RegistrationsService', () => {
 
     it('should throw ForbiddenException if user does not own the club', async () => {
       mockRegistrationsRepo.findOne.mockResolvedValue(mockRegistration);
-      mockClubsRepo.findOne.mockResolvedValue({ ...mockClub, organizerId: 'other-user' });
+      mockClubsRepo.findOne.mockResolvedValue({
+        ...mockClub,
+        organizerId: 'other-user',
+      });
 
       await expect(
         service.withdraw('registration-1', 'user-1', UserRole.ORGANIZER),
@@ -399,7 +391,10 @@ describe('RegistrationsService', () => {
         status: RegistrationStatus.PENDING,
       };
       mockRegistrationsRepo.findOne.mockResolvedValue(pendingRegistration);
-      mockClubsRepo.findOne.mockResolvedValue({ ...mockClub, organizerId: 'other-user' });
+      mockClubsRepo.findOne.mockResolvedValue({
+        ...mockClub,
+        organizerId: 'other-user',
+      });
       mockRegistrationsRepo.save.mockResolvedValue({
         ...pendingRegistration,
         status: RegistrationStatus.WITHDRAWN,

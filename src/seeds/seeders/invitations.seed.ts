@@ -1,7 +1,14 @@
 import { DataSource } from 'typeorm';
 import { faker } from '@faker-js/faker';
-import { generateUUID, generateInvitationToken, pickRandom } from '../utils/helpers';
-import { InvitationType, InvitationStatus } from '../../modules/invitations/entities/invitation.entity';
+import {
+  generateUUID,
+  generateInvitationToken,
+  pickRandom,
+} from '../utils/helpers';
+import {
+  InvitationType,
+  InvitationStatus,
+} from '../../modules/invitations/entities/invitation.entity';
 
 export interface SeededInvitation {
   id: string;
@@ -18,27 +25,29 @@ export async function seedInvitations(
   clubs: { id: string; ownerId: string; email?: string }[],
 ): Promise<SeededInvitation[]> {
   const invitationRepository = dataSource.getRepository('TournamentInvitation');
-  
+
   const seededInvitations: SeededInvitation[] = [];
-  
+
   // Only send invitations for DRAFT, PUBLISHED, ONGOING tournaments
-  const eligibleTournaments = tournaments.filter(t => 
-    ['DRAFT', 'PUBLISHED', 'ONGOING'].includes(t.status)
+  const eligibleTournaments = tournaments.filter((t) =>
+    ['DRAFT', 'PUBLISHED', 'ONGOING'].includes(t.status),
   );
-  
+
   // Track used combinations to avoid duplicates
   const usedCombinations = new Set<string>();
-  
+
   for (const tournament of eligibleTournaments) {
     // Each tournament sends 2-5 invitations
     const invitationCount = faker.number.int({ min: 2, max: 5 });
-    
+
     // Filter out clubs owned by the tournament organizer
-    const eligibleClubs = clubs.filter(c => c.ownerId !== tournament.organizerId);
-    
+    const eligibleClubs = clubs.filter(
+      (c) => c.ownerId !== tournament.organizerId,
+    );
+
     for (let i = 0; i < invitationCount && eligibleClubs.length > 0; i++) {
       const invitationId = generateUUID();
-      
+
       // Choose invitation type with weights
       const typeRoll = Math.random();
       let type: InvitationType;
@@ -51,7 +60,7 @@ export async function seedInvitations(
       } else {
         type = InvitationType.PARTNER;
       }
-      
+
       // Choose status based on tournament status
       let status: InvitationStatus;
       if (tournament.status === 'DRAFT') {
@@ -68,7 +77,7 @@ export async function seedInvitations(
           status = InvitationStatus.EXPIRED;
         }
       }
-      
+
       const invitationData: Record<string, unknown> = {
         id: invitationId,
         tournament: { id: tournament.id },
@@ -80,29 +89,33 @@ export async function seedInvitations(
           'We would love to have your club participate in our tournament!',
           'Your club has been selected for this prestigious event.',
           'Join us for an exciting tournament experience!',
-          'Based on your previous participation, we\'re inviting you back!',
+          "Based on your previous participation, we're inviting you back!",
           null,
         ]),
         emailSent: Math.random() > 0.3,
-        emailSentAt: Math.random() > 0.5 ? faker.date.recent({ days: 30 }) : null,
+        emailSentAt:
+          Math.random() > 0.5 ? faker.date.recent({ days: 30 }) : null,
         reminderSent: Math.random() > 0.7,
         reminderCount: faker.number.int({ min: 0, max: 2 }),
         createdAt: faker.date.recent({ days: 60 }),
         updatedAt: new Date(),
       };
-      
+
       // For DIRECT and PAST_PARTICIPANT, link to a club
-      if (type === InvitationType.DIRECT || type === InvitationType.PAST_PARTICIPANT) {
+      if (
+        type === InvitationType.DIRECT ||
+        type === InvitationType.PAST_PARTICIPANT
+      ) {
         const club = pickRandom(eligibleClubs);
         const comboKey = `${tournament.id}-${club.id}`;
-        
+
         if (usedCombinations.has(comboKey)) {
           continue; // Skip duplicate
         }
         usedCombinations.add(comboKey);
-        
+
         invitationData.club = { id: club.id };
-        
+
         if (status === InvitationStatus.ACCEPTED) {
           invitationData.respondedAt = faker.date.recent({ days: 30 });
         } else if (status === InvitationStatus.DECLINED) {
@@ -115,7 +128,7 @@ export async function seedInvitations(
             null,
           ]);
         }
-        
+
         seededInvitations.push({
           id: invitationId,
           tournamentId: tournament.id,
@@ -127,14 +140,14 @@ export async function seedInvitations(
         // For EMAIL and PARTNER, use email only
         const email = faker.internet.email();
         const comboKey = `${tournament.id}-${email}`;
-        
+
         if (usedCombinations.has(comboKey)) {
           continue;
         }
         usedCombinations.add(comboKey);
-        
+
         invitationData.email = email;
-        
+
         seededInvitations.push({
           id: invitationId,
           tournamentId: tournament.id,
@@ -143,11 +156,11 @@ export async function seedInvitations(
           status,
         });
       }
-      
+
       await invitationRepository.insert(invitationData);
     }
   }
-  
+
   console.log(`✅ Seeded ${seededInvitations.length} invitations`);
   return seededInvitations;
 }

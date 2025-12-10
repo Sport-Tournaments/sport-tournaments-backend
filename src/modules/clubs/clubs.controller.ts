@@ -17,7 +17,12 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { ClubsService } from './clubs.service';
-import { CreateClubDto, UpdateClubDto, ClubFilterDto, AdminUpdateClubDto } from './dto';
+import {
+  CreateClubDto,
+  UpdateClubDto,
+  ClubFilterDto,
+  AdminUpdateClubDto,
+} from './dto';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards';
 import { Roles, CurrentUser, Public } from '../../common/decorators';
 import { UserRole } from '../../common/enums';
@@ -34,8 +39,14 @@ export class ClubsController {
   @Roles(UserRole.ORGANIZER, UserRole.PARTICIPANT)
   @ApiOperation({ summary: 'Create a new club' })
   @ApiResponse({ status: 201, description: 'Club created successfully' })
-  @ApiResponse({ status: 409, description: 'Club with this name already exists' })
-  create(@CurrentUser() user: JwtPayload, @Body() createClubDto: CreateClubDto) {
+  @ApiResponse({
+    status: 409,
+    description: 'Club with this name already exists',
+  })
+  create(
+    @CurrentUser() user: JwtPayload,
+    @Body() createClubDto: CreateClubDto,
+  ) {
     return this.clubsService.create(user.sub, createClubDto);
   }
 

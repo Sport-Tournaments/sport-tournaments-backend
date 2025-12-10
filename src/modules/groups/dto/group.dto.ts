@@ -1,9 +1,19 @@
-import { IsString, IsOptional, IsNumber, IsArray, Min, IsUUID } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsNumber,
+  IsArray,
+  Min,
+  IsUUID,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
 export class ExecuteDrawDto {
-  @ApiPropertyOptional({ example: 4, description: 'Number of groups to create' })
+  @ApiPropertyOptional({
+    example: 4,
+    description: 'Number of groups to create',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
@@ -37,7 +47,10 @@ export class CreateGroupDto {
   @IsString()
   groupLetter: string;
 
-  @ApiPropertyOptional({ type: [String], description: 'Array of registration IDs' })
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'Array of registration IDs',
+  })
   @IsOptional()
   @IsArray()
   @IsUUID('4', { each: true })

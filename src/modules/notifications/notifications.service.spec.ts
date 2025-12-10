@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { NotificationsService } from './notifications.service';
 import { Notification } from './entities/notification.entity';
 import { NotFoundException, ForbiddenException } from '@nestjs/common';
@@ -8,7 +7,6 @@ import { NotificationType, UserRole } from '../../common/enums';
 
 describe('NotificationsService', () => {
   let service: NotificationsService;
-  let repository: Repository<Notification>;
 
   const mockNotification: Partial<Notification> = {
     id: 'notification-1',
@@ -43,9 +41,6 @@ describe('NotificationsService', () => {
     }).compile();
 
     service = module.get<NotificationsService>(NotificationsService);
-    repository = module.get<Repository<Notification>>(
-      getRepositoryToken(Notification),
-    );
   });
 
   afterEach(() => {
@@ -161,7 +156,10 @@ describe('NotificationsService', () => {
   describe('markAsRead', () => {
     it('should mark notification as read', async () => {
       mockRepository.findOne.mockResolvedValue(mockNotification);
-      mockRepository.save.mockResolvedValue({ ...mockNotification, isRead: true });
+      mockRepository.save.mockResolvedValue({
+        ...mockNotification,
+        isRead: true,
+      });
 
       const result = await service.markAsRead('notification-1', 'user-1');
 
@@ -245,7 +243,7 @@ describe('NotificationsService', () => {
       mockRepository.create.mockReturnValue(mockNotification);
       mockRepository.save.mockResolvedValue(mockNotification);
 
-      const result = await service.notifyRegistrationConfirmation(
+      await service.notifyRegistrationConfirmation(
         'user-1',
         'Test Tournament',
         'tournament-1',
@@ -270,7 +268,7 @@ describe('NotificationsService', () => {
       mockRepository.create.mockReturnValue(mockNotification);
       mockRepository.save.mockResolvedValue(mockNotification);
 
-      const result = await service.notifyRegistrationApproved(
+      await service.notifyRegistrationApproved(
         'user-1',
         'Test Tournament',
         'tournament-1',

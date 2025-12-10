@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { InvitationsService } from './invitations.service';
 import {
   TournamentInvitation,
@@ -10,21 +9,21 @@ import {
 import { Tournament } from '../tournaments/entities/tournament.entity';
 import { Club } from '../clubs/entities/club.entity';
 import { NotificationsService } from '../notifications/notifications.service';
-import { CreateInvitationDto, BulkInvitationDto, RespondToInvitationDto } from './dto';
+import {
+  CreateInvitationDto,
+  BulkInvitationDto,
+  RespondToInvitationDto,
+} from './dto';
 import {
   NotFoundException,
   ForbiddenException,
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
-import { UserRole, TournamentStatus, NotificationType } from '../../common/enums';
+import { UserRole, TournamentStatus } from '../../common/enums';
 
 describe('InvitationsService', () => {
   let service: InvitationsService;
-  let invitationsRepository: Repository<TournamentInvitation>;
-  let tournamentsRepository: Repository<Tournament>;
-  let clubsRepository: Repository<Club>;
-  let notificationsService: NotificationsService;
 
   const mockTournament: Partial<Tournament> = {
     id: 'tournament-1',
@@ -107,14 +106,6 @@ describe('InvitationsService', () => {
     }).compile();
 
     service = module.get<InvitationsService>(InvitationsService);
-    invitationsRepository = module.get<Repository<TournamentInvitation>>(
-      getRepositoryToken(TournamentInvitation),
-    );
-    tournamentsRepository = module.get<Repository<Tournament>>(
-      getRepositoryToken(Tournament),
-    );
-    clubsRepository = module.get<Repository<Club>>(getRepositoryToken(Club));
-    notificationsService = module.get<NotificationsService>(NotificationsService);
   });
 
   afterEach(() => {
@@ -135,7 +126,11 @@ describe('InvitationsService', () => {
       mockInvitationsRepo.create.mockReturnValue(mockInvitation);
       mockInvitationsRepo.save.mockResolvedValue(mockInvitation);
 
-      const result = await service.create(createDto, 'organizer-1', UserRole.ORGANIZER);
+      const result = await service.create(
+        createDto,
+        'organizer-1',
+        UserRole.ORGANIZER,
+      );
 
       expect(result).toBeDefined();
       expect(mockInvitationsRepo.create).toHaveBeenCalled();
@@ -204,8 +199,14 @@ describe('InvitationsService', () => {
         { ...mockClub, id: 'club-2', contactEmail: 'club2@test.com' },
       ]);
       mockInvitationsRepo.findOne.mockResolvedValue(null);
-      mockInvitationsRepo.create.mockImplementation((data) => data);
-      mockInvitationsRepo.save.mockImplementation((invitations) => invitations);
+      mockInvitationsRepo.create.mockImplementation(
+        (data: Partial<TournamentInvitation>) => data,
+      );
+      mockInvitationsRepo.save.mockImplementation(
+        (
+          invitations: Partial<TournamentInvitation>[],
+        ): Partial<TournamentInvitation>[] => invitations,
+      );
 
       const result = await service.createBulk(
         bulkDto,
@@ -261,7 +262,12 @@ describe('InvitationsService', () => {
       mockTournamentsRepo.findOne.mockResolvedValue(null);
 
       await expect(
-        service.findByTournament('tournament-1', 'organizer-1', UserRole.ORGANIZER, {}),
+        service.findByTournament(
+          'tournament-1',
+          'organizer-1',
+          UserRole.ORGANIZER,
+          {},
+        ),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -269,7 +275,12 @@ describe('InvitationsService', () => {
       mockTournamentsRepo.findOne.mockResolvedValue(mockTournament);
 
       await expect(
-        service.findByTournament('tournament-1', 'other-user', UserRole.ORGANIZER, {}),
+        service.findByTournament(
+          'tournament-1',
+          'other-user',
+          UserRole.ORGANIZER,
+          {},
+        ),
       ).rejects.toThrow(ForbiddenException);
     });
   });
@@ -345,7 +356,10 @@ describe('InvitationsService', () => {
         club: mockClub,
         tournament: mockTournament,
       });
-      mockClubsRepo.findOne.mockResolvedValue({ ...mockClub, organizerId: 'other-user' });
+      mockClubsRepo.findOne.mockResolvedValue({
+        ...mockClub,
+        organizerId: 'other-user',
+      });
 
       await expect(
         service.respond('invitation-1', respondDto, 'club-owner-1'),
@@ -447,7 +461,11 @@ describe('InvitationsService', () => {
       });
 
       await expect(
-        service.resendInvitation('invitation-1', 'other-user', UserRole.ORGANIZER),
+        service.resendInvitation(
+          'invitation-1',
+          'other-user',
+          UserRole.ORGANIZER,
+        ),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -459,7 +477,11 @@ describe('InvitationsService', () => {
       });
 
       await expect(
-        service.resendInvitation('invitation-1', 'organizer-1', UserRole.ORGANIZER),
+        service.resendInvitation(
+          'invitation-1',
+          'organizer-1',
+          UserRole.ORGANIZER,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
   });

@@ -58,7 +58,9 @@ export class PaymentsService {
 
     // Check if club belongs to user
     if (registration.club.organizerId !== userId) {
-      throw new BadRequestException('You can only pay for your own registrations');
+      throw new BadRequestException(
+        'You can only pay for your own registrations',
+      );
     }
 
     // Check if payment already exists
@@ -120,7 +122,9 @@ export class PaymentsService {
       throw new BadRequestException('Payment system is not configured');
     }
 
-    const webhookSecret = this.configService.get<string>('stripe.webhookSecret');
+    const webhookSecret = this.configService.get<string>(
+      'stripe.webhookSecret',
+    );
 
     if (!webhookSecret) {
       throw new BadRequestException('Webhook secret is not configured');
@@ -135,20 +139,22 @@ export class PaymentsService {
         webhookSecret,
       );
     } catch (err) {
-      this.logger.error(`Webhook signature verification failed: ${err.message}`);
+      this.logger.error(
+        `Webhook signature verification failed: ${err.message}`,
+      );
       throw new BadRequestException('Invalid webhook signature');
     }
 
     // Handle the event
     switch (event.type) {
       case 'payment_intent.succeeded':
-        await this.handlePaymentSuccess(event.data.object as Stripe.PaymentIntent);
+        await this.handlePaymentSuccess(event.data.object);
         break;
       case 'payment_intent.payment_failed':
-        await this.handlePaymentFailure(event.data.object as Stripe.PaymentIntent);
+        await this.handlePaymentFailure(event.data.object);
         break;
       case 'charge.refunded':
-        await this.handleRefund(event.data.object as Stripe.Charge);
+        await this.handleRefund(event.data.object);
         break;
       default:
         this.logger.log(`Unhandled event type: ${event.type}`);
@@ -157,7 +163,9 @@ export class PaymentsService {
     return { received: true };
   }
 
-  private async handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent): Promise<void> {
+  private async handlePaymentSuccess(
+    paymentIntent: Stripe.PaymentIntent,
+  ): Promise<void> {
     const payment = await this.paymentsRepository.findOne({
       where: { stripePaymentIntentId: paymentIntent.id },
     });
@@ -178,10 +186,14 @@ export class PaymentsService {
       paymentId: payment.id,
     });
 
-    this.logger.log(`Payment completed for registration: ${payment.registrationId}`);
+    this.logger.log(
+      `Payment completed for registration: ${payment.registrationId}`,
+    );
   }
 
-  private async handlePaymentFailure(paymentIntent: Stripe.PaymentIntent): Promise<void> {
+  private async handlePaymentFailure(
+    paymentIntent: Stripe.PaymentIntent,
+  ): Promise<void> {
     const payment = await this.paymentsRepository.findOne({
       where: { stripePaymentIntentId: paymentIntent.id },
     });
@@ -199,7 +211,9 @@ export class PaymentsService {
       paymentStatus: PaymentStatus.FAILED,
     });
 
-    this.logger.log(`Payment failed for registration: ${payment.registrationId}`);
+    this.logger.log(
+      `Payment failed for registration: ${payment.registrationId}`,
+    );
   }
 
   private async handleRefund(charge: Stripe.Charge): Promise<void> {
@@ -221,13 +235,19 @@ export class PaymentsService {
       paymentStatus: PaymentStatus.REFUNDED,
     });
 
-    this.logger.log(`Payment refunded for registration: ${payment.registrationId}`);
+    this.logger.log(
+      `Payment refunded for registration: ${payment.registrationId}`,
+    );
   }
 
   async getPaymentById(id: string): Promise<Payment> {
     const payment = await this.paymentsRepository.findOne({
       where: { id },
-      relations: ['registration', 'registration.tournament', 'registration.club'],
+      relations: [
+        'registration',
+        'registration.tournament',
+        'registration.club',
+      ],
     });
 
     if (!payment) {
@@ -237,10 +257,7 @@ export class PaymentsService {
     return payment;
   }
 
-  async initiateRefund(
-    paymentId: string,
-    reason?: string,
-  ): Promise<Payment> {
+  async initiateRefund(paymentId: string, reason?: string): Promise<Payment> {
     if (!this.stripe) {
       throw new BadRequestException('Payment system is not configured');
     }
@@ -323,15 +340,16 @@ export class PaymentsService {
       })
       .getMany();
 
-    const completed = payments.filter((p) => p.status === PaymentStatus.COMPLETED);
+    const completed = payments.filter(
+      (p) => p.status === PaymentStatus.COMPLETED,
+    );
     const pending = payments.filter((p) => p.status === PaymentStatus.PENDING);
     const failed = payments.filter((p) => p.status === PaymentStatus.FAILED);
-    const refunded = payments.filter((p) => p.status === PaymentStatus.REFUNDED);
-
-    const totalAmount = completed.reduce(
-      (sum, p) => sum + Number(p.amount),
-      0,
+    const refunded = payments.filter(
+      (p) => p.status === PaymentStatus.REFUNDED,
     );
+
+    const totalAmount = completed.reduce((sum, p) => sum + Number(p.amount), 0);
 
     return {
       payments,

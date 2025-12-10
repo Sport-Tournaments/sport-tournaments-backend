@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
+import { Repository, MoreThanOrEqual } from 'typeorm';
 import { Tournament } from './entities/tournament.entity';
 import {
   CreateTournamentDto,
@@ -36,7 +36,8 @@ export class TournamentsService {
       throw new BadRequestException('End date must be after start date');
     }
 
-    // Extract nested DTO arrays to handle separately
+    // Extract nested DTO arrays to handle separately (not stored in tournament entity)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { ageGroups, locations, ...tournamentData } = createTournamentDto;
 
     const tournament = this.tournamentsRepository.create({
@@ -300,7 +301,11 @@ export class TournamentsService {
     return this.tournamentsRepository.save(tournament);
   }
 
-  async publish(id: string, userId: string, userRole: string): Promise<Tournament> {
+  async publish(
+    id: string,
+    userId: string,
+    userRole: string,
+  ): Promise<Tournament> {
     const tournament = await this.findByIdOrFail(id);
 
     if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
@@ -319,7 +324,11 @@ export class TournamentsService {
     return this.tournamentsRepository.save(tournament);
   }
 
-  async cancel(id: string, userId: string, userRole: string): Promise<Tournament> {
+  async cancel(
+    id: string,
+    userId: string,
+    userRole: string,
+  ): Promise<Tournament> {
     const tournament = await this.findByIdOrFail(id);
 
     if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
@@ -337,7 +346,11 @@ export class TournamentsService {
     return this.tournamentsRepository.save(tournament);
   }
 
-  async start(id: string, userId: string, userRole: string): Promise<Tournament> {
+  async start(
+    id: string,
+    userId: string,
+    userRole: string,
+  ): Promise<Tournament> {
     const tournament = await this.findByIdOrFail(id);
 
     if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
@@ -347,7 +360,9 @@ export class TournamentsService {
     }
 
     if (tournament.status !== TournamentStatus.PUBLISHED) {
-      throw new BadRequestException('Only published tournaments can be started');
+      throw new BadRequestException(
+        'Only published tournaments can be started',
+      );
     }
 
     tournament.status = TournamentStatus.ONGOING;
@@ -355,7 +370,11 @@ export class TournamentsService {
     return this.tournamentsRepository.save(tournament);
   }
 
-  async complete(id: string, userId: string, userRole: string): Promise<Tournament> {
+  async complete(
+    id: string,
+    userId: string,
+    userRole: string,
+  ): Promise<Tournament> {
     const tournament = await this.findByIdOrFail(id);
 
     if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
@@ -365,7 +384,9 @@ export class TournamentsService {
     }
 
     if (tournament.status !== TournamentStatus.ONGOING) {
-      throw new BadRequestException('Only ongoing tournaments can be completed');
+      throw new BadRequestException(
+        'Only ongoing tournaments can be completed',
+      );
     }
 
     tournament.status = TournamentStatus.COMPLETED;

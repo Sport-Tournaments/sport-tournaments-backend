@@ -29,17 +29,17 @@ export async function seedPayments(
   }[],
 ): Promise<SeededPayment[]> {
   const paymentRepository = dataSource.getRepository('Payment');
-  
+
   const seededPayments: SeededPayment[] = [];
-  
+
   // Create payments for registrations that have payment activity
   const registrationsWithPayments = registrations.filter(
-    r => r.paymentStatus !== 'PENDING' || Math.random() > 0.3 // 70% chance even pending have payment attempts
+    (r) => r.paymentStatus !== 'PENDING' || Math.random() > 0.3, // 70% chance even pending have payment attempts
   );
-  
+
   for (const registration of registrationsWithPayments) {
     const paymentId = generateUUID();
-    
+
     // Map registration payment status to payment status
     let paymentStatus: PaymentStatus;
     switch (registration.paymentStatus) {
@@ -54,12 +54,13 @@ export async function seedPayments(
         break;
       default:
         // For pending, randomly choose pending or failed
-        paymentStatus = Math.random() > 0.7 ? PaymentStatus.FAILED : PaymentStatus.PENDING;
+        paymentStatus =
+          Math.random() > 0.7 ? PaymentStatus.FAILED : PaymentStatus.PENDING;
     }
-    
+
     const amount = registration.fee || faker.number.int({ min: 100, max: 500 });
     const currency = Currency.EUR;
-    
+
     const paymentData: Record<string, unknown> = {
       id: paymentId,
       registration: { id: registration.id },
@@ -78,14 +79,17 @@ export async function seedPayments(
       createdAt: faker.date.recent({ days: 60 }),
       updatedAt: new Date(),
     };
-    
+
     // Add charge ID and transaction date for completed payments
-    if (paymentStatus === PaymentStatus.COMPLETED || paymentStatus === PaymentStatus.REFUNDED) {
+    if (
+      paymentStatus === PaymentStatus.COMPLETED ||
+      paymentStatus === PaymentStatus.REFUNDED
+    ) {
       paymentData.stripeChargeId = generateStripeChargeId();
       paymentData.transactionDate = faker.date.recent({ days: 30 });
-      paymentData.stripeFee = Number((amount * 0.029 + 0.30).toFixed(2)); // Stripe standard fee
+      paymentData.stripeFee = Number((amount * 0.029 + 0.3).toFixed(2)); // Stripe standard fee
     }
-    
+
     // Add refund info for refunded payments
     if (paymentStatus === PaymentStatus.REFUNDED) {
       paymentData.refundId = generateStripeRefundId();
@@ -97,9 +101,9 @@ export async function seedPayments(
         'Customer request',
       ]);
     }
-    
+
     await paymentRepository.insert(paymentData);
-    
+
     seededPayments.push({
       id: paymentId,
       registrationId: registration.id,
@@ -108,7 +112,7 @@ export async function seedPayments(
       status: paymentStatus,
     });
   }
-  
+
   console.log(`✅ Seeded ${seededPayments.length} payments`);
   return seededPayments;
 }

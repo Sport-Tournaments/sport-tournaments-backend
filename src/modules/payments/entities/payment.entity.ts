@@ -73,13 +73,25 @@ export class Payment {
   @Column({ name: 'stripe_charge_id', nullable: true })
   stripeChargeId?: string;
 
-  @Column({ name: 'stripe_fee', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column({
+    name: 'stripe_fee',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
   stripeFee?: number;
 
   @Column({ name: 'refund_id', nullable: true })
   refundId?: string;
 
-  @Column({ name: 'refund_amount', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column({
+    name: 'refund_amount',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
   refundAmount?: number;
 
   @Column({ name: 'refund_reason', nullable: true })

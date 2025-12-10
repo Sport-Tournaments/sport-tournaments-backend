@@ -17,7 +17,6 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiParam,
-  ApiQuery,
 } from '@nestjs/swagger';
 import { InvitationsService } from './invitations.service';
 import {
@@ -71,7 +70,9 @@ export class InvitationsController {
 
   @Post('partner-teams')
   @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
-  @ApiOperation({ summary: 'Invite all partner teams defined in tournament settings' })
+  @ApiOperation({
+    summary: 'Invite all partner teams defined in tournament settings',
+  })
   @ApiResponse({ status: 201, description: 'Partner team invitations sent' })
   async invitePartnerTeams(
     @Body() dto: InvitePartnerTeamsDto,
@@ -83,12 +84,19 @@ export class InvitationsController {
   @Post('past-participants')
   @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @ApiOperation({ summary: 'Invite past tournament participants' })
-  @ApiResponse({ status: 201, description: 'Past participant invitations sent' })
+  @ApiResponse({
+    status: 201,
+    description: 'Past participant invitations sent',
+  })
   async invitePastParticipants(
     @Body() dto: InvitePastParticipantsDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.invitationsService.invitePastParticipants(dto, user.sub, user.role);
+    return this.invitationsService.invitePastParticipants(
+      dto,
+      user.sub,
+      user.role,
+    );
   }
 
   @Get('tournament/:tournamentId')

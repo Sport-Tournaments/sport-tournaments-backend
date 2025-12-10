@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { GroupsService } from './groups.service';
 import { Group } from './entities/group.entity';
 import { Tournament } from '../tournaments/entities/tournament.entity';
@@ -23,9 +22,6 @@ jest.mock('uuid', () => ({
 
 describe('GroupsService', () => {
   let service: GroupsService;
-  let groupsRepository: Repository<Group>;
-  let tournamentsRepository: Repository<Tournament>;
-  let registrationsRepository: Repository<Registration>;
 
   const mockTournament: Partial<Tournament> = {
     id: 'tournament-1',
@@ -115,13 +111,6 @@ describe('GroupsService', () => {
     }).compile();
 
     service = module.get<GroupsService>(GroupsService);
-    groupsRepository = module.get<Repository<Group>>(getRepositoryToken(Group));
-    tournamentsRepository = module.get<Repository<Tournament>>(
-      getRepositoryToken(Tournament),
-    );
-    registrationsRepository = module.get<Repository<Registration>>(
-      getRepositoryToken(Registration),
-    );
   });
 
   afterEach(() => {
@@ -137,9 +126,10 @@ describe('GroupsService', () => {
       mockTournamentsRepo.findOne.mockResolvedValue(mockTournament);
       mockRegistrationsRepo.find.mockResolvedValue(mockRegistrations);
       mockGroupsRepo.delete.mockResolvedValue({ affected: 0 });
-      mockGroupsRepo.create.mockImplementation((data) => data);
-      mockGroupsRepo.save.mockImplementation((groups) =>
-        groups.map((g: any, i: number) => ({ ...g, id: `group-${i + 1}` })),
+      mockGroupsRepo.create.mockImplementation((data: Partial<Group>) => data);
+      mockGroupsRepo.save.mockImplementation(
+        (groups: Partial<Group>[]): Partial<Group>[] =>
+          groups.map((g, i: number) => ({ ...g, id: `group-${i + 1}` })),
       );
       mockRegistrationsRepo.update.mockResolvedValue({ affected: 1 });
       mockTournamentsRepo.update.mockResolvedValue({ affected: 1 });
@@ -155,7 +145,7 @@ describe('GroupsService', () => {
       expect(result.length).toBe(2);
       expect(mockTournamentsRepo.update).toHaveBeenCalledWith('tournament-1', {
         drawCompleted: true,
-        drawSeed: expect.any(String),
+        drawSeed: expect.any(String) as unknown,
       });
     });
 
@@ -189,9 +179,10 @@ describe('GroupsService', () => {
       mockTournamentsRepo.findOne.mockResolvedValue(mockTournament);
       mockRegistrationsRepo.find.mockResolvedValue(mockRegistrations);
       mockGroupsRepo.delete.mockResolvedValue({ affected: 0 });
-      mockGroupsRepo.create.mockImplementation((data) => data);
-      mockGroupsRepo.save.mockImplementation((groups) =>
-        groups.map((g: any, i: number) => ({ ...g, id: `group-${i + 1}` })),
+      mockGroupsRepo.create.mockImplementation((data: Partial<Group>) => data);
+      mockGroupsRepo.save.mockImplementation(
+        (groups: Partial<Group>[]): Partial<Group>[] =>
+          groups.map((g, i: number) => ({ ...g, id: `group-${i + 1}` })),
       );
       mockRegistrationsRepo.update.mockResolvedValue({ affected: 1 });
       mockTournamentsRepo.update.mockResolvedValue({ affected: 1 });

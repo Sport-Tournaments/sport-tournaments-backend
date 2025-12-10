@@ -36,7 +36,7 @@ export async function seedClubs(
       const baseName = faker.location.city();
       const id = generateUUID();
       const name = `${baseName} ${suffix} ${faker.string.alpha({ length: 2, casing: 'upper' })}`;
-      
+
       // Add some variance to coordinates (within ~10km)
       const latOffset = faker.number.float({ min: -0.05, max: 0.05 });
       const lngOffset = faker.number.float({ min: -0.05, max: 0.05 });
@@ -57,7 +57,9 @@ export async function seedClubs(
         website: faker.datatype.boolean({ probability: 0.6 })
           ? `https://www.${baseName.toLowerCase().replace(/\s/g, '')}-fc.com`
           : undefined,
-        contactEmail: faker.internet.email({ firstName: baseName.toLowerCase() }),
+        contactEmail: faker.internet.email({
+          firstName: baseName.toLowerCase(),
+        }),
         contactPhone: generateRomanianPhone(),
         createdAt: getRandomPastDate(1.5),
       });
@@ -74,14 +76,14 @@ export async function seedClubs(
   // Each participant gets 1-2 clubs
   for (const participantId of participantIds) {
     const clubCount = faker.number.int({ min: 1, max: 2 });
-    
+
     for (let i = 0; i < clubCount; i++) {
       const city = faker.helpers.arrayElement(ROMANIAN_CITIES);
       const suffix = faker.helpers.arrayElement(FOOTBALL_CLUB_SUFFIXES);
       const baseName = faker.location.city();
       const id = generateUUID();
       const name = `${baseName} ${suffix} ${faker.string.alpha({ length: 3, casing: 'upper' })}`;
-      
+
       const latOffset = faker.number.float({ min: -0.05, max: 0.05 });
       const lngOffset = faker.number.float({ min: -0.05, max: 0.05 });
 
@@ -94,14 +96,18 @@ export async function seedClubs(
         latitude: city.lat + latOffset,
         longitude: city.lng + lngOffset,
         description: faker.lorem.paragraph(),
-        logo: faker.datatype.boolean({ probability: 0.5 }) ? faker.image.url() : undefined,
+        logo: faker.datatype.boolean({ probability: 0.5 })
+          ? faker.image.url()
+          : undefined,
         foundedYear: faker.number.int({ min: 1980, max: 2023 }),
         isVerified: faker.datatype.boolean({ probability: 0.4 }),
         isPremium: faker.datatype.boolean({ probability: 0.1 }),
         website: faker.datatype.boolean({ probability: 0.3 })
           ? `https://www.${baseName.toLowerCase().replace(/\s/g, '')}.com`
           : undefined,
-        contactEmail: faker.internet.email({ firstName: baseName.toLowerCase() }),
+        contactEmail: faker.internet.email({
+          firstName: baseName.toLowerCase(),
+        }),
         contactPhone: generateRomanianPhone(),
         createdAt: getRandomPastDate(1),
       });

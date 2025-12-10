@@ -2,7 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { Repository } from 'typeorm';
 import { AuthService } from './auth.service';
 import { User } from '../users/entities/user.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
@@ -17,9 +16,6 @@ jest.mock('uuid', () => ({
 
 describe('AuthService', () => {
   let service: AuthService;
-  let userRepository: Repository<User>;
-  let refreshTokenRepository: Repository<RefreshToken>;
-  let jwtService: JwtService;
 
   const mockUser: Partial<User> = {
     id: 'user-1',
@@ -57,7 +53,7 @@ describe('AuthService', () => {
 
   const mockConfigService = {
     get: jest.fn((key: string) => {
-      const config: Record<string, any> = {
+      const config: Record<string, string> = {
         'jwt.secret': 'test-secret',
         'jwt.expiresIn': '15m',
         'jwt.refreshSecret': 'test-refresh-secret',
@@ -91,11 +87,6 @@ describe('AuthService', () => {
     }).compile();
 
     service = module.get<AuthService>(AuthService);
-    userRepository = module.get<Repository<User>>(getRepositoryToken(User));
-    refreshTokenRepository = module.get<Repository<RefreshToken>>(
-      getRepositoryToken(RefreshToken),
-    );
-    jwtService = module.get<JwtService>(JwtService);
   });
 
   afterEach(() => {

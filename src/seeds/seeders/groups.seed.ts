@@ -17,22 +17,24 @@ export async function seedGroups(
   registrationsByTournament: Map<string, { clubId: string; status: string }[]>,
 ): Promise<SeededGroup[]> {
   const groupRepository = dataSource.getRepository('Group');
-  
+
   const seededGroups: SeededGroup[] = [];
-  
+
   // Only create groups for tournaments that have draw completed
   const tournamentsWithDraw = tournamentIds.filter(
-    t => t.drawCompleted && ['PUBLISHED', 'ONGOING', 'COMPLETED'].includes(t.status)
+    (t) =>
+      t.drawCompleted &&
+      ['PUBLISHED', 'ONGOING', 'COMPLETED'].includes(t.status),
   );
-  
+
   for (const tournament of tournamentsWithDraw) {
     const registrations = registrationsByTournament.get(tournament.id) || [];
     const approvedClubs = registrations
-      .filter(r => r.status === 'APPROVED')
-      .map(r => r.clubId);
-    
+      .filter((r) => r.status === 'APPROVED')
+      .map((r) => r.clubId);
+
     if (approvedClubs.length < 4) continue; // Need at least 4 teams for groups
-    
+
     // Determine number of groups based on team count
     const teamCount = approvedClubs.length;
     let numGroups: number;
@@ -45,21 +47,24 @@ export async function seedGroups(
     } else {
       numGroups = 8;
     }
-    
+
     // Shuffle clubs for random distribution
     const shuffledClubs = [...approvedClubs].sort(() => Math.random() - 0.5);
-    
+
     // Distribute teams across groups
     const teamsPerGroup = Math.ceil(shuffledClubs.length / numGroups);
-    
+
     for (let i = 0; i < numGroups; i++) {
-      const groupTeams = shuffledClubs.slice(i * teamsPerGroup, (i + 1) * teamsPerGroup);
-      
+      const groupTeams = shuffledClubs.slice(
+        i * teamsPerGroup,
+        (i + 1) * teamsPerGroup,
+      );
+
       if (groupTeams.length === 0) continue;
-      
+
       const groupId = generateUUID();
       const groupLetter = GROUP_LETTERS[i];
-      
+
       await groupRepository.insert({
         id: groupId,
         tournament: { id: tournament.id },
@@ -68,7 +73,7 @@ export async function seedGroups(
         groupOrder: i,
         createdAt: faker.date.recent({ days: 30 }),
       });
-      
+
       seededGroups.push({
         id: groupId,
         tournamentId: tournament.id,
@@ -77,7 +82,7 @@ export async function seedGroups(
       });
     }
   }
-  
+
   console.log(`✅ Seeded ${seededGroups.length} groups`);
   return seededGroups;
 }

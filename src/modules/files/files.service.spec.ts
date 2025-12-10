@@ -1,7 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
-import { Repository } from 'typeorm';
 import { FilesService } from './files.service';
 import { FileEntity } from './entities/file.entity';
 import {
@@ -26,12 +25,13 @@ jest.mock('@aws-sdk/client-s3', () => ({
 }));
 
 jest.mock('@aws-sdk/s3-request-presigner', () => ({
-  getSignedUrl: jest.fn().mockResolvedValue('https://presigned-url.example.com'),
+  getSignedUrl: jest
+    .fn()
+    .mockResolvedValue('https://presigned-url.example.com'),
 }));
 
 describe('FilesService', () => {
   let service: FilesService;
-  let repository: Repository<FileEntity>;
 
   const mockFile: Partial<FileEntity> = {
     id: 'file-1',
@@ -56,7 +56,7 @@ describe('FilesService', () => {
     destination: '',
     filename: '',
     path: '',
-    stream: null as any,
+    stream: null as unknown as NodeJS.ReadableStream,
   };
 
   const mockRepository = {
@@ -69,7 +69,7 @@ describe('FilesService', () => {
 
   const mockConfigService = {
     get: jest.fn((key: string) => {
-      const config: Record<string, any> = {
+      const config: Record<string, string> = {
         'aws.accessKeyId': 'test-access-key',
         'aws.secretAccessKey': 'test-secret-key',
         'aws.region': 'eu-central-1',
@@ -96,9 +96,6 @@ describe('FilesService', () => {
     }).compile();
 
     service = module.get<FilesService>(FilesService);
-    repository = module.get<Repository<FileEntity>>(
-      getRepositoryToken(FileEntity),
-    );
   });
 
   afterEach(() => {
@@ -241,7 +238,11 @@ describe('FilesService', () => {
     it('should return signed URL for private file', async () => {
       mockRepository.findOne.mockResolvedValue(mockFile);
 
-      const result = await service.getDownloadUrl('file-1', 'user-1', UserRole.PARTICIPANT);
+      const result = await service.getDownloadUrl(
+        'file-1',
+        'user-1',
+        UserRole.PARTICIPANT,
+      );
 
       expect(result).toBe('https://presigned-url.example.com');
     });
@@ -249,7 +250,11 @@ describe('FilesService', () => {
     it('should return direct URL for public file', async () => {
       mockRepository.findOne.mockResolvedValue({ ...mockFile, isPublic: true });
 
-      const result = await service.getDownloadUrl('file-1', 'user-1', UserRole.PARTICIPANT);
+      const result = await service.getDownloadUrl(
+        'file-1',
+        'user-1',
+        UserRole.PARTICIPANT,
+      );
 
       expect(result).toBe(mockFile.s3Url);
     });
@@ -257,7 +262,11 @@ describe('FilesService', () => {
     it('should allow owner to access private file', async () => {
       mockRepository.findOne.mockResolvedValue(mockFile);
 
-      const result = await service.getDownloadUrl('file-1', 'user-1', UserRole.PARTICIPANT);
+      const result = await service.getDownloadUrl(
+        'file-1',
+        'user-1',
+        UserRole.PARTICIPANT,
+      );
 
       expect(result).toBeDefined();
     });
@@ -268,7 +277,11 @@ describe('FilesService', () => {
         uploadedBy: 'other-user',
       });
 
-      const result = await service.getDownloadUrl('file-1', 'admin', UserRole.ADMIN);
+      const result = await service.getDownloadUrl(
+        'file-1',
+        'admin',
+        UserRole.ADMIN,
+      );
 
       expect(result).toBeDefined();
     });

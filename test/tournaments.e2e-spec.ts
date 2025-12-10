@@ -9,7 +9,6 @@ describe('Tournaments (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let organizerToken: string;
-  let organizerId: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -17,7 +16,7 @@ describe('Tournaments (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    
+
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
@@ -43,7 +42,6 @@ describe('Tournaments (e2e)', () => {
       .send(organizerFixture);
 
     organizerToken = registerRes.body.data.accessToken;
-    organizerId = registerRes.body.data.user.id;
   });
 
   afterAll(async () => {

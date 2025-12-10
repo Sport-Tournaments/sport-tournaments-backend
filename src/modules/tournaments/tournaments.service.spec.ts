@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { TournamentsService } from './tournaments.service';
 import { Tournament } from './entities/tournament.entity';
 import { CreateTournamentDto, UpdateTournamentDto } from './dto';
@@ -18,14 +17,13 @@ import {
 
 describe('TournamentsService', () => {
   let service: TournamentsService;
-  let repository: Repository<Tournament>;
 
   const mockTournament: Partial<Tournament> = {
     id: 'tournament-1',
     name: 'U12 Test Tournament',
     description: 'Test description',
     ageCategory: AgeCategory.U12,
-    level: TournamentLevel.I,
+    level: TournamentLevel.LEVEL_I,
     gameSystem: '4+1',
     numberOfMatches: 6,
     organizerId: 'organizer-1',
@@ -80,9 +78,6 @@ describe('TournamentsService', () => {
     }).compile();
 
     service = module.get<TournamentsService>(TournamentsService);
-    repository = module.get<Repository<Tournament>>(
-      getRepositoryToken(Tournament),
-    );
   });
 
   afterEach(() => {
@@ -94,7 +89,7 @@ describe('TournamentsService', () => {
       name: 'U12 Test Tournament',
       description: 'Test tournament',
       ageCategory: AgeCategory.U12,
-      level: TournamentLevel.I,
+      level: TournamentLevel.LEVEL_I,
       gameSystem: '4+1',
       numberOfMatches: 6,
       startDate: '2025-06-15',
@@ -204,7 +199,10 @@ describe('TournamentsService', () => {
         status: TournamentStatus.DRAFT,
       };
       mockRepository.findOne.mockResolvedValue(draftTournament);
-      mockRepository.save.mockResolvedValue({ ...draftTournament, ...updateDto });
+      mockRepository.save.mockResolvedValue({
+        ...draftTournament,
+        ...updateDto,
+      });
 
       const result = await service.update(
         'tournament-1',
@@ -235,7 +233,10 @@ describe('TournamentsService', () => {
         status: TournamentStatus.DRAFT,
       };
       mockRepository.findOne.mockResolvedValue(draftTournament);
-      mockRepository.save.mockResolvedValue({ ...draftTournament, ...updateDto });
+      mockRepository.save.mockResolvedValue({
+        ...draftTournament,
+        ...updateDto,
+      });
 
       const result = await service.update(
         'tournament-1',

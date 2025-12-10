@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { AdminService } from './admin.service';
 import { User } from '../users/entities/user.entity';
 import { Tournament } from '../tournaments/entities/tournament.entity';
@@ -8,22 +7,11 @@ import { Registration } from '../registrations/entities/registration.entity';
 import { Payment } from '../payments/entities/payment.entity';
 import { Club } from '../clubs/entities/club.entity';
 import { Notification } from '../notifications/entities/notification.entity';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
-import {
-  UserRole,
-  TournamentStatus,
-  PaymentStatus,
-  RegistrationStatus,
-} from '../../common/enums';
+import { NotFoundException } from '@nestjs/common';
+import { UserRole, TournamentStatus, PaymentStatus } from '../../common/enums';
 
 describe('AdminService', () => {
   let service: AdminService;
-  let usersRepository: Repository<User>;
-  let tournamentsRepository: Repository<Tournament>;
-  let registrationsRepository: Repository<Registration>;
-  let paymentsRepository: Repository<Payment>;
-  let clubsRepository: Repository<Club>;
-  let notificationsRepository: Repository<Notification>;
 
   const mockUser: Partial<User> = {
     id: 'user-1',
@@ -52,7 +40,10 @@ describe('AdminService', () => {
     createdAt: new Date(),
   };
 
-  const createMockQueryBuilder = (returnData: any = [], count: number = 0) => ({
+  const createMockQueryBuilder = (
+    returnData: unknown[] = [],
+    count: number = 0,
+  ) => ({
     leftJoinAndSelect: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
@@ -81,7 +72,9 @@ describe('AdminService', () => {
     count: jest.fn().mockResolvedValue(50),
     findOne: jest.fn(),
     save: jest.fn(),
-    createQueryBuilder: jest.fn(() => createMockQueryBuilder([mockTournament], 1)),
+    createQueryBuilder: jest.fn(() =>
+      createMockQueryBuilder([mockTournament], 1),
+    ),
   };
 
   const mockRegistrationsRepo = {
@@ -138,20 +131,6 @@ describe('AdminService', () => {
     }).compile();
 
     service = module.get<AdminService>(AdminService);
-    usersRepository = module.get<Repository<User>>(getRepositoryToken(User));
-    tournamentsRepository = module.get<Repository<Tournament>>(
-      getRepositoryToken(Tournament),
-    );
-    registrationsRepository = module.get<Repository<Registration>>(
-      getRepositoryToken(Registration),
-    );
-    paymentsRepository = module.get<Repository<Payment>>(
-      getRepositoryToken(Payment),
-    );
-    clubsRepository = module.get<Repository<Club>>(getRepositoryToken(Club));
-    notificationsRepository = module.get<Repository<Notification>>(
-      getRepositoryToken(Notification),
-    );
   });
 
   afterEach(() => {
@@ -231,7 +210,9 @@ describe('AdminService', () => {
       mockUsersRepo.findOne.mockResolvedValue({ ...mockUser, isActive: false });
       mockUsersRepo.save.mockResolvedValue({ ...mockUser, isActive: true });
 
-      const result = await service.updateUserStatus('user-1', { isActive: true });
+      const result = await service.updateUserStatus('user-1', {
+        isActive: true,
+      });
 
       expect(result.isActive).toBe(true);
     });
@@ -240,16 +221,23 @@ describe('AdminService', () => {
       mockUsersRepo.findOne.mockResolvedValue(mockUser);
       mockUsersRepo.save.mockResolvedValue({ ...mockUser, isActive: false });
 
-      const result = await service.updateUserStatus('user-1', { isActive: false });
+      const result = await service.updateUserStatus('user-1', {
+        isActive: false,
+      });
 
       expect(result.isActive).toBe(false);
     });
 
     it('should verify a user', async () => {
-      mockUsersRepo.findOne.mockResolvedValue({ ...mockUser, isVerified: false });
+      mockUsersRepo.findOne.mockResolvedValue({
+        ...mockUser,
+        isVerified: false,
+      });
       mockUsersRepo.save.mockResolvedValue({ ...mockUser, isVerified: true });
 
-      const result = await service.updateUserStatus('user-1', { isVerified: true });
+      const result = await service.updateUserStatus('user-1', {
+        isVerified: true,
+      });
 
       expect(result.isVerified).toBe(true);
     });
@@ -266,7 +254,11 @@ describe('AdminService', () => {
     });
 
     it('should apply status filter', async () => {
-      const filterDto = { status: TournamentStatus.PUBLISHED, page: 1, limit: 20 };
+      const filterDto = {
+        status: TournamentStatus.PUBLISHED,
+        page: 1,
+        limit: 20,
+      };
 
       await service.getTournaments(filterDto);
 
@@ -335,7 +327,9 @@ describe('AdminService', () => {
       mockUsersRepo.createQueryBuilder.mockReturnValue({
         select: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([{ id: 'user-1' }, { id: 'user-2' }]),
+        getMany: jest
+          .fn()
+          .mockResolvedValue([{ id: 'user-1' }, { id: 'user-2' }]),
       });
       mockNotificationsRepo.create.mockReturnValue({});
       mockNotificationsRepo.save.mockResolvedValue([{}, {}]);

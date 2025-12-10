@@ -3,7 +3,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { DataSource } from 'typeorm';
-import { createUserFixture, createOrganizerFixture } from './fixtures';
+import { createUserFixture } from './fixtures';
 
 describe('Authentication (e2e)', () => {
   let app: INestApplication;
@@ -15,7 +15,7 @@ describe('Authentication (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    
+
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,

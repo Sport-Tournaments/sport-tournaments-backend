@@ -1,7 +1,32 @@
 import { faker } from '@faker-js/faker';
-import { TournamentStatus, AgeCategory, TournamentLevel } from '../../src/common/enums';
+import {
+  TournamentStatus,
+  AgeCategory,
+  TournamentLevel,
+} from '../../src/common/enums';
 
-export const createTournamentFixture = (overrides: Partial<any> = {}) => {
+interface TournamentOverrides {
+  name?: string;
+  description?: string;
+  ageCategory?: AgeCategory;
+  level?: TournamentLevel;
+  gameSystem?: string;
+  numberOfMatches?: number;
+  startDate?: string;
+  endDate?: string;
+  location?: string;
+  latitude?: number;
+  longitude?: number;
+  maxTeams?: number;
+  participationFee?: number;
+  currency?: string;
+  status?: TournamentStatus;
+  isPublished?: boolean;
+}
+
+export const createTournamentFixture = (
+  overrides: TournamentOverrides = {},
+) => {
   const startDate = faker.date.future({ years: 1 });
   const endDate = new Date(startDate);
   endDate.setDate(endDate.getDate() + 2);
@@ -10,7 +35,7 @@ export const createTournamentFixture = (overrides: Partial<any> = {}) => {
     name: `${faker.company.name()} Cup ${faker.date.future().getFullYear()}`,
     description: faker.lorem.paragraph(),
     ageCategory: AgeCategory.U12,
-    level: TournamentLevel.I,
+    level: TournamentLevel.LEVEL_I,
     gameSystem: '4+1',
     numberOfMatches: 6,
     startDate: startDate.toISOString(),
@@ -26,7 +51,9 @@ export const createTournamentFixture = (overrides: Partial<any> = {}) => {
   };
 };
 
-export const createPublishedTournamentFixture = (overrides: Partial<any> = {}) =>
+export const createPublishedTournamentFixture = (
+  overrides: TournamentOverrides = {},
+) =>
   createTournamentFixture({
     status: TournamentStatus.PUBLISHED,
     isPublished: true,

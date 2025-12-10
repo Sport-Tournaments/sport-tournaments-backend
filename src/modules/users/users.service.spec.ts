@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
 import { CreateUserDto, UpdateUserDto, AdminUpdateUserDto } from './dto';
@@ -12,7 +11,6 @@ jest.mock('bcrypt');
 
 describe('UsersService', () => {
   let service: UsersService;
-  let repository: Repository<User>;
 
   const mockUser: Partial<User> = {
     id: 'user-1',
@@ -61,7 +59,6 @@ describe('UsersService', () => {
     }).compile();
 
     service = module.get<UsersService>(UsersService);
-    repository = module.get<Repository<User>>(getRepositoryToken(User));
   });
 
   afterEach(() => {
@@ -94,7 +91,9 @@ describe('UsersService', () => {
     it('should throw ConflictException if email already exists', async () => {
       mockRepository.findOne.mockResolvedValue(mockUser);
 
-      await expect(service.create(createDto)).rejects.toThrow(ConflictException);
+      await expect(service.create(createDto)).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 
@@ -258,7 +257,10 @@ describe('UsersService', () => {
     it('should activate a user', async () => {
       const inactiveUser = { ...mockUser, isActive: false };
       mockRepository.findOne.mockResolvedValue(inactiveUser);
-      mockRepository.save.mockResolvedValue({ ...inactiveUser, isActive: true });
+      mockRepository.save.mockResolvedValue({
+        ...inactiveUser,
+        isActive: true,
+      });
 
       const result = await service.activate('user-1');
 

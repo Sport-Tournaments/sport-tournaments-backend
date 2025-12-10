@@ -21,7 +21,6 @@ import {
   ResetPasswordDto,
   ChangePasswordDto,
 } from './dto';
-import { JwtPayload } from '../../common/interfaces';
 import { UserRole } from '../../common/enums';
 
 @Injectable()
@@ -37,8 +36,11 @@ export class AuthService {
     private configService: ConfigService,
   ) {}
 
-  async register(registerDto: RegisterDto): Promise<{ user: Partial<User>; message: string }> {
-    const { email, password, firstName, lastName, phone, country, role } = registerDto;
+  async register(
+    registerDto: RegisterDto,
+  ): Promise<{ user: Partial<User>; message: string }> {
+    const { email, password, firstName, lastName, phone, country, role } =
+      registerDto;
 
     // Check if user already exists
     const existingUser = await this.usersRepository.findOne({
@@ -51,7 +53,8 @@ export class AuthService {
 
     // Only allow ORGANIZER and PARTICIPANT roles during registration
     const allowedRoles = [UserRole.ORGANIZER, UserRole.PARTICIPANT];
-    const userRole = role && allowedRoles.includes(role) ? role : UserRole.PARTICIPANT;
+    const userRole =
+      role && allowedRoles.includes(role) ? role : UserRole.PARTICIPANT;
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
@@ -75,21 +78,41 @@ export class AuthService {
     await this.usersRepository.save(user);
 
     // TODO: Send verification email
-    this.logger.log(`User registered: ${email}, verification token: ${emailVerificationToken}`);
+    this.logger.log(
+      `User registered: ${email}, verification token: ${emailVerificationToken}`,
+    );
 
     // Return user without sensitive data
-    const { password: _, emailVerificationToken: __, ...userWithoutPassword } = user;
+
+    const {
+      password: _password,
+      emailVerificationToken: _emailToken,
+      ...userWithoutPassword
+    } = user;
 
     return {
       user: userWithoutPassword,
-      message: 'Registration successful. Please check your email to verify your account.',
+      message:
+        'Registration successful. Please check your email to verify your account.',
     };
   }
 
-  async validateUser(email: string, password: string): Promise<Partial<User> | null> {
+  async validateUser(
+    email: string,
+    password: string,
+  ): Promise<Partial<User> | null> {
     const user = await this.usersRepository.findOne({
       where: { email: email.toLowerCase() },
-      select: ['id', 'email', 'password', 'firstName', 'lastName', 'role', 'isActive', 'isVerified'],
+      select: [
+        'id',
+        'email',
+        'password',
+        'firstName',
+        'lastName',
+        'role',
+        'isActive',
+        'isVerified',
+      ],
     });
 
     if (!user || !user.password) {
@@ -106,7 +129,7 @@ export class AuthService {
       return null;
     }
 
-    const { password: _, ...result } = user;
+    const { password: _pw, ...result } = user;
     return result;
   }
 
@@ -161,7 +184,9 @@ export class AuthService {
 
     // Check if token is expired
     if (new Date() > storedToken.expiresAt) {
-      await this.refreshTokenRepository.update(storedToken.id, { isRevoked: true });
+      await this.refreshTokenRepository.update(storedToken.id, {
+        isRevoked: true,
+      });
       throw new UnauthorizedException('Refresh token expired');
     }
 
@@ -171,7 +196,9 @@ export class AuthService {
     }
 
     // Revoke old refresh token
-    await this.refreshTokenRepository.update(storedToken.id, { isRevoked: true });
+    await this.refreshTokenRepository.update(storedToken.id, {
+      isRevoked: true,
+    });
 
     // Generate new tokens
     const tokens = await this.generateTokens(storedToken.user);
@@ -201,7 +228,9 @@ export class AuthService {
     return { message: 'Email verified successfully' };
   }
 
-  async forgotPassword(forgotPasswordDto: ForgotPasswordDto): Promise<{ message: string }> {
+  async forgotPassword(
+    forgotPasswordDto: ForgotPasswordDto,
+  ): Promise<{ message: string }> {
     const { email } = forgotPasswordDto;
 
     const user = await this.usersRepository.findOne({
@@ -224,10 +253,15 @@ export class AuthService {
     }
 
     // Always return success to prevent email enumeration
-    return { message: 'If an account exists with this email, a password reset link has been sent.' };
+    return {
+      message:
+        'If an account exists with this email, a password reset link has been sent.',
+    };
   }
 
-  async resetPassword(resetPasswordDto: ResetPasswordDto): Promise<{ message: string }> {
+  async resetPassword(
+    resetPasswordDto: ResetPasswordDto,
+  ): Promise<{ message: string }> {
     const { token, newPassword } = resetPasswordDto;
 
     const user = await this.usersRepository.findOne({
@@ -272,7 +306,10 @@ export class AuthService {
       throw new UnauthorizedException('User not found');
     }
 
-    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    const isCurrentPasswordValid = await bcrypt.compare(
+      currentPassword,
+      user.password,
+    );
 
     if (!isCurrentPasswordValid) {
       throw new BadRequestException('Current password is incorrect');
@@ -285,7 +322,10 @@ export class AuthService {
     return { message: 'Password changed successfully' };
   }
 
-  async logout(userId: string, refreshToken?: string): Promise<{ message: string }> {
+  async logout(
+    userId: string,
+    refreshToken?: string,
+  ): Promise<{ message: string }> {
     if (refreshToken) {
       // Revoke specific refresh token
       await this.refreshTokenRepository.update(
@@ -313,8 +353,11 @@ export class AuthService {
       role: user.role as string,
     };
 
-    const jwtSecret = this.configService.get<string>('jwt.secret') || 'default-secret';
-    const jwtRefreshSecret = this.configService.get<string>('jwt.refreshSecret') || 'default-refresh-secret';
+    const jwtSecret =
+      this.configService.get<string>('jwt.secret') || 'default-secret';
+    const jwtRefreshSecret =
+      this.configService.get<string>('jwt.refreshSecret') ||
+      'default-refresh-secret';
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
@@ -336,7 +379,8 @@ export class AuthService {
     ipAddress?: string,
     deviceInfo?: string,
   ): Promise<void> {
-    const expiresIn = this.configService.get<string>('jwt.refreshExpiresIn') || '7d';
+    const expiresIn =
+      this.configService.get<string>('jwt.refreshExpiresIn') || '7d';
     const expiresAt = new Date();
 
     // Parse expiry time

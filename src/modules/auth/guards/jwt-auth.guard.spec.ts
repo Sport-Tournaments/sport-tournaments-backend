@@ -80,7 +80,7 @@ describe('JwtAuthGuard', () => {
       mockReflector.getAllAndOverride.mockReturnValue(false);
       const context = createMockExecutionContext();
 
-      guard.canActivate(context);
+      void guard.canActivate(context);
 
       expect(mockReflector.getAllAndOverride).toHaveBeenCalledWith(
         IS_PUBLIC_KEY,

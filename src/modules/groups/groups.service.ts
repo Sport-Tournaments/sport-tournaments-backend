@@ -11,7 +11,11 @@ import { Group } from './entities/group.entity';
 import { Tournament } from '../tournaments/entities/tournament.entity';
 import { Registration } from '../registrations/entities/registration.entity';
 import { ExecuteDrawDto, UpdateBracketDto, CreateGroupDto } from './dto';
-import { TournamentStatus, RegistrationStatus, UserRole } from '../../common/enums';
+import {
+  TournamentStatus,
+  RegistrationStatus,
+  UserRole,
+} from '../../common/enums';
 
 @Injectable()
 export class GroupsService {
@@ -80,8 +84,7 @@ export class GroupsService {
 
     // Calculate number of groups
     const numberOfGroups =
-      executeDrawDto.numberOfGroups ||
-      Math.ceil(registrations.length / 4); // Default: max 4 teams per group
+      executeDrawDto.numberOfGroups || Math.ceil(registrations.length / 4); // Default: max 4 teams per group
 
     if (numberOfGroups > registrations.length) {
       throw new BadRequestException(
@@ -93,10 +96,7 @@ export class GroupsService {
     const seed = executeDrawDto.seed || uuidv4();
 
     // Shuffle registrations using seeded random
-    const shuffledRegistrations = this.seededShuffle(
-      [...registrations],
-      seed,
-    );
+    const shuffledRegistrations = this.seededShuffle([...registrations], seed);
 
     // Create groups
     const groups: Group[] = [];
@@ -150,11 +150,6 @@ export class GroupsService {
 
     // Populate team details
     for (const group of groups) {
-      const registrations = await this.registrationsRepository.find({
-        where: { id: group.teams as unknown as string },
-        relations: ['club'],
-      });
-
       // Replace team IDs with full registration data
       (group as any).teamDetails = await Promise.all(
         group.teams.map(async (teamId) => {

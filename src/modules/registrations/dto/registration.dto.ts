@@ -40,7 +40,9 @@ export class CreateRegistrationDto {
   @IsString()
   emergencyContact?: string;
 
-  @ApiPropertyOptional({ example: 'Special dietary requirements for 2 players' })
+  @ApiPropertyOptional({
+    example: 'Special dietary requirements for 2 players',
+  })
   @IsOptional()
   @IsString()
   notes?: string;
