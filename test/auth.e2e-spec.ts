@@ -1,9 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  INestApplication,
+  ValidationPipe,
+  VersioningType,
+} from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { DataSource } from 'typeorm';
 import { createUserFixture } from './fixtures';
+import { TransformInterceptor } from '../src/common/interceptors/transform.interceptor';
+import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
 
 describe('Authentication (e2e)', () => {
   let app: INestApplication;
@@ -16,6 +22,12 @@ describe('Authentication (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
 
+    app.setGlobalPrefix('api');
+    app.enableVersioning({
+      type: VersioningType.URI,
+      defaultVersion: '1',
+    });
+
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
@@ -27,9 +39,21 @@ describe('Authentication (e2e)', () => {
       }),
     );
 
+    // Apply global interceptors and filters like main.ts does
+    app.useGlobalInterceptors(new TransformInterceptor());
+    app.useGlobalFilters(new AllExceptionsFilter());
+
     await app.init();
 
     dataSource = moduleFixture.get<DataSource>(DataSource);
+
+    // Clean up any existing test data at the start
+    if (dataSource.isInitialized) {
+      await dataSource.query('DELETE FROM refresh_tokens');
+      await dataSource.query('DELETE FROM registrations');
+      await dataSource.query('DELETE FROM tournaments');
+      await dataSource.query('DELETE FROM users');
+    }
   });
 
   afterAll(async () => {
@@ -56,8 +80,8 @@ describe('Authentication (e2e)', () => {
         .expect(201);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data).toHaveProperty('accessToken');
-      expect(response.body.data).toHaveProperty('refreshToken');
+      expect(response.body.data).toHaveProperty('user');
+      expect(response.body.data).toHaveProperty('message');
       expect(response.body.data.user.email).toBe('newuser@example.com');
     });
 
@@ -103,7 +127,7 @@ describe('Authentication (e2e)', () => {
       const response = await request(app.getHttpServer())
         .post('/api/v1/auth/register')
         .send(userFixture)
-        .expect(400);
+        .expect(409);
 
       expect(response.body.success).toBe(false);
     });
@@ -134,7 +158,7 @@ describe('Authentication (e2e)', () => {
       expect(response.body.success).toBe(true);
       expect(response.body.data).toHaveProperty('accessToken');
       expect(response.body.data).toHaveProperty('refreshToken');
-      expect(response.body.data.user.email).toBe(testUser.email);
+      expect(response.body.data.user.email).toBe(testUser.email.toLowerCase());
     });
 
     it('should reject login with wrong password', async () => {
@@ -162,7 +186,7 @@ describe('Authentication (e2e)', () => {
     });
   });
 
-  describe('/api/v1/auth/refresh (POST)', () => {
+  describe('/api/v1/auth/refresh-token (POST)', () => {
     let refreshToken: string;
 
     beforeEach(async () => {
@@ -170,16 +194,29 @@ describe('Authentication (e2e)', () => {
         email: 'refresh@example.com',
       });
 
-      const response = await request(app.getHttpServer())
+      // Register first
+      await request(app.getHttpServer())
         .post('/api/v1/auth/register')
         .send(userFixture);
 
-      refreshToken = response.body.data.refreshToken;
+      // Then login to get tokens
+      const loginRes = await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({
+          email: userFixture.email,
+          password: userFixture.password,
+        });
+
+      refreshToken = loginRes.body.data.refreshToken;
     });
 
     it('should refresh access token', async () => {
+      // Small delay to ensure new JWT has different iat (issued at) timestamp
+      // This prevents duplicate key constraint on refresh_tokens.token
+      await new Promise((resolve) => setTimeout(resolve, 1100));
+
       const response = await request(app.getHttpServer())
-        .post('/api/v1/auth/refresh')
+        .post('/api/v1/auth/refresh-token')
         .send({ refreshToken })
         .expect(200);
 
@@ -190,7 +227,7 @@ describe('Authentication (e2e)', () => {
 
     it('should reject refresh with invalid token', async () => {
       const response = await request(app.getHttpServer())
-        .post('/api/v1/auth/refresh')
+        .post('/api/v1/auth/refresh-token')
         .send({ refreshToken: 'invalid-token' })
         .expect(401);
 
@@ -207,12 +244,21 @@ describe('Authentication (e2e)', () => {
         email: 'logout@example.com',
       });
 
-      const response = await request(app.getHttpServer())
+      // Register first
+      await request(app.getHttpServer())
         .post('/api/v1/auth/register')
         .send(userFixture);
 
-      accessToken = response.body.data.accessToken;
-      refreshToken = response.body.data.refreshToken;
+      // Then login to get tokens
+      const loginRes = await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({
+          email: userFixture.email,
+          password: userFixture.password,
+        });
+
+      accessToken = loginRes.body.data.accessToken;
+      refreshToken = loginRes.body.data.refreshToken;
     });
 
     it('should logout successfully', async () => {

@@ -31,6 +31,13 @@ export const createTournamentFixture = (
   const endDate = new Date(startDate);
   endDate.setDate(endDate.getDate() + 2);
 
+  // Note: status is set by the server, not by the client in CreateTournamentDto
+  const {
+    status: _status,
+    isPublished: _isPublished,
+    ...cleanOverrides
+  } = overrides;
+
   return {
     name: `${faker.company.name()} Cup ${faker.date.future().getFullYear()}`,
     description: faker.lorem.paragraph(),
@@ -46,8 +53,7 @@ export const createTournamentFixture = (
     maxTeams: 16,
     participationFee: 200,
     currency: 'EUR',
-    status: TournamentStatus.DRAFT,
-    ...overrides,
+    ...cleanOverrides,
   };
 };
 
@@ -55,7 +61,7 @@ export const createPublishedTournamentFixture = (
   overrides: TournamentOverrides = {},
 ) =>
   createTournamentFixture({
-    status: TournamentStatus.PUBLISHED,
-    isPublished: true,
+    // Note: status is set server-side, so we don't pass it here
+    // The tournament should be published via the /publish endpoint after creation
     ...overrides,
   });
