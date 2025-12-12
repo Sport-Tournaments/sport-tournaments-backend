@@ -22,7 +22,7 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/$1',
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(uuid)/)',
+    '/node_modules/(?!.pnpm|uuid)/',
   ],
   coverageThreshold: {
     global: {
