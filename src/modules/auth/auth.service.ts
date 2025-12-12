@@ -59,8 +59,14 @@ export class AuthService {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Generate email verification token
-    const emailVerificationToken = uuidv4();
+    // Check if email verification is required
+    const requireEmailVerification = this.configService.get<boolean>(
+      'requireEmailVerification',
+      false,
+    );
+
+    // Generate email verification token only if verification is required
+    const emailVerificationToken = requireEmailVerification ? uuidv4() : undefined;
 
     // Create user
     const user = this.usersRepository.create({
@@ -72,15 +78,22 @@ export class AuthService {
       country,
       role: userRole,
       emailVerificationToken,
-      isVerified: false,
+      isVerified: !requireEmailVerification, // Auto-verify if verification not required
     });
 
     await this.usersRepository.save(user);
 
-    // TODO: Send verification email
-    this.logger.log(
-      `User registered: ${email}, verification token: ${emailVerificationToken}`,
-    );
+    // Send verification email only if required
+    if (requireEmailVerification) {
+      // TODO: Send verification email
+      this.logger.log(
+        `User registered: ${email}, verification token: ${emailVerificationToken}`,
+      );
+    } else {
+      this.logger.log(
+        `User registered and auto-verified: ${email} (email verification disabled)`,
+      );
+    }
 
     // Return user without sensitive data
 
@@ -92,8 +105,9 @@ export class AuthService {
 
     return {
       user: userWithoutPassword,
-      message:
-        'Registration successful. Please check your email to verify your account.',
+      message: requireEmailVerification
+        ? 'Registration successful. Please check your email to verify your account.'
+        : 'Registration successful. You can now log in.',
     };
   }
 
