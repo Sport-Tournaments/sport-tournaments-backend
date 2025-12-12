@@ -47,6 +47,11 @@ export default () => ({
     fromName: process.env.SENDGRID_FROM_NAME || 'Football Tournament Platform',
   },
 
+  // Email verification toggle (set to 'true' to require email verification on registration)
+  requireEmailVerification:
+    process.env.REQUIRE_EMAIL_VERIFICATION === 'true' ||
+    process.env.REQUIRE_EMAIL_VERIFICATION === '1',
+
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3001',
 
   throttle: {
