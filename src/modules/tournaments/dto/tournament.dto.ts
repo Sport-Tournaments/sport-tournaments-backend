@@ -28,13 +28,17 @@ import { PaginationDto } from '../../../common/dto';
 
 // Nested DTOs for complex types
 export class VisibilitySettingsDto {
-  @ApiPropertyOptional({ description: 'Partner team IDs that can see this tournament' })
+  @ApiPropertyOptional({
+    description: 'Partner team IDs that can see this tournament',
+  })
   @IsOptional()
   @IsArray()
   @IsUUID('4', { each: true })
   partnerTeams?: string[];
 
-  @ApiPropertyOptional({ description: 'Past participant IDs that can see this tournament' })
+  @ApiPropertyOptional({
+    description: 'Past participant IDs that can see this tournament',
+  })
   @IsOptional()
   @IsArray()
   @IsUUID('4', { each: true })
@@ -46,7 +50,10 @@ export class VisibilitySettingsDto {
   @IsEmail({}, { each: true })
   manualEmailList?: string[];
 
-  @ApiPropertyOptional({ description: 'Whether to list on public search', default: false })
+  @ApiPropertyOptional({
+    description: 'Whether to list on public search',
+    default: false,
+  })
   @IsOptional()
   @IsBoolean()
   isPublicListing?: boolean;
@@ -91,14 +98,17 @@ export class CreateAgeGroupDto {
   @IsUUID()
   locationId?: string;
 
-  @ApiPropertyOptional({ example: 250.00 })
+  @ApiPropertyOptional({ example: 250.0 })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(0)
   participationFee?: number;
 
-  @ApiPropertyOptional({ example: 4, description: 'Number of groups for this age category' })
+  @ApiPropertyOptional({
+    example: 4,
+    description: 'Number of groups for this age category',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
@@ -175,9 +185,14 @@ export class CreateLocationDto {
   @IsString()
   fieldDimensions?: string;
 
-  @ApiPropertyOptional({ 
-    example: { parking: true, changing_rooms: true, cafe: true, medical: false },
-    description: 'Available facilities' 
+  @ApiPropertyOptional({
+    example: {
+      parking: true,
+      changing_rooms: true,
+      cafe: true,
+      medical: false,
+    },
+    description: 'Available facilities',
   })
   @IsOptional()
   @IsObject()
@@ -257,7 +272,10 @@ export class CreateTournamentDto {
   @IsEnum(AgeCategory)
   ageCategory: AgeCategory;
 
-  @ApiPropertyOptional({ enum: TournamentLevel, default: TournamentLevel.LEVEL_II })
+  @ApiPropertyOptional({
+    enum: TournamentLevel,
+    default: TournamentLevel.LEVEL_II,
+  })
   @IsOptional()
   @IsEnum(TournamentLevel)
   level?: TournamentLevel;
@@ -325,19 +343,28 @@ export class CreateTournamentDto {
   country?: string;
 
   // New privacy and visibility fields
-  @ApiPropertyOptional({ description: 'Whether tournament is private (invite-only)', default: false })
+  @ApiPropertyOptional({
+    description: 'Whether tournament is private (invite-only)',
+    default: false,
+  })
   @IsOptional()
   @IsBoolean()
   isPrivate?: boolean;
 
-  @ApiPropertyOptional({ type: VisibilitySettingsDto, description: 'Visibility settings for private tournaments' })
+  @ApiPropertyOptional({
+    type: VisibilitySettingsDto,
+    description: 'Visibility settings for private tournaments',
+  })
   @IsOptional()
   @ValidateNested()
   @Type(() => VisibilitySettingsDto)
   visibilitySettings?: VisibilitySettingsDto;
 
   // Bracket configuration
-  @ApiPropertyOptional({ enum: BracketType, description: 'Type of bracket/format' })
+  @ApiPropertyOptional({
+    enum: BracketType,
+    description: 'Type of bracket/format',
+  })
   @IsOptional()
   @IsEnum(BracketType)
   bracketType?: BracketType;
@@ -356,13 +383,19 @@ export class CreateTournamentDto {
   @Min(2)
   teamsPerGroup?: number;
 
-  @ApiPropertyOptional({ example: true, description: 'Include third place match' })
+  @ApiPropertyOptional({
+    example: true,
+    description: 'Include third place match',
+  })
   @IsOptional()
   @IsBoolean()
   thirdPlaceMatch?: boolean;
 
   // Regulations
-  @ApiPropertyOptional({ enum: ['UPLOADED', 'GENERATED'], description: 'Type of regulations' })
+  @ApiPropertyOptional({
+    enum: ['UPLOADED', 'GENERATED'],
+    description: 'Type of regulations',
+  })
   @IsOptional()
   @IsString()
   regulationsType?: 'UPLOADED' | 'GENERATED';
@@ -378,22 +411,28 @@ export class CreateTournamentDto {
   @IsString()
   brochureUrl?: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     example: { facebook: 'https://...', instagram: 'https://...' },
-    description: 'Social media asset URLs' 
+    description: 'Social media asset URLs',
   })
   @IsOptional()
   @IsObject()
   socialMediaAssets?: Record<string, string>;
 
-  @ApiPropertyOptional({ example: 'summer-youth-cup-2025', description: 'URL-friendly slug' })
+  @ApiPropertyOptional({
+    example: 'summer-youth-cup-2025',
+    description: 'URL-friendly slug',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(100)
   urlSlug?: string;
 
   // Multiple age groups
-  @ApiPropertyOptional({ type: [CreateAgeGroupDto], description: 'Age groups for the tournament' })
+  @ApiPropertyOptional({
+    type: [CreateAgeGroupDto],
+    description: 'Age groups for the tournament',
+  })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
@@ -401,7 +440,10 @@ export class CreateTournamentDto {
   ageGroups?: CreateAgeGroupDto[];
 
   // Multiple locations
-  @ApiPropertyOptional({ type: [CreateLocationDto], description: 'Locations/venues for the tournament' })
+  @ApiPropertyOptional({
+    type: [CreateLocationDto],
+    description: 'Locations/venues for the tournament',
+  })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
@@ -530,19 +572,27 @@ export class UpdateTournamentDto {
   country?: string;
 
   // New privacy and visibility fields
-  @ApiPropertyOptional({ description: 'Whether tournament is private (invite-only)' })
+  @ApiPropertyOptional({
+    description: 'Whether tournament is private (invite-only)',
+  })
   @IsOptional()
   @IsBoolean()
   isPrivate?: boolean;
 
-  @ApiPropertyOptional({ type: VisibilitySettingsDto, description: 'Visibility settings for private tournaments' })
+  @ApiPropertyOptional({
+    type: VisibilitySettingsDto,
+    description: 'Visibility settings for private tournaments',
+  })
   @IsOptional()
   @ValidateNested()
   @Type(() => VisibilitySettingsDto)
   visibilitySettings?: VisibilitySettingsDto;
 
   // Bracket configuration
-  @ApiPropertyOptional({ enum: BracketType, description: 'Type of bracket/format' })
+  @ApiPropertyOptional({
+    enum: BracketType,
+    description: 'Type of bracket/format',
+  })
   @IsOptional()
   @IsEnum(BracketType)
   bracketType?: BracketType;
@@ -561,13 +611,19 @@ export class UpdateTournamentDto {
   @Min(2)
   teamsPerGroup?: number;
 
-  @ApiPropertyOptional({ example: true, description: 'Include third place match' })
+  @ApiPropertyOptional({
+    example: true,
+    description: 'Include third place match',
+  })
   @IsOptional()
   @IsBoolean()
   thirdPlaceMatch?: boolean;
 
   // Regulations
-  @ApiPropertyOptional({ enum: ['UPLOADED', 'GENERATED'], description: 'Type of regulations' })
+  @ApiPropertyOptional({
+    enum: ['UPLOADED', 'GENERATED'],
+    description: 'Type of regulations',
+  })
   @IsOptional()
   @IsString()
   regulationsType?: 'UPLOADED' | 'GENERATED';
@@ -583,15 +639,18 @@ export class UpdateTournamentDto {
   @IsString()
   brochureUrl?: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     example: { facebook: 'https://...', instagram: 'https://...' },
-    description: 'Social media asset URLs' 
+    description: 'Social media asset URLs',
   })
   @IsOptional()
   @IsObject()
   socialMediaAssets?: Record<string, string>;
 
-  @ApiPropertyOptional({ example: 'summer-youth-cup-2025', description: 'URL-friendly slug' })
+  @ApiPropertyOptional({
+    example: 'summer-youth-cup-2025',
+    description: 'URL-friendly slug',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(100)
@@ -646,13 +705,17 @@ export class TournamentFilterDto extends PaginationDto {
   @IsNumber()
   numberOfMatchesMax?: number;
 
-  @ApiPropertyOptional({ description: 'User latitude for distance calculation' })
+  @ApiPropertyOptional({
+    description: 'User latitude for distance calculation',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
   userLatitude?: number;
 
-  @ApiPropertyOptional({ description: 'User longitude for distance calculation' })
+  @ApiPropertyOptional({
+    description: 'User longitude for distance calculation',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()

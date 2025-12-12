@@ -27,7 +27,7 @@ export interface SeededUser {
 export async function seedUsers(dataSource: DataSource): Promise<SeededUser[]> {
   const userRepository = dataSource.getRepository('User');
   const seededUsers: SeededUser[] = [];
-  
+
   const hashedPassword = await hashPassword('Password123!');
   const hashedAdminPassword = await hashPassword('Admin123!');
 
@@ -36,7 +36,7 @@ export async function seedUsers(dataSource: DataSource): Promise<SeededUser[]> {
     const firstName = faker.person.firstName();
     const lastName = faker.person.lastName();
     const id = generateUUID();
-    
+
     await userRepository.insert({
       id,
       email: `admin${i + 1}@footballtournament.com`,
@@ -52,7 +52,7 @@ export async function seedUsers(dataSource: DataSource): Promise<SeededUser[]> {
       organizationName: 'Football Tournament Platform',
       createdAt: getRandomPastDate(2),
     });
-    
+
     seededUsers.push({
       id,
       email: `admin${i + 1}@footballtournament.com`,
@@ -69,7 +69,7 @@ export async function seedUsers(dataSource: DataSource): Promise<SeededUser[]> {
     const country = faker.helpers.arrayElement(COUNTRIES);
     const city = faker.helpers.arrayElement(ROMANIAN_CITIES);
     const id = generateUUID();
-    
+
     await userRepository.insert({
       id,
       email: `organizer${i + 1}@example.com`,
@@ -93,7 +93,7 @@ export async function seedUsers(dataSource: DataSource): Promise<SeededUser[]> {
       },
       createdAt: getRandomPastDate(2),
     });
-    
+
     seededUsers.push({
       id,
       email: `organizer${i + 1}@example.com`,
@@ -109,7 +109,7 @@ export async function seedUsers(dataSource: DataSource): Promise<SeededUser[]> {
     const lastName = faker.person.lastName();
     const isVerified = faker.datatype.boolean({ probability: 0.9 });
     const id = generateUUID();
-    
+
     await userRepository.insert({
       id,
       email: `participant${i + 1}@example.com`,
@@ -121,11 +121,13 @@ export async function seedUsers(dataSource: DataSource): Promise<SeededUser[]> {
       role: UserRole.PARTICIPANT,
       isActive: true,
       isVerified,
-      emailVerificationToken: isVerified ? undefined : faker.string.alphanumeric(64),
+      emailVerificationToken: isVerified
+        ? undefined
+        : faker.string.alphanumeric(64),
       profileImageUrl: faker.image.avatar(),
       createdAt: getRandomPastDate(1.5),
     });
-    
+
     seededUsers.push({
       id,
       email: `participant${i + 1}@example.com`,
@@ -135,6 +137,8 @@ export async function seedUsers(dataSource: DataSource): Promise<SeededUser[]> {
     });
   }
 
-  console.log(`✅ Seeded ${seededUsers.length} users (10 admins, 20 organizers, 30 participants)`);
+  console.log(
+    `✅ Seeded ${seededUsers.length} users (10 admins, 20 organizers, 30 participants)`,
+  );
   return seededUsers;
 }

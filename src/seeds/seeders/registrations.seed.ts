@@ -27,7 +27,12 @@ export interface SeededRegistration {
  */
 export async function seedRegistrations(
   dataSource: DataSource,
-  tournaments: { id: string; status: string; organizerId: string; fee: number }[],
+  tournaments: {
+    id: string;
+    status: string;
+    organizerId: string;
+    fee: number;
+  }[],
   clubs: { id: string; ownerId: string }[],
 ): Promise<SeededRegistration[]> {
   const registrationRepository = dataSource.getRepository('Registration');
@@ -44,7 +49,7 @@ export async function seedRegistrations(
     // Determine number of registrations based on tournament status
     let registrationCount: number;
     const maxTeams = faker.number.int({ min: 8, max: 24 }); // Approximate
-    
+
     switch (tournament.status) {
       case TournamentStatus.PUBLISHED:
         registrationCount = faker.number.int({
@@ -83,7 +88,10 @@ export async function seedRegistrations(
       let status: RegistrationStatus;
       let paymentStatus: PaymentStatus;
 
-      if (tournament.status === TournamentStatus.ONGOING || tournament.status === TournamentStatus.COMPLETED) {
+      if (
+        tournament.status === TournamentStatus.ONGOING ||
+        tournament.status === TournamentStatus.COMPLETED
+      ) {
         status = weightedRandom([
           { value: RegistrationStatus.APPROVED, weight: 0.85 },
           { value: RegistrationStatus.WITHDRAWN, weight: 0.1 },
@@ -122,7 +130,8 @@ export async function seedRegistrations(
       const groupLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
       const groupAssignment =
         status === RegistrationStatus.APPROVED &&
-        (tournament.status === TournamentStatus.ONGOING || tournament.status === TournamentStatus.COMPLETED)
+        (tournament.status === TournamentStatus.ONGOING ||
+          tournament.status === TournamentStatus.COMPLETED)
           ? faker.helpers.arrayElement(groupLetters.slice(0, 4))
           : undefined;
 

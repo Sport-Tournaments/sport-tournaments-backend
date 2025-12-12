@@ -110,7 +110,10 @@ export class AdminController {
 
   @Put('tournaments/:id/feature')
   @ApiOperation({ summary: 'Toggle tournament featured status' })
-  @ApiResponse({ status: 200, description: 'Tournament featured status updated' })
+  @ApiResponse({
+    status: 200,
+    description: 'Tournament featured status updated',
+  })
   featureTournament(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('featured') featured: boolean,
@@ -148,16 +151,17 @@ export class AdminController {
     @Body('message') message: string,
     @Body('targetRole') targetRole?: string,
   ) {
-    return this.adminService.sendBroadcastNotification(title, message, targetRole);
+    return this.adminService.sendBroadcastNotification(
+      title,
+      message,
+      targetRole,
+    );
   }
 
   @Get('audit-log')
   @ApiOperation({ summary: 'Get system audit log' })
   @ApiResponse({ status: 200, description: 'Audit log entries' })
-  getAuditLog(
-    @Query('page') page?: number,
-    @Query('limit') limit?: number,
-  ) {
+  getAuditLog(@Query('page') page?: number, @Query('limit') limit?: number) {
     return this.adminService.getAuditLog(page, limit);
   }
 }

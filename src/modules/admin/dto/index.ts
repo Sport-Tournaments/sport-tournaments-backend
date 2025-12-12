@@ -1,7 +1,19 @@
-import { IsOptional, IsEnum, IsBoolean, IsString, IsInt, Min, Max } from 'class-validator';
+import {
+  IsOptional,
+  IsEnum,
+  IsBoolean,
+  IsString,
+  IsInt,
+  Min,
+  Max,
+} from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { UserRole, TournamentStatus, RegistrationStatus, PaymentStatus } from '../../../common/enums';
+import {
+  UserRole,
+  TournamentStatus,
+  PaymentStatus,
+} from '../../../common/enums';
 
 export class AdminUserFilterDto {
   @ApiPropertyOptional()

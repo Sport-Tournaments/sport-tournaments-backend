@@ -118,7 +118,10 @@ export class RegistrationsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() adminUpdateRegistrationDto: AdminUpdateRegistrationDto,
   ) {
-    return this.registrationsService.adminUpdate(id, adminUpdateRegistrationDto);
+    return this.registrationsService.adminUpdate(
+      id,
+      adminUpdateRegistrationDto,
+    );
   }
 
   @Post('registrations/:id/approve')

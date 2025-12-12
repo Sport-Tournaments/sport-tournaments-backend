@@ -10,7 +10,14 @@ import {
 import { Tournament } from './tournament.entity';
 
 // Game systems available per age category
-export type GameSystem = '5+1' | '6+1' | '7+1' | '8+1' | '9+1' | '10+1' | '11+1';
+export type GameSystem =
+  | '5+1'
+  | '6+1'
+  | '7+1'
+  | '8+1'
+  | '9+1'
+  | '10+1'
+  | '11+1';
 
 @Entity('tournament_age_groups')
 @Index(['tournamentId', 'birthYear'], { unique: true })

@@ -90,18 +90,21 @@ export function getRandomDateBetween(start: Date, end: Date): Date {
 /**
  * Get a date range (start + end date for tournaments)
  */
-export function getTournamentDateRange(isUpcoming: boolean = true): { startDate: Date; endDate: Date } {
+export function getTournamentDateRange(isUpcoming: boolean = true): {
+  startDate: Date;
+  endDate: Date;
+} {
   let startDate: Date;
-  
+
   if (isUpcoming) {
     startDate = faker.date.future({ years: 1 });
   } else {
     startDate = faker.date.past({ years: 1 });
   }
-  
+
   const endDate = new Date(startDate);
   endDate.setDate(endDate.getDate() + faker.number.int({ min: 1, max: 3 }));
-  
+
   return { startDate, endDate };
 }
 
@@ -115,14 +118,19 @@ export function pickRandom<T>(array: T[]): T {
 /**
  * Pick multiple random items from an array
  */
-export function pickRandomMultiple<T>(array: T[], count: { min: number; max: number }): T[] {
+export function pickRandomMultiple<T>(
+  array: T[],
+  count: { min: number; max: number },
+): T[] {
   return faker.helpers.arrayElements(array, count);
 }
 
 /**
  * Weighted random selection
  */
-export function weightedRandom<T>(items: Array<{ value: T; weight: number }>): T {
+export function weightedRandom<T>(
+  items: Array<{ value: T; weight: number }>,
+): T {
   return faker.helpers.weightedArrayElement(items);
 }
 
@@ -130,13 +138,19 @@ export function weightedRandom<T>(items: Array<{ value: T; weight: number }>): T
  * Generate a realistic tournament fee
  */
 export function generateTournamentFee(): number {
-  return faker.helpers.arrayElement([50, 75, 100, 125, 150, 200, 250, 300, 350, 400, 500]);
+  return faker.helpers.arrayElement([
+    50, 75, 100, 125, 150, 200, 250, 300, 350, 400, 500,
+  ]);
 }
 
 /**
  * Generate team colors for organizer
  */
-export function generateTeamColors(): { primary: string; secondary: string; accent: string } {
+export function generateTeamColors(): {
+  primary: string;
+  secondary: string;
+  accent: string;
+} {
   return {
     primary: faker.color.rgb({ format: 'hex' }),
     secondary: faker.color.rgb({ format: 'hex' }),

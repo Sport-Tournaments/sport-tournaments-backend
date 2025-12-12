@@ -11,7 +11,11 @@ export const getDatabaseConfig = (
   if (databaseUrl) {
     // Detect database type from URL
     const isPostgres = databaseUrl.startsWith('postgres');
-    
+
+    // Disable SSL for test environment (GitHub Actions PostgreSQL doesn't support SSL)
+    const sslConfig =
+      isPostgres && nodeEnv !== 'test' ? { rejectUnauthorized: false } : false;
+
     return {
       type: isPostgres ? 'postgres' : 'mysql',
       url: databaseUrl,
@@ -19,7 +23,7 @@ export const getDatabaseConfig = (
       synchronize: nodeEnv !== 'production',
       logging: nodeEnv === 'development',
       autoLoadEntities: true,
-      ssl: isPostgres ? { rejectUnauthorized: false } : undefined,
+      ssl: sslConfig,
     };
   }
 
@@ -30,7 +34,8 @@ export const getDatabaseConfig = (
     port: configService.get<number>('database.port') || 3306,
     username: configService.get<string>('database.username') || 'root',
     password: configService.get<string>('database.password') || 'password',
-    database: configService.get<string>('database.database') || 'football_tournament',
+    database:
+      configService.get<string>('database.database') || 'football_tournament',
     entities: [__dirname + '/../**/*.entity{.ts,.js}'],
     synchronize: nodeEnv !== 'production',
     logging: nodeEnv === 'development',

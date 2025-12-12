@@ -9,16 +9,18 @@ config();
 
 async function bootstrap() {
   console.log('🔌 Connecting to database...');
-  
+
   const databaseUrl = process.env.DATABASE_URL;
-  
+
   let dataSourceOptions: any;
-  
+
   if (databaseUrl) {
     // Use DATABASE_URL
     const isPostgres = databaseUrl.startsWith('postgres');
-    console.log(`📦 Using ${isPostgres ? 'PostgreSQL' : 'MySQL'} via DATABASE_URL`);
-    
+    console.log(
+      `📦 Using ${isPostgres ? 'PostgreSQL' : 'MySQL'} via DATABASE_URL`,
+    );
+
     dataSourceOptions = {
       type: isPostgres ? 'postgres' : 'mysql',
       url: databaseUrl,
@@ -42,16 +44,16 @@ async function bootstrap() {
       logging: process.env.DATABASE_LOGGING === 'true',
     };
   }
-  
+
   const dataSource = new DataSource(dataSourceOptions);
-  
+
   try {
     await dataSource.initialize();
     console.log('✅ Database connected');
     console.log('');
-    
+
     await runSeeder(dataSource);
-    
+
     await dataSource.destroy();
     console.log('🔌 Database connection closed');
     process.exit(0);
