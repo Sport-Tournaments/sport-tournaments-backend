@@ -163,5 +163,39 @@ describe('RolesGuard', () => {
 
       expect(result).toBe(true);
     });
+
+    it('should allow PARTICIPANT to access tournament endpoints when role is included', () => {
+      mockReflector.getAllAndOverride.mockReturnValue([
+        UserRole.ORGANIZER,
+        UserRole.PARTICIPANT,
+        UserRole.USER,
+      ]);
+      const context = createMockExecutionContext({
+        sub: 'participant-1',
+        email: 'participant@example.com',
+        role: UserRole.PARTICIPANT,
+      });
+
+      const result = guard.canActivate(context);
+
+      expect(result).toBe(true);
+    });
+
+    it('should allow USER to access tournament endpoints when role is included', () => {
+      mockReflector.getAllAndOverride.mockReturnValue([
+        UserRole.ORGANIZER,
+        UserRole.PARTICIPANT,
+        UserRole.USER,
+      ]);
+      const context = createMockExecutionContext({
+        sub: 'user-1',
+        email: 'user@example.com',
+        role: UserRole.USER,
+      });
+
+      const result = guard.canActivate(context);
+
+      expect(result).toBe(true);
+    });
   });
 });

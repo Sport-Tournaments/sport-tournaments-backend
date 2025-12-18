@@ -66,7 +66,9 @@ export class AuthService {
     );
 
     // Generate email verification token only if verification is required
-    const emailVerificationToken = requireEmailVerification ? uuidv4() : undefined;
+    const emailVerificationToken = requireEmailVerification
+      ? uuidv4()
+      : undefined;
 
     // Create user
     const user = this.usersRepository.create({
