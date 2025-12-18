@@ -24,7 +24,7 @@ import {
   RegistrationFilterDto,
 } from './dto';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards';
-import { Roles, CurrentUser } from '../../common/decorators';
+import { Roles, CurrentUser, Public } from '../../common/decorators';
 import { UserRole } from '../../common/enums';
 import { JwtPayload } from '../../common/interfaces';
 
@@ -52,6 +52,7 @@ export class RegistrationsController {
   }
 
   @Get('tournaments/:tournamentId/registrations')
+  @Public()
   @ApiOperation({ summary: 'Get all registrations for a tournament' })
   @ApiResponse({ status: 200, description: 'List of registrations' })
   findByTournament(
@@ -66,6 +67,7 @@ export class RegistrationsController {
   }
 
   @Get('tournaments/:tournamentId/registrations/status')
+  @Public()
   @ApiOperation({ summary: 'Get registration statistics for a tournament' })
   @ApiResponse({ status: 200, description: 'Registration statistics' })
   getStatusStatistics(
