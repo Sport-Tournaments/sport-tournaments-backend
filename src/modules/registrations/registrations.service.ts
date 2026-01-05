@@ -15,6 +15,9 @@ import {
   UpdateRegistrationDto,
   AdminUpdateRegistrationDto,
   RegistrationFilterDto,
+  ApproveRegistrationDto,
+  RejectRegistrationDto,
+  BulkReviewDto,
 } from './dto';
 import { PaginationDto } from '../../common/dto';
 import { PaginatedResponse } from '../../common/interfaces';
@@ -259,7 +262,12 @@ export class RegistrationsService {
     return this.registrationsRepository.save(registration);
   }
 
-  async approve(id: string, userId: string, userRole: string): Promise<Registration> {
+  async approve(
+    id: string, 
+    userId: string, 
+    userRole: string,
+    dto?: ApproveRegistrationDto,
+  ): Promise<Registration> {
     const registration = await this.findByIdOrFail(id);
 
     // Only tournament organizer or admin can approve
@@ -278,11 +286,21 @@ export class RegistrationsService {
     }
 
     registration.status = RegistrationStatus.APPROVED;
+    registration.reviewedById = userId;
+    registration.reviewedAt = new Date();
+    if (dto?.reviewNotes) {
+      registration.reviewNotes = dto.reviewNotes;
+    }
 
     return this.registrationsRepository.save(registration);
   }
 
-  async reject(id: string, userId: string, userRole: string): Promise<Registration> {
+  async reject(
+    id: string, 
+    userId: string, 
+    userRole: string,
+    dto?: RejectRegistrationDto,
+  ): Promise<Registration> {
     const registration = await this.findByIdOrFail(id);
 
     // Only tournament organizer or admin can reject
@@ -301,6 +319,14 @@ export class RegistrationsService {
     }
 
     registration.status = RegistrationStatus.REJECTED;
+    registration.reviewedById = userId;
+    registration.reviewedAt = new Date();
+    if (dto?.rejectionReason) {
+      registration.rejectionReason = dto.rejectionReason;
+    }
+    if (dto?.reviewNotes) {
+      registration.reviewNotes = dto.reviewNotes;
+    }
 
     // Decrease tournament team count
     await this.tournamentsRepository.decrement(
@@ -444,6 +470,160 @@ export class RegistrationsService {
         status: RegistrationStatus.APPROVED,
       },
       relations: ['club'],
+      order: { registrationDate: 'ASC' },
+    });
+  }
+
+  /**
+   * Bulk approve multiple registrations
+   */
+  async bulkApprove(
+    tournamentId: string,
+    userId: string,
+    userRole: string,
+    dto: BulkReviewDto,
+  ): Promise<{ approved: number; failed: string[] }> {
+    // Verify tournament ownership
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id: tournamentId },
+    });
+
+    if (!tournament) {
+      throw new NotFoundException('Tournament not found');
+    }
+
+    if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException('You are not allowed to approve registrations for this tournament');
+    }
+
+    const results = { approved: 0, failed: [] as string[] };
+
+    for (const registrationId of dto.registrationIds) {
+      try {
+        const registration = await this.registrationsRepository.findOne({
+          where: { id: registrationId, tournamentId },
+        });
+
+        if (!registration) {
+          results.failed.push(`${registrationId}: Not found`);
+          continue;
+        }
+
+        if (registration.status !== RegistrationStatus.PENDING) {
+          results.failed.push(`${registrationId}: Not in pending status`);
+          continue;
+        }
+
+        registration.status = RegistrationStatus.APPROVED;
+        registration.reviewedById = userId;
+        registration.reviewedAt = new Date();
+        if (dto.reviewNotes) {
+          registration.reviewNotes = dto.reviewNotes;
+        }
+
+        await this.registrationsRepository.save(registration);
+        results.approved++;
+      } catch {
+        results.failed.push(`${registrationId}: Processing error`);
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Bulk reject multiple registrations
+   */
+  async bulkReject(
+    tournamentId: string,
+    userId: string,
+    userRole: string,
+    dto: BulkReviewDto & { rejectionReason: string },
+  ): Promise<{ rejected: number; failed: string[] }> {
+    // Verify tournament ownership
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id: tournamentId },
+    });
+
+    if (!tournament) {
+      throw new NotFoundException('Tournament not found');
+    }
+
+    if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException('You are not allowed to reject registrations for this tournament');
+    }
+
+    const results = { rejected: 0, failed: [] as string[] };
+
+    for (const registrationId of dto.registrationIds) {
+      try {
+        const registration = await this.registrationsRepository.findOne({
+          where: { id: registrationId, tournamentId },
+        });
+
+        if (!registration) {
+          results.failed.push(`${registrationId}: Not found`);
+          continue;
+        }
+
+        if (registration.status !== RegistrationStatus.PENDING) {
+          results.failed.push(`${registrationId}: Not in pending status`);
+          continue;
+        }
+
+        registration.status = RegistrationStatus.REJECTED;
+        registration.reviewedById = userId;
+        registration.reviewedAt = new Date();
+        registration.rejectionReason = dto.rejectionReason;
+        if (dto.reviewNotes) {
+          registration.reviewNotes = dto.reviewNotes;
+        }
+
+        await this.registrationsRepository.save(registration);
+
+        // Decrease tournament team count
+        await this.tournamentsRepository.decrement(
+          { id: tournamentId },
+          'currentTeams',
+          1,
+        );
+
+        results.rejected++;
+      } catch {
+        results.failed.push(`${registrationId}: Processing error`);
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Get pending registrations for review
+   */
+  async getPendingReview(
+    tournamentId: string,
+    userId: string,
+    userRole: string,
+  ): Promise<Registration[]> {
+    // Verify tournament ownership
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id: tournamentId },
+    });
+
+    if (!tournament) {
+      throw new NotFoundException('Tournament not found');
+    }
+
+    if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException('You are not allowed to view registrations for this tournament');
+    }
+
+    return this.registrationsRepository.find({
+      where: {
+        tournamentId,
+        status: RegistrationStatus.PENDING,
+      },
+      relations: ['club', 'club.owner'],
       order: { registrationDate: 'ASC' },
     });
   }

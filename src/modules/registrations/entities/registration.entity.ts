@@ -13,6 +13,7 @@ import { RegistrationStatus, PaymentStatus } from '../../../common/enums';
 import { Tournament } from '../../tournaments/entities/tournament.entity';
 import { Club } from '../../clubs/entities/club.entity';
 import { Payment } from '../../payments/entities/payment.entity';
+import { User } from '../../users/entities/user.entity';
 
 @Entity('registrations')
 @Index(['tournamentId', 'clubId'], { unique: true })
@@ -73,6 +74,23 @@ export class Registration {
 
   @Column({ name: 'payment_id', nullable: true })
   paymentId: string;
+
+  // Review/approval workflow fields
+  @Column({ name: 'reviewed_by_id', nullable: true })
+  reviewedById?: string;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'reviewed_by_id' })
+  reviewedBy?: User;
+
+  @Column({ name: 'reviewed_at', type: 'timestamp', nullable: true })
+  reviewedAt?: Date;
+
+  @Column({ name: 'review_notes', type: 'text', nullable: true })
+  reviewNotes?: string;
+
+  @Column({ name: 'rejection_reason', type: 'text', nullable: true })
+  rejectionReason?: string;
 
   @CreateDateColumn({ name: 'registration_date' })
   registrationDate: Date;
