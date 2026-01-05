@@ -147,6 +147,15 @@ export class Tournament {
   @Column({ name: 'is_private', default: false })
   isPrivate: boolean;
 
+  // Invitation code for private tournaments
+  @Index()
+  @Column({ name: 'invitation_code', nullable: true, unique: true })
+  invitationCode?: string;
+
+  // Invitation code expiration date
+  @Column({ name: 'invitation_code_expires_at', type: 'timestamp', nullable: true })
+  invitationCodeExpiresAt?: Date;
+
   // Visibility configuration for private tournaments
   @Column({ name: 'visibility_settings', type: 'json', nullable: true })
   visibilitySettings?: {

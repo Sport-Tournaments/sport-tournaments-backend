@@ -732,3 +732,39 @@ export class AdminUpdateTournamentDto extends UpdateTournamentDto {
   @IsBoolean()
   isPublished?: boolean;
 }
+
+// Invitation code DTOs
+export class ValidateInvitationCodeDto {
+  @ApiProperty({ example: 'ABC123XY', description: 'Invitation code to validate' })
+  @IsString()
+  @MinLength(6)
+  @MaxLength(20)
+  code: string;
+}
+
+export class InvitationCodeResponseDto {
+  @ApiProperty({ example: 'ABC123XY' })
+  invitationCode: string;
+
+  @ApiProperty({ example: '2025-12-31T23:59:59.000Z' })
+  expiresAt: Date | null;
+
+  @ApiProperty({ example: 'uuid-here' })
+  tournamentId: string;
+
+  @ApiProperty({ example: 'Summer Youth Cup 2025' })
+  tournamentName: string;
+}
+
+export class RegenerateInvitationCodeDto {
+  @ApiPropertyOptional({ 
+    example: 30, 
+    description: 'Number of days until the code expires. If not provided, code will not expire.' 
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(365)
+  expiresInDays?: number;
+}
