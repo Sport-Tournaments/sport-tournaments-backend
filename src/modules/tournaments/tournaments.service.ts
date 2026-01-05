@@ -153,11 +153,23 @@ export class TournamentsService {
     }
 
     // Distance filter using Haversine formula (approximate)
-    if (
-      filters?.userLatitude &&
-      filters?.userLongitude &&
-      filters?.maxDistance
-    ) {
+    // Default to 50km radius when user location is provided but no maxDistance specified
+    const hasUserLocation = filters?.userLatitude && filters?.userLongitude;
+    const effectiveMaxDistance = filters?.maxDistance ?? (hasUserLocation ? 50 : undefined);
+
+    if (hasUserLocation && effectiveMaxDistance) {
+      // Add distance calculation as a select expression for potential sorting
+      queryBuilder.addSelect(
+        `(
+          6371 * acos(
+            cos(radians(:userLat)) * cos(radians(tournament.latitude)) *
+            cos(radians(tournament.longitude) - radians(:userLng)) +
+            sin(radians(:userLat)) * sin(radians(tournament.latitude))
+          )
+        )`,
+        'distance',
+      );
+
       queryBuilder.andWhere(
         `(
           6371 * acos(
@@ -169,30 +181,44 @@ export class TournamentsService {
         {
           userLat: filters.userLatitude,
           userLng: filters.userLongitude,
-          maxDistance: filters.maxDistance,
+          maxDistance: effectiveMaxDistance,
         },
       );
     }
 
     // Sorting
-    const sortField = filters?.sortBy || 'startDate';
-    const sortOrder = filters?.sortOrder || 'ASC';
-    const allowedSortFields = [
-      'startDate',
-      'name',
-      'participationFee',
-      'maxTeams',
-      'createdAt',
-    ];
-
-    if (allowedSortFields.includes(sortField)) {
-      queryBuilder.orderBy(`tournament.${sortField}`, sortOrder);
+    // If sortByDistance is true and user location is provided, sort by distance first
+    if (filters?.sortByDistance && hasUserLocation) {
+      queryBuilder.orderBy('distance', 'ASC');
+      // Featured tournaments still get priority within distance groups
+      queryBuilder.addOrderBy('tournament.isFeatured', 'DESC');
     } else {
-      queryBuilder.orderBy('tournament.startDate', 'ASC');
-    }
+      const sortField = filters?.sortBy || 'startDate';
+      const sortOrder = filters?.sortOrder || 'ASC';
+      const allowedSortFields = [
+        'startDate',
+        'name',
+        'participationFee',
+        'maxTeams',
+        'createdAt',
+        'distance',
+      ];
 
-    // Featured tournaments first
-    queryBuilder.addOrderBy('tournament.isFeatured', 'DESC');
+      if (allowedSortFields.includes(sortField)) {
+        if (sortField === 'distance' && hasUserLocation) {
+          queryBuilder.orderBy('distance', sortOrder);
+        } else if (sortField !== 'distance') {
+          queryBuilder.orderBy(`tournament.${sortField}`, sortOrder);
+        } else {
+          queryBuilder.orderBy('tournament.startDate', 'ASC');
+        }
+      } else {
+        queryBuilder.orderBy('tournament.startDate', 'ASC');
+      }
+
+      // Featured tournaments first (unless sorting by distance)
+      queryBuilder.addOrderBy('tournament.isFeatured', 'DESC');
+    }
 
     const [tournaments, total] = await queryBuilder
       .skip(skip)
