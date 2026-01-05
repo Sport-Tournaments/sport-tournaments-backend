@@ -3,6 +3,8 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
@@ -16,12 +18,15 @@ import {
 import { PaginationDto } from '../../common/dto';
 import { PaginatedResponse } from '../../common/interfaces';
 import { TournamentStatus, UserRole } from '../../common/enums';
+import { FilesService } from '../files/files.service';
 
 @Injectable()
 export class TournamentsService {
   constructor(
     @InjectRepository(Tournament)
     private tournamentsRepository: Repository<Tournament>,
+    @Inject(forwardRef(() => FilesService))
+    private filesService: FilesService,
   ) {}
 
   async create(
@@ -504,5 +509,36 @@ export class TournamentsService {
       order: { startDate: 'ASC' },
       take: limit,
     });
+  }
+
+  async uploadRegulations(
+    id: string,
+    userId: string,
+    userRole: string,
+    file: Express.Multer.File,
+  ): Promise<Tournament> {
+    const tournament = await this.findByIdOrFail(id);
+
+    // Only the organizer or admin can upload regulations
+    if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException(
+        'You are not allowed to upload regulations for this tournament',
+      );
+    }
+
+    // Upload file using files service
+    const uploadedFile = await this.filesService.upload({
+      file,
+      userId,
+      entityType: 'tournament',
+      entityId: id,
+      isPublic: true,
+    });
+
+    // Update tournament with regulations URL
+    tournament.regulationsDocument = uploadedFile.s3Url;
+    tournament.regulationsType = 'UPLOADED';
+
+    return this.tournamentsRepository.save(tournament);
   }
 }
