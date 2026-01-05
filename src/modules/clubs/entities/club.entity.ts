@@ -47,6 +47,12 @@ export class Club {
   @Column({ nullable: true })
   logo: string;
 
+  @Column({ name: 'primary_color', nullable: true })
+  primaryColor: string;
+
+  @Column({ name: 'secondary_color', nullable: true })
+  secondaryColor: string;
+
   @Column({ name: 'founded_year', nullable: true })
   foundedYear: number;
 
