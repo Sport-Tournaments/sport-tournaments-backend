@@ -57,7 +57,7 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(password, 12);
 
     // Generate email verification token
-    const emailVerificationToken = uuidv4();
+    const emailVerificationToken = crypto.randomUUID();
 
     // Create user
     const user = this.usersRepository.create({
@@ -210,7 +210,7 @@ export class AuthService {
 
     if (user) {
       // Generate reset token
-      const resetToken = uuidv4();
+      const resetToken = crypto.randomUUID();
       const resetExpires = new Date();
       resetExpires.setHours(resetExpires.getHours() + 1); // 1 hour expiry
 
