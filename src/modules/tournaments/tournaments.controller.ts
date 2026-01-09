@@ -81,7 +81,7 @@ export class TournamentsController {
   }
 
   @Get('my-tournaments')
-  @Roles(UserRole.ORGANIZER)
+  @Roles(UserRole.ORGANIZER, UserRole.ADMIN, UserRole.PARTICIPANT)
   @ApiOperation({ summary: 'Get tournaments created by current user' })
   @ApiResponse({ status: 200, description: 'List of user tournaments' })
   getMyTournaments(@CurrentUser() user: JwtPayload) {
