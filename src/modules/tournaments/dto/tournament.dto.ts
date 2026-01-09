@@ -721,12 +721,18 @@ export class TournamentFilterDto extends PaginationDto {
   @IsNumber()
   userLongitude?: number;
 
-  @ApiPropertyOptional({ description: 'Max distance in km' })
+  @ApiPropertyOptional({ description: 'Max distance in km (default: 50 when user location provided)' })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(1)
   maxDistance?: number;
+
+  @ApiPropertyOptional({ description: 'Sort results by distance from user location', default: false })
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  sortByDistance?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()
