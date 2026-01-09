@@ -3,6 +3,7 @@ import {
   IsOptional,
   IsNumber,
   IsEnum,
+  IsArray,
   Min,
   Max,
   IsUUID,
@@ -110,4 +111,49 @@ export class RegistrationFilterDto extends PaginationDto {
   @IsOptional()
   @IsString()
   search?: string;
+}
+
+// Review workflow DTOs
+export class ApproveRegistrationDto {
+  @ApiPropertyOptional({ 
+    example: 'All documents verified and in order.',
+    description: 'Notes from the reviewer about the approval'
+  })
+  @IsOptional()
+  @IsString()
+  reviewNotes?: string;
+}
+
+export class RejectRegistrationDto {
+  @ApiProperty({ 
+    example: 'Missing medical certificates for 3 players.',
+    description: 'Reason for rejecting the registration'
+  })
+  @IsString()
+  rejectionReason: string;
+
+  @ApiPropertyOptional({ 
+    example: 'Please resubmit with complete documentation.',
+    description: 'Additional notes for the registrant'
+  })
+  @IsOptional()
+  @IsString()
+  reviewNotes?: string;
+}
+
+export class BulkReviewDto {
+  @ApiProperty({ 
+    description: 'Array of registration IDs to process',
+    type: [String]
+  })
+  @IsUUID('4', { each: true })
+  registrationIds: string[];
+
+  @ApiPropertyOptional({ 
+    example: 'Bulk approval for verified teams.',
+    description: 'Notes for all registrations being processed'
+  })
+  @IsOptional()
+  @IsString()
+  reviewNotes?: string;
 }

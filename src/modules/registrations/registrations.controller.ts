@@ -22,6 +22,9 @@ import {
   UpdateRegistrationDto,
   AdminUpdateRegistrationDto,
   RegistrationFilterDto,
+  ApproveRegistrationDto,
+  RejectRegistrationDto,
+  BulkReviewDto,
 } from './dto';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards';
 import { Roles, CurrentUser } from '../../common/decorators';
@@ -64,6 +67,21 @@ export class RegistrationsController {
       tournamentId,
       filters,
       filters,
+    );
+  }
+
+  @Get('tournaments/:tournamentId/registrations/pending')
+  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Get pending registrations for review' })
+  @ApiResponse({ status: 200, description: 'List of pending registrations' })
+  getPendingReview(
+    @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.registrationsService.getPendingReview(
+      tournamentId,
+      user.sub,
+      user.role,
     );
   }
 
@@ -131,8 +149,9 @@ export class RegistrationsController {
   approve(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
+    @Body() dto: ApproveRegistrationDto,
   ) {
-    return this.registrationsService.approve(id, user.sub, user.role);
+    return this.registrationsService.approve(id, user.sub, user.role, dto);
   }
 
   @Post('registrations/:id/reject')
@@ -142,8 +161,43 @@ export class RegistrationsController {
   reject(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
+    @Body() dto: RejectRegistrationDto,
   ) {
-    return this.registrationsService.reject(id, user.sub, user.role);
+    return this.registrationsService.reject(id, user.sub, user.role, dto);
+  }
+
+  @Post('tournaments/:tournamentId/registrations/bulk-approve')
+  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Bulk approve multiple registrations' })
+  @ApiResponse({ status: 200, description: 'Bulk approval results' })
+  bulkApprove(
+    @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: BulkReviewDto,
+  ) {
+    return this.registrationsService.bulkApprove(
+      tournamentId,
+      user.sub,
+      user.role,
+      dto,
+    );
+  }
+
+  @Post('tournaments/:tournamentId/registrations/bulk-reject')
+  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Bulk reject multiple registrations' })
+  @ApiResponse({ status: 200, description: 'Bulk rejection results' })
+  bulkReject(
+    @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: BulkReviewDto & { rejectionReason: string },
+  ) {
+    return this.registrationsService.bulkReject(
+      tournamentId,
+      user.sub,
+      user.role,
+      dto,
+    );
   }
 
   @Post('registrations/:id/withdraw')
