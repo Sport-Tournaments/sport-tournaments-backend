@@ -62,6 +62,18 @@ export class CreateClubDto {
   @IsString()
   logo?: string;
 
+  @ApiPropertyOptional({ example: '#A50044', description: 'Primary club color (hex format)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(7)
+  primaryColor?: string;
+
+  @ApiPropertyOptional({ example: '#004D98', description: 'Secondary club color (hex format)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(7)
+  secondaryColor?: string;
+
   @ApiPropertyOptional({ example: 1899 })
   @IsOptional()
   @Type(() => Number)
@@ -136,6 +148,18 @@ export class UpdateClubDto {
   @IsOptional()
   @IsString()
   logo?: string;
+
+  @ApiPropertyOptional({ example: '#A50044', description: 'Primary club color (hex format)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(7)
+  primaryColor?: string;
+
+  @ApiPropertyOptional({ example: '#004D98', description: 'Secondary club color (hex format)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(7)
+  secondaryColor?: string;
 
   @ApiPropertyOptional({ example: 1899 })
   @IsOptional()
