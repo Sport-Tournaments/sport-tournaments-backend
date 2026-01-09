@@ -87,6 +87,9 @@ export class Tournament {
   @Column({ name: 'number_of_matches', nullable: true })
   numberOfMatches: number;
 
+  @Column({ name: 'guaranteed_matches', nullable: true })
+  guaranteedMatches: number;
+
   @Column({ name: 'max_teams' })
   maxTeams: number;
 

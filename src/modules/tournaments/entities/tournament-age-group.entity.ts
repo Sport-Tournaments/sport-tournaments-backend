@@ -58,6 +58,10 @@ export class TournamentAgeGroup {
   @Column({ name: 'current_teams', default: 0 })
   currentTeams: number;
 
+  // Guaranteed number of matches per team
+  @Column({ name: 'guaranteed_matches', nullable: true })
+  guaranteedMatches?: number;
+
   // Independent date range for this age group
   @Column({ name: 'start_date', type: 'date' })
   startDate: Date;

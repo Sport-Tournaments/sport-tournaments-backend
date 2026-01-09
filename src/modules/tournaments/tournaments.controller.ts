@@ -38,7 +38,6 @@ export class TournamentsController {
   constructor(private readonly tournamentsService: TournamentsService) {}
 
   @Post()
-  @Roles(UserRole.ORGANIZER)
   @ApiOperation({ summary: 'Create a new tournament' })
   @ApiResponse({ status: 201, description: 'Tournament created successfully' })
   create(
@@ -106,7 +105,6 @@ export class TournamentsController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.ORGANIZER)
   @ApiOperation({ summary: 'Update tournament' })
   @ApiResponse({ status: 200, description: 'Tournament updated successfully' })
   @ApiResponse({
@@ -138,7 +136,6 @@ export class TournamentsController {
   }
 
   @Post(':id/publish')
-  @Roles(UserRole.ORGANIZER)
   @ApiOperation({ summary: 'Publish tournament' })
   @ApiResponse({ status: 200, description: 'Tournament published' })
   publish(
@@ -149,7 +146,6 @@ export class TournamentsController {
   }
 
   @Post(':id/cancel')
-  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @ApiOperation({ summary: 'Cancel tournament' })
   @ApiResponse({ status: 200, description: 'Tournament cancelled' })
   cancel(
@@ -160,7 +156,6 @@ export class TournamentsController {
   }
 
   @Post(':id/start')
-  @Roles(UserRole.ORGANIZER)
   @ApiOperation({ summary: 'Start tournament' })
   @ApiResponse({ status: 200, description: 'Tournament started' })
   start(
@@ -171,7 +166,6 @@ export class TournamentsController {
   }
 
   @Post(':id/complete')
-  @Roles(UserRole.ORGANIZER)
   @ApiOperation({ summary: 'Complete tournament' })
   @ApiResponse({ status: 200, description: 'Tournament completed' })
   complete(
@@ -232,7 +226,6 @@ export class TournamentsController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @ApiOperation({ summary: 'Delete tournament' })
   @ApiResponse({ status: 200, description: 'Tournament deleted' })
   @ApiResponse({

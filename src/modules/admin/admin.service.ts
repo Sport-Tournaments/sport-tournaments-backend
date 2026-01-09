@@ -176,7 +176,7 @@ export class AdminService {
 
     if (search) {
       queryBuilder.andWhere(
-        '(user.email LIKE :search OR user.firstName LIKE :search OR user.lastName LIKE :search)',
+        '(LOWER(user.email) LIKE LOWER(:search) OR LOWER(user.firstName) LIKE LOWER(:search) OR LOWER(user.lastName) LIKE LOWER(:search))',
         { search: `%${search}%` },
       );
     }
@@ -290,7 +290,7 @@ export class AdminService {
 
     if (search) {
       queryBuilder.andWhere(
-        '(tournament.name LIKE :search OR tournament.city LIKE :search)',
+        '(LOWER(tournament.name) LIKE LOWER(:search) OR LOWER(tournament.city) LIKE LOWER(:search))',
         { search: `%${search}%` },
       );
     }

@@ -72,7 +72,7 @@ export class UsersService {
 
     if (filters?.search) {
       queryBuilder.andWhere(
-        '(user.firstName LIKE :search OR user.lastName LIKE :search OR user.email LIKE :search)',
+        '(LOWER(user.firstName) LIKE LOWER(:search) OR LOWER(user.lastName) LIKE LOWER(:search) OR LOWER(user.email) LIKE LOWER(:search))',
         { search: `%${filters.search}%` },
       );
     }

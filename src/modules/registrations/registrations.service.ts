@@ -151,7 +151,7 @@ export class RegistrationsService {
     }
 
     if (filters?.search) {
-      queryBuilder.andWhere('club.name LIKE :search', {
+      queryBuilder.andWhere('LOWER(club.name) LIKE LOWER(:search)', {
         search: `%${filters.search}%`,
       });
     }

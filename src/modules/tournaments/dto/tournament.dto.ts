@@ -113,6 +113,16 @@ export class CreateAgeGroupDto {
   participationFee?: number;
 
   @ApiPropertyOptional({
+    example: 3,
+    description: 'Guaranteed number of matches per team',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  guaranteedMatches?: number;
+
+  @ApiPropertyOptional({
     example: 4,
     description: 'Number of groups for this age category',
   })
@@ -298,6 +308,16 @@ export class CreateTournamentDto {
   @IsNumber()
   @Min(1)
   numberOfMatches?: number;
+
+  @ApiPropertyOptional({
+    example: 3,
+    description: 'Guaranteed number of matches per team',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  guaranteedMatches?: number;
 
   @ApiProperty({ example: 16 })
   @Type(() => Number)
@@ -526,6 +546,16 @@ export class UpdateTournamentDto {
   @IsNumber()
   @Min(1)
   numberOfMatches?: number;
+
+  @ApiPropertyOptional({
+    example: 3,
+    description: 'Guaranteed number of matches per team',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  guaranteedMatches?: number;
 
   @ApiPropertyOptional({ example: 16 })
   @IsOptional()

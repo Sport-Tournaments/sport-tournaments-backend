@@ -36,7 +36,6 @@ export class ClubsController {
   constructor(private readonly clubsService: ClubsService) {}
 
   @Post()
-  @Roles(UserRole.ORGANIZER, UserRole.PARTICIPANT)
   @ApiOperation({ summary: 'Create a new club' })
   @ApiResponse({ status: 201, description: 'Club created successfully' })
   @ApiResponse({
@@ -59,7 +58,6 @@ export class ClubsController {
   }
 
   @Get('my-clubs')
-  @Roles(UserRole.ORGANIZER, UserRole.PARTICIPANT)
   @ApiOperation({ summary: 'Get clubs owned by current user' })
   @ApiResponse({ status: 200, description: 'List of user clubs' })
   getMyClubs(@CurrentUser() user: JwtPayload) {
@@ -92,7 +90,6 @@ export class ClubsController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.ORGANIZER, UserRole.PARTICIPANT)
   @ApiOperation({ summary: 'Update club' })
   @ApiResponse({ status: 200, description: 'Club updated successfully' })
   @ApiResponse({ status: 403, description: 'Not allowed to update this club' })
@@ -144,7 +141,6 @@ export class ClubsController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.ORGANIZER, UserRole.PARTICIPANT, UserRole.ADMIN)
   @ApiOperation({ summary: 'Delete club' })
   @ApiResponse({ status: 200, description: 'Club deleted' })
   @ApiResponse({ status: 403, description: 'Not allowed to delete this club' })

@@ -30,9 +30,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { Roles } from '../../common/decorators/roles.decorator';
 import { Public } from '../../common/decorators/public.decorator';
-import { UserRole } from '../../common/enums';
 import { JwtPayload } from '../../common/interfaces';
 
 @ApiTags('Invitations')
@@ -43,7 +41,6 @@ export class InvitationsController {
   constructor(private readonly invitationsService: InvitationsService) {}
 
   @Post()
-  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @ApiOperation({ summary: 'Create a single invitation' })
   @ApiResponse({ status: 201, description: 'Invitation created successfully' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
@@ -57,7 +54,6 @@ export class InvitationsController {
   }
 
   @Post('bulk')
-  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @ApiOperation({ summary: 'Create multiple invitations at once' })
   @ApiResponse({ status: 201, description: 'Invitations created successfully' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
@@ -69,7 +65,6 @@ export class InvitationsController {
   }
 
   @Post('partner-teams')
-  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @ApiOperation({
     summary: 'Invite all partner teams defined in tournament settings',
   })
@@ -82,7 +77,6 @@ export class InvitationsController {
   }
 
   @Post('past-participants')
-  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @ApiOperation({ summary: 'Invite past tournament participants' })
   @ApiResponse({
     status: 201,
@@ -100,7 +94,6 @@ export class InvitationsController {
   }
 
   @Get('tournament/:tournamentId')
-  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @ApiOperation({ summary: 'Get all invitations for a tournament' })
   @ApiParam({ name: 'tournamentId', description: 'Tournament ID' })
   @ApiResponse({ status: 200, description: 'List of invitations' })
@@ -118,7 +111,6 @@ export class InvitationsController {
   }
 
   @Get('tournament/:tournamentId/stats')
-  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @ApiOperation({ summary: 'Get invitation statistics for a tournament' })
   @ApiParam({ name: 'tournamentId', description: 'Tournament ID' })
   @ApiResponse({ status: 200, description: 'Invitation statistics' })
@@ -181,7 +173,6 @@ export class InvitationsController {
   }
 
   @Post(':id/resend')
-  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @ApiOperation({ summary: 'Resend an invitation' })
   @ApiParam({ name: 'id', description: 'Invitation ID' })
   @ApiResponse({ status: 200, description: 'Invitation resent' })
@@ -193,7 +184,6 @@ export class InvitationsController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Cancel/delete an invitation' })
   @ApiParam({ name: 'id', description: 'Invitation ID' })

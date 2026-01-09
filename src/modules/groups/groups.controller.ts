@@ -18,8 +18,7 @@ import {
 import { GroupsService } from './groups.service';
 import { ExecuteDrawDto, UpdateBracketDto, CreateGroupDto } from './dto';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards';
-import { Roles, CurrentUser, Public } from '../../common/decorators';
-import { UserRole } from '../../common/enums';
+import { CurrentUser, Public } from '../../common/decorators';
 import { JwtPayload } from '../../common/interfaces';
 
 @ApiTags('Groups & Draw')
@@ -30,7 +29,6 @@ export class GroupsController {
   constructor(private readonly groupsService: GroupsService) {}
 
   @Post('draw')
-  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @ApiOperation({ summary: 'Execute random group draw' })
   @ApiResponse({ status: 201, description: 'Draw completed successfully' })
   @ApiResponse({ status: 400, description: 'Invalid tournament state' })
@@ -64,7 +62,6 @@ export class GroupsController {
   }
 
   @Patch('bracket')
-  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @ApiOperation({ summary: 'Manually adjust bracket' })
   @ApiResponse({ status: 200, description: 'Bracket updated' })
   updateBracket(
@@ -81,7 +78,6 @@ export class GroupsController {
   }
 
   @Post('groups')
-  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @ApiOperation({ summary: 'Create a new group' })
   @ApiResponse({ status: 201, description: 'Group created' })
   createGroup(
@@ -98,7 +94,6 @@ export class GroupsController {
   }
 
   @Delete('draw')
-  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @ApiOperation({ summary: 'Reset draw and clear all groups' })
   @ApiResponse({ status: 200, description: 'Draw reset' })
   resetDraw(

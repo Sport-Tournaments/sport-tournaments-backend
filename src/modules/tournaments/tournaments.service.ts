@@ -148,7 +148,7 @@ export class TournamentsService {
 
     if (filters?.search) {
       queryBuilder.andWhere(
-        '(tournament.name LIKE :search OR tournament.description LIKE :search OR tournament.location LIKE :search)',
+        '(LOWER(tournament.name) LIKE LOWER(:search) OR LOWER(tournament.description) LIKE LOWER(:search) OR LOWER(tournament.location) LIKE LOWER(:search))',
         { search: `%${filters.search}%` },
       );
     }

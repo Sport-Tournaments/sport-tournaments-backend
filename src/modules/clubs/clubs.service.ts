@@ -80,7 +80,7 @@ export class ClubsService {
 
     if (filters?.search) {
       queryBuilder.andWhere(
-        '(club.name LIKE :search OR club.city LIKE :search)',
+        '(LOWER(club.name) LIKE LOWER(:search) OR LOWER(club.city) LIKE LOWER(:search))',
         { search: `%${filters.search}%` },
       );
     }
@@ -232,8 +232,8 @@ export class ClubsService {
   async searchClubs(query: string, limit: number = 10): Promise<Club[]> {
     return this.clubsRepository
       .createQueryBuilder('club')
-      .where('club.name LIKE :query', { query: `%${query}%` })
-      .orWhere('club.city LIKE :query', { query: `%${query}%` })
+      .where('LOWER(club.name) LIKE LOWER(:query)', { query: `%${query}%` })
+      .orWhere('LOWER(club.city) LIKE LOWER(:query)', { query: `%${query}%` })
       .orderBy('club.isVerified', 'DESC')
       .addOrderBy('club.name', 'ASC')
       .take(limit)

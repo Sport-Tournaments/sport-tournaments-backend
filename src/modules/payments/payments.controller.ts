@@ -18,9 +18,8 @@ import {
 } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { PaymentsService } from './payments.service';
-import { JwtAuthGuard, RolesGuard } from '../auth/guards';
-import { Roles, CurrentUser, Public } from '../../common/decorators';
-import { UserRole } from '../../common/enums';
+import { JwtAuthGuard } from '../auth/guards';
+import { CurrentUser, Public } from '../../common/decorators';
 import { JwtPayload } from '../../common/interfaces';
 
 @ApiTags('Payments')
@@ -62,8 +61,7 @@ export class PaymentsController {
   }
 
   @Post(':id/refund')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Initiate refund for a payment' })
   @ApiResponse({ status: 200, description: 'Refund initiated' })
@@ -75,8 +73,7 @@ export class PaymentsController {
   }
 
   @Get('tournament/:tournamentId')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all payments for a tournament' })
   @ApiResponse({ status: 200, description: 'Tournament payments' })
