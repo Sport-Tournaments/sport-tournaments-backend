@@ -32,8 +32,8 @@ export const getDatabaseConfig = (
     type: 'mysql',
     host: configService.get<string>('database.host') || 'localhost',
     port: configService.get<number>('database.port') || 3306,
-    username: configService.get<string>('database.username') || 'root',
-    password: configService.get<string>('database.password') || 'password',
+    username: configService.get<string>('database.username') || '',
+    password: configService.get<string>('database.password') || '',
     database:
       configService.get<string>('database.database') || 'football_tournament',
     entities: [__dirname + '/../**/*.entity{.ts,.js}'],
