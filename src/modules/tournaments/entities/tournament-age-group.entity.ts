@@ -50,6 +50,10 @@ export class TournamentAgeGroup {
   @Column({ name: 'team_count' })
   teamCount: number;
 
+  // Minimum teams required for this age group to be played
+  @Column({ name: 'min_teams', nullable: true })
+  minTeams?: number;
+
   // Current registered teams for this age group
   @Column({ name: 'current_teams', default: 0 })
   currentTeams: number;

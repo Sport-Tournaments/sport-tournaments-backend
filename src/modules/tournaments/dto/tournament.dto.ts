@@ -83,6 +83,13 @@ export class CreateAgeGroupDto {
   @Min(2)
   teamCount?: number;
 
+  @ApiPropertyOptional({ example: 4, description: 'Minimum number of teams required for the age group to be played' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(2)
+  minTeams?: number;
+
   @ApiPropertyOptional({ example: '2025-07-01' })
   @IsOptional()
   @IsDateString()
