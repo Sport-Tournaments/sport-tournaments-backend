@@ -23,7 +23,7 @@ import {
 } from './dto';
 import { Tournament } from '../tournaments/entities/tournament.entity';
 import { Club } from '../clubs/entities/club.entity';
-import { UserRole, TournamentStatus } from '../../common/enums';
+import { UserRole } from '../../common/enums';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../../common/enums';
 
@@ -61,12 +61,16 @@ export class InvitationsService {
     });
 
     if (!tournament) {
-      throw new NotFoundException(`Tournament with ID ${dto.tournamentId} not found`);
+      throw new NotFoundException(
+        `Tournament with ID ${dto.tournamentId} not found`,
+      );
     }
 
     // Only organizer or admin can send invitations
     if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
-      throw new ForbiddenException('You can only send invitations for your own tournaments');
+      throw new ForbiddenException(
+        'You can only send invitations for your own tournaments',
+      );
     }
 
     // Validate club if provided
@@ -85,8 +89,13 @@ export class InvitationsService {
         : { tournamentId: dto.tournamentId, email: dto.email },
     });
 
-    if (existingInvitation && existingInvitation.status === InvitationStatus.PENDING) {
-      throw new ConflictException('An invitation already exists for this recipient');
+    if (
+      existingInvitation &&
+      existingInvitation.status === InvitationStatus.PENDING
+    ) {
+      throw new ConflictException(
+        'An invitation already exists for this recipient',
+      );
     }
 
     const invitation = this.invitationsRepository.create({
@@ -95,7 +104,9 @@ export class InvitationsService {
       email: dto.email || club?.contactEmail,
       type: dto.type || InvitationType.DIRECT,
       message: dto.message,
-      expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : this.getDefaultExpiration(),
+      expiresAt: dto.expiresAt
+        ? new Date(dto.expiresAt)
+        : this.getDefaultExpiration(),
       invitationToken: this.generateInvitationToken(),
     });
 
@@ -125,17 +136,25 @@ export class InvitationsService {
     dto: BulkInvitationDto,
     userId: string,
     userRole: string,
-  ): Promise<{ created: number; skipped: number; invitations: TournamentInvitation[] }> {
+  ): Promise<{
+    created: number;
+    skipped: number;
+    invitations: TournamentInvitation[];
+  }> {
     const tournament = await this.tournamentsRepository.findOne({
       where: { id: dto.tournamentId },
     });
 
     if (!tournament) {
-      throw new NotFoundException(`Tournament with ID ${dto.tournamentId} not found`);
+      throw new NotFoundException(
+        `Tournament with ID ${dto.tournamentId} not found`,
+      );
     }
 
     if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
-      throw new ForbiddenException('You can only send invitations for your own tournaments');
+      throw new ForbiddenException(
+        'You can only send invitations for your own tournaments',
+      );
     }
 
     const invitations: TournamentInvitation[] = [];
@@ -164,7 +183,9 @@ export class InvitationsService {
           email: club.contactEmail,
           type: dto.type || InvitationType.DIRECT,
           message: dto.message,
-          expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : this.getDefaultExpiration(),
+          expiresAt: dto.expiresAt
+            ? new Date(dto.expiresAt)
+            : this.getDefaultExpiration(),
           invitationToken: this.generateInvitationToken(),
         });
 
@@ -189,7 +210,9 @@ export class InvitationsService {
           email,
           type: InvitationType.EMAIL,
           message: dto.message,
-          expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : this.getDefaultExpiration(),
+          expiresAt: dto.expiresAt
+            ? new Date(dto.expiresAt)
+            : this.getDefaultExpiration(),
           invitationToken: this.generateInvitationToken(),
         });
 
@@ -216,11 +239,15 @@ export class InvitationsService {
     });
 
     if (!tournament) {
-      throw new NotFoundException(`Tournament with ID ${dto.tournamentId} not found`);
+      throw new NotFoundException(
+        `Tournament with ID ${dto.tournamentId} not found`,
+      );
     }
 
     if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
-      throw new ForbiddenException('You can only send invitations for your own tournaments');
+      throw new ForbiddenException(
+        'You can only send invitations for your own tournaments',
+      );
     }
 
     // Get partner teams from visibility settings
@@ -258,11 +285,15 @@ export class InvitationsService {
     });
 
     if (!tournament) {
-      throw new NotFoundException(`Tournament with ID ${dto.tournamentId} not found`);
+      throw new NotFoundException(
+        `Tournament with ID ${dto.tournamentId} not found`,
+      );
     }
 
     if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
-      throw new ForbiddenException('You can only send invitations for your own tournaments');
+      throw new ForbiddenException(
+        'You can only send invitations for your own tournaments',
+      );
     }
 
     // Get past participants from visibility settings
@@ -301,11 +332,15 @@ export class InvitationsService {
     });
 
     if (!tournament) {
-      throw new NotFoundException(`Tournament with ID ${tournamentId} not found`);
+      throw new NotFoundException(
+        `Tournament with ID ${tournamentId} not found`,
+      );
     }
 
     if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
-      throw new ForbiddenException('You can only view invitations for your own tournaments');
+      throw new ForbiddenException(
+        'You can only view invitations for your own tournaments',
+      );
     }
 
     const queryBuilder = this.invitationsRepository
@@ -314,7 +349,9 @@ export class InvitationsService {
       .where('invitation.tournamentId = :tournamentId', { tournamentId });
 
     if (filters?.status) {
-      queryBuilder.andWhere('invitation.status = :status', { status: filters.status });
+      queryBuilder.andWhere('invitation.status = :status', {
+        status: filters.status,
+      });
     }
 
     if (filters?.type) {
@@ -324,7 +361,10 @@ export class InvitationsService {
     return queryBuilder.orderBy('invitation.createdAt', 'DESC').getMany();
   }
 
-  async findByClub(clubId: string, userId: string): Promise<TournamentInvitation[]> {
+  async findByClub(
+    clubId: string,
+    userId: string,
+  ): Promise<TournamentInvitation[]> {
     const club = await this.clubsRepository.findOne({ where: { id: clubId } });
 
     if (!club) {
@@ -332,7 +372,9 @@ export class InvitationsService {
     }
 
     if (club.organizerId !== userId) {
-      throw new ForbiddenException('You can only view invitations for your own clubs');
+      throw new ForbiddenException(
+        'You can only view invitations for your own clubs',
+      );
     }
 
     return this.invitationsRepository.find({
@@ -373,7 +415,9 @@ export class InvitationsService {
     });
 
     if (!invitation) {
-      throw new NotFoundException(`Invitation with ID ${invitationId} not found`);
+      throw new NotFoundException(
+        `Invitation with ID ${invitationId} not found`,
+      );
     }
 
     // Verify the user owns the invited club
@@ -383,12 +427,16 @@ export class InvitationsService {
       });
 
       if (!club || club.organizerId !== userId) {
-        throw new ForbiddenException('You can only respond to invitations for your own clubs');
+        throw new ForbiddenException(
+          'You can only respond to invitations for your own clubs',
+        );
       }
     }
 
     if (invitation.status !== InvitationStatus.PENDING) {
-      throw new BadRequestException('This invitation has already been responded to');
+      throw new BadRequestException(
+        'This invitation has already been responded to',
+      );
     }
 
     // Check expiration
@@ -399,7 +447,9 @@ export class InvitationsService {
     }
 
     invitation.status =
-      dto.response === 'ACCEPTED' ? InvitationStatus.ACCEPTED : InvitationStatus.DECLINED;
+      dto.response === 'ACCEPTED'
+        ? InvitationStatus.ACCEPTED
+        : InvitationStatus.DECLINED;
     invitation.respondedAt = new Date();
     invitation.responseMessage = dto.responseMessage;
 
@@ -427,11 +477,15 @@ export class InvitationsService {
     const invitation = await this.findByToken(token);
 
     if (invitation.status !== InvitationStatus.PENDING) {
-      throw new BadRequestException('This invitation has already been responded to');
+      throw new BadRequestException(
+        'This invitation has already been responded to',
+      );
     }
 
     invitation.status =
-      dto.response === 'ACCEPTED' ? InvitationStatus.ACCEPTED : InvitationStatus.DECLINED;
+      dto.response === 'ACCEPTED'
+        ? InvitationStatus.ACCEPTED
+        : InvitationStatus.DECLINED;
     invitation.respondedAt = new Date();
     invitation.responseMessage = dto.responseMessage;
 
@@ -449,14 +503,18 @@ export class InvitationsService {
     });
 
     if (!invitation) {
-      throw new NotFoundException(`Invitation with ID ${invitationId} not found`);
+      throw new NotFoundException(
+        `Invitation with ID ${invitationId} not found`,
+      );
     }
 
     if (
       invitation.tournament?.organizerId !== userId &&
       userRole !== UserRole.ADMIN
     ) {
-      throw new ForbiddenException('You can only resend invitations for your own tournaments');
+      throw new ForbiddenException(
+        'You can only resend invitations for your own tournaments',
+      );
     }
 
     if (invitation.status !== InvitationStatus.PENDING) {
@@ -485,14 +543,18 @@ export class InvitationsService {
     });
 
     if (!invitation) {
-      throw new NotFoundException(`Invitation with ID ${invitationId} not found`);
+      throw new NotFoundException(
+        `Invitation with ID ${invitationId} not found`,
+      );
     }
 
     if (
       invitation.tournament?.organizerId !== userId &&
       userRole !== UserRole.ADMIN
     ) {
-      throw new ForbiddenException('You can only cancel invitations for your own tournaments');
+      throw new ForbiddenException(
+        'You can only cancel invitations for your own tournaments',
+      );
     }
 
     await this.invitationsRepository.remove(invitation);
@@ -514,11 +576,15 @@ export class InvitationsService {
     });
 
     if (!tournament) {
-      throw new NotFoundException(`Tournament with ID ${tournamentId} not found`);
+      throw new NotFoundException(
+        `Tournament with ID ${tournamentId} not found`,
+      );
     }
 
     if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
-      throw new ForbiddenException('You can only view stats for your own tournaments');
+      throw new ForbiddenException(
+        'You can only view stats for your own tournaments',
+      );
     }
 
     const stats = await this.invitationsRepository

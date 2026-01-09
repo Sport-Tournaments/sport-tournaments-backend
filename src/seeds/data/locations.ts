@@ -17,29 +17,29 @@ export const ROMANIAN_CITIES: CityLocation[] = [
   { name: 'Constanța', country: 'Romania', lat: 44.1598, lng: 28.6348 },
   { name: 'Craiova', country: 'Romania', lat: 44.3302, lng: 23.7949 },
   { name: 'Brașov', country: 'Romania', lat: 45.6427, lng: 25.5887 },
-  { name: 'Galați', country: 'Romania', lat: 45.4353, lng: 28.0080 },
+  { name: 'Galați', country: 'Romania', lat: 45.4353, lng: 28.008 },
   { name: 'Ploiești', country: 'Romania', lat: 44.9364, lng: 26.0136 },
   { name: 'Oradea', country: 'Romania', lat: 47.0722, lng: 21.9217 },
   { name: 'Brăila', country: 'Romania', lat: 45.2692, lng: 27.9575 },
   { name: 'Arad', country: 'Romania', lat: 46.1866, lng: 21.3123 },
   { name: 'Pitești', country: 'Romania', lat: 44.8565, lng: 24.8692 },
   { name: 'Sibiu', country: 'Romania', lat: 45.7983, lng: 24.1256 },
-  { name: 'Bacău', country: 'Romania', lat: 46.5670, lng: 26.9146 },
+  { name: 'Bacău', country: 'Romania', lat: 46.567, lng: 26.9146 },
 ];
 
 export const EUROPEAN_CITIES: CityLocation[] = [
   // Germany
-  { name: 'Berlin', country: 'Germany', lat: 52.5200, lng: 13.4050 },
-  { name: 'Munich', country: 'Germany', lat: 48.1351, lng: 11.5820 },
+  { name: 'Berlin', country: 'Germany', lat: 52.52, lng: 13.405 },
+  { name: 'Munich', country: 'Germany', lat: 48.1351, lng: 11.582 },
   { name: 'Frankfurt', country: 'Germany', lat: 50.1109, lng: 8.6821 },
   { name: 'Hamburg', country: 'Germany', lat: 53.5511, lng: 9.9937 },
   { name: 'Cologne', country: 'Germany', lat: 50.9375, lng: 6.9603 },
   // France
   { name: 'Paris', country: 'France', lat: 48.8566, lng: 2.3522 },
-  { name: 'Lyon', country: 'France', lat: 45.7640, lng: 4.8357 },
+  { name: 'Lyon', country: 'France', lat: 45.764, lng: 4.8357 },
   { name: 'Marseille', country: 'France', lat: 43.2965, lng: 5.3698 },
   { name: 'Toulouse', country: 'France', lat: 43.6047, lng: 1.4442 },
-  { name: 'Nice', country: 'France', lat: 43.7102, lng: 7.2620 },
+  { name: 'Nice', country: 'France', lat: 43.7102, lng: 7.262 },
   // Spain
   { name: 'Madrid', country: 'Spain', lat: 40.4168, lng: -3.7038 },
   { name: 'Barcelona', country: 'Spain', lat: 41.3851, lng: 2.1734 },
@@ -47,7 +47,7 @@ export const EUROPEAN_CITIES: CityLocation[] = [
   { name: 'Seville', country: 'Spain', lat: 37.3891, lng: -5.9845 },
   // Italy
   { name: 'Rome', country: 'Italy', lat: 41.9028, lng: 12.4964 },
-  { name: 'Milan', country: 'Italy', lat: 45.4642, lng: 9.1900 },
+  { name: 'Milan', country: 'Italy', lat: 45.4642, lng: 9.19 },
   { name: 'Naples', country: 'Italy', lat: 40.8518, lng: 14.2681 },
   { name: 'Turin', country: 'Italy', lat: 45.0703, lng: 7.6869 },
   // England
@@ -65,7 +65,7 @@ export const EUROPEAN_CITIES: CityLocation[] = [
   { name: 'Porto', country: 'Portugal', lat: 41.1579, lng: -8.6291 },
   // Poland
   { name: 'Warsaw', country: 'Poland', lat: 52.2297, lng: 21.0122 },
-  { name: 'Krakow', country: 'Poland', lat: 50.0647, lng: 19.9450 },
+  { name: 'Krakow', country: 'Poland', lat: 50.0647, lng: 19.945 },
   // Austria
   { name: 'Vienna', country: 'Austria', lat: 48.2082, lng: 16.3738 },
   // Hungary
@@ -74,7 +74,10 @@ export const EUROPEAN_CITIES: CityLocation[] = [
   { name: 'Prague', country: 'Czech Republic', lat: 50.0755, lng: 14.4378 },
 ];
 
-export const ALL_CITIES: CityLocation[] = [...ROMANIAN_CITIES, ...EUROPEAN_CITIES];
+export const ALL_CITIES: CityLocation[] = [
+  ...ROMANIAN_CITIES,
+  ...EUROPEAN_CITIES,
+];
 
 export const COUNTRIES = [
   'Romania',

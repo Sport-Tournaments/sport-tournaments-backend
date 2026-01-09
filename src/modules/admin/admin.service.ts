@@ -1,11 +1,6 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, Between, ILike } from 'typeorm';
+import { Repository, Between } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { Tournament } from '../tournaments/entities/tournament.entity';
 import { Registration } from '../registrations/entities/registration.entity';
@@ -162,8 +157,18 @@ export class AdminService {
   }
 
   // User Management
-  async getUsers(filterDto: AdminUserFilterDto): Promise<PaginatedResponse<User>> {
-    const { search, role, isActive, isVerified, country, page = 1, limit = 20 } = filterDto;
+  async getUsers(
+    filterDto: AdminUserFilterDto,
+  ): Promise<PaginatedResponse<User>> {
+    const {
+      search,
+      role,
+      isActive,
+      isVerified,
+      country,
+      page = 1,
+      limit = 20,
+    } = filterDto;
 
     const queryBuilder = this.usersRepository
       .createQueryBuilder('user')
@@ -233,7 +238,7 @@ export class AdminService {
     const user = await this.getUserDetails(id);
     user.role = dto.role;
     await this.usersRepository.save(user);
-    
+
     this.logger.log(`User ${id} role updated to ${dto.role}`);
     return user;
   }
@@ -261,12 +266,23 @@ export class AdminService {
     user.isActive = false;
     await this.usersRepository.save(user);
 
-    this.logger.log(`User ${id} deactivated. Reason: ${dto.reason || 'Not provided'}`);
+    this.logger.log(
+      `User ${id} deactivated. Reason: ${dto.reason || 'Not provided'}`,
+    );
   }
 
   // Tournament Moderation
-  async getTournaments(filterDto: AdminTournamentFilterDto): Promise<PaginatedResponse<Tournament>> {
-    const { search, status, organizerId, country, page = 1, limit = 20 } = filterDto;
+  async getTournaments(
+    filterDto: AdminTournamentFilterDto,
+  ): Promise<PaginatedResponse<Tournament>> {
+    const {
+      search,
+      status,
+      organizerId,
+      country,
+      page = 1,
+      limit = 20,
+    } = filterDto;
 
     const queryBuilder = this.tournamentsRepository
       .createQueryBuilder('tournament')
@@ -284,7 +300,9 @@ export class AdminService {
     }
 
     if (organizerId) {
-      queryBuilder.andWhere('tournament.organizerId = :organizerId', { organizerId });
+      queryBuilder.andWhere('tournament.organizerId = :organizerId', {
+        organizerId,
+      });
     }
 
     if (country) {
@@ -311,7 +329,10 @@ export class AdminService {
     };
   }
 
-  async forceCancelTournament(id: string, dto: AdminActionDto): Promise<Tournament> {
+  async forceCancelTournament(
+    id: string,
+    dto: AdminActionDto,
+  ): Promise<Tournament> {
     const tournament = await this.tournamentsRepository.findOne({
       where: { id },
       relations: ['organizer', 'registrations'],
@@ -332,7 +353,9 @@ export class AdminService {
       message: `Your tournament "${tournament.name}" has been cancelled by an administrator. Reason: ${dto.reason || 'Policy violation'}`,
     });
 
-    this.logger.log(`Tournament ${id} force cancelled by admin. Reason: ${dto.reason}`);
+    this.logger.log(
+      `Tournament ${id} force cancelled by admin. Reason: ${dto.reason}`,
+    );
     return tournament;
   }
 
@@ -353,7 +376,9 @@ export class AdminService {
   }
 
   // Payment Reconciliation
-  async getPayments(filterDto: AdminPaymentFilterDto): Promise<PaginatedResponse<Payment>> {
+  async getPayments(
+    filterDto: AdminPaymentFilterDto,
+  ): Promise<PaginatedResponse<Payment>> {
     const { status, tournamentId, userId, page = 1, limit = 20 } = filterDto;
 
     const queryBuilder = this.paymentsRepository
@@ -367,7 +392,9 @@ export class AdminService {
     }
 
     if (tournamentId) {
-      queryBuilder.andWhere('payment.tournamentId = :tournamentId', { tournamentId });
+      queryBuilder.andWhere('payment.tournamentId = :tournamentId', {
+        tournamentId,
+      });
     }
 
     if (userId) {
@@ -394,7 +421,10 @@ export class AdminService {
     };
   }
 
-  async getPaymentReport(startDate: Date, endDate: Date): Promise<Record<string, any>> {
+  async getPaymentReport(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<Record<string, any>> {
     const payments = await this.paymentsRepository
       .createQueryBuilder('payment')
       .where('payment.createdAt BETWEEN :startDate AND :endDate', {
@@ -405,18 +435,24 @@ export class AdminService {
       .getMany();
 
     const totalRevenue = payments.reduce((sum, p) => sum + Number(p.amount), 0);
-    const totalFees = payments.reduce((sum, p) => sum + Number(p.stripeFee || 0), 0);
+    const totalFees = payments.reduce(
+      (sum, p) => sum + Number(p.stripeFee || 0),
+      0,
+    );
 
     // Group by currency
-    const byCurrency = payments.reduce((acc, p) => {
-      const currency = p.currency || 'EUR';
-      if (!acc[currency]) {
-        acc[currency] = { count: 0, total: 0 };
-      }
-      acc[currency].count++;
-      acc[currency].total += Number(p.amount);
-      return acc;
-    }, {} as Record<string, { count: number; total: number }>);
+    const byCurrency = payments.reduce(
+      (acc, p) => {
+        const currency = p.currency || 'EUR';
+        if (!acc[currency]) {
+          acc[currency] = { count: 0, total: 0 };
+        }
+        acc[currency].count++;
+        acc[currency].total += Number(p.amount);
+        return acc;
+      },
+      {} as Record<string, { count: number; total: number }>,
+    );
 
     return {
       period: { startDate, endDate },

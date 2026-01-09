@@ -97,10 +97,16 @@ export class User {
   @OneToMany(() => Tournament, (tournament: Tournament) => tournament.organizer)
   tournaments: Tournament[];
 
-  @OneToMany(() => Notification, (notification: Notification) => notification.user)
+  @OneToMany(
+    () => Notification,
+    (notification: Notification) => notification.user,
+  )
   notifications: Notification[];
 
-  @OneToMany(() => RefreshToken, (refreshToken: RefreshToken) => refreshToken.user)
+  @OneToMany(
+    () => RefreshToken,
+    (refreshToken: RefreshToken) => refreshToken.user,
+  )
   refreshTokens: RefreshToken[];
 
   // Virtual property for full name

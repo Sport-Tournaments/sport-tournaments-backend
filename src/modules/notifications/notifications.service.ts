@@ -28,14 +28,21 @@ export class NotificationsService {
     private notificationsRepository: Repository<Notification>,
   ) {}
 
-  async create(createNotificationDto: CreateNotificationDto): Promise<Notification> {
-    const notification = this.notificationsRepository.create(createNotificationDto);
-    const savedNotification = await this.notificationsRepository.save(notification);
+  async create(
+    createNotificationDto: CreateNotificationDto,
+  ): Promise<Notification> {
+    const notification = this.notificationsRepository.create(
+      createNotificationDto,
+    );
+    const savedNotification =
+      await this.notificationsRepository.save(notification);
 
     // TODO: If sendEmailNotification is true, queue email sending job
     if (createNotificationDto.sendEmailNotification) {
       // This would typically dispatch to a queue/job system
-      console.log(`Email notification queued for user ${createNotificationDto.userId}`);
+      console.log(
+        `Email notification queued for user ${createNotificationDto.userId}`,
+      );
     }
 
     return savedNotification;
@@ -48,12 +55,13 @@ export class NotificationsService {
     const { page = 1, pageSize = 20 } = pagination;
     const skip = (page - 1) * pageSize;
 
-    const [notifications, total] = await this.notificationsRepository.findAndCount({
-      where: { userId },
-      order: { createdAt: 'DESC' },
-      skip,
-      take: pageSize,
-    });
+    const [notifications, total] =
+      await this.notificationsRepository.findAndCount({
+        where: { userId },
+        order: { createdAt: 'DESC' },
+        skip,
+        take: pageSize,
+      });
 
     return {
       data: notifications,

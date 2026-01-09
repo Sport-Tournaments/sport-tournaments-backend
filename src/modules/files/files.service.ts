@@ -52,7 +52,9 @@ export class FilesService {
     private configService: ConfigService,
   ) {
     const accessKeyId = this.configService.get<string>('aws.accessKeyId');
-    const secretAccessKey = this.configService.get<string>('aws.secretAccessKey');
+    const secretAccessKey = this.configService.get<string>(
+      'aws.secretAccessKey',
+    );
     const region = this.configService.get<string>('aws.region');
     const endpoint = this.configService.get<string>('aws.s3Endpoint');
 
@@ -68,7 +70,9 @@ export class FilesService {
       });
     }
 
-    this.bucket = this.configService.get<string>('aws.s3Bucket') || 'football-tournament-files';
+    this.bucket =
+      this.configService.get<string>('aws.s3Bucket') ||
+      'football-tournament-files';
   }
 
   async upload(uploadFileDto: UploadFileDto): Promise<FileEntity> {
@@ -93,7 +97,9 @@ export class FilesService {
     }
 
     if (isDocument && file.size > maxDocumentSize) {
-      throw new BadRequestException('Document file size must be less than 10MB');
+      throw new BadRequestException(
+        'Document file size must be less than 10MB',
+      );
     }
 
     // Generate unique filename
@@ -122,7 +128,9 @@ export class FilesService {
     }
 
     // Create file record
-    const endpoint = this.configService.get<string>('aws.s3Endpoint') || `https://s3.${this.configService.get<string>('aws.region')}.amazonaws.com`;
+    const endpoint =
+      this.configService.get<string>('aws.s3Endpoint') ||
+      `https://s3.${this.configService.get<string>('aws.region')}.amazonaws.com`;
     const s3Url = `${endpoint}/${this.bucket}/${s3Key}`;
 
     const fileEntity = this.filesRepository.create({
@@ -215,7 +223,10 @@ export class FilesService {
     await this.filesRepository.remove(file);
   }
 
-  async findByEntity(entityType: string, entityId: string): Promise<FileEntity[]> {
+  async findByEntity(
+    entityType: string,
+    entityId: string,
+  ): Promise<FileEntity[]> {
     return this.filesRepository.find({
       where: { entityType, entityId },
       order: { createdAt: 'DESC' },

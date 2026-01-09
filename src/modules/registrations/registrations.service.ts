@@ -105,9 +105,10 @@ export class RegistrationsService {
       ...createRegistrationDto,
       tournamentId,
       status: RegistrationStatus.PENDING,
-      paymentStatus: tournament.participationFee > 0
-        ? PaymentStatus.PENDING
-        : PaymentStatus.COMPLETED,
+      paymentStatus:
+        tournament.participationFee > 0
+          ? PaymentStatus.PENDING
+          : PaymentStatus.COMPLETED,
     });
 
     const savedRegistration =
@@ -241,9 +242,7 @@ export class RegistrationsService {
       registration.status !== RegistrationStatus.PENDING &&
       userRole !== UserRole.ADMIN
     ) {
-      throw new BadRequestException(
-        'Can only update pending registrations',
-      );
+      throw new BadRequestException('Can only update pending registrations');
     }
 
     Object.assign(registration, updateRegistrationDto);
@@ -338,7 +337,11 @@ export class RegistrationsService {
     return this.registrationsRepository.save(registration);
   }
 
-  async withdraw(id: string, userId: string, userRole: string): Promise<Registration> {
+  async withdraw(
+    id: string,
+    userId: string,
+    userRole: string,
+  ): Promise<Registration> {
     const registration = await this.findByIdOrFail(id);
 
     // Check if user owns the club
@@ -463,7 +466,9 @@ export class RegistrationsService {
     };
   }
 
-  async getApprovedRegistrations(tournamentId: string): Promise<Registration[]> {
+  async getApprovedRegistrations(
+    tournamentId: string,
+  ): Promise<Registration[]> {
     return this.registrationsRepository.find({
       where: {
         tournamentId,

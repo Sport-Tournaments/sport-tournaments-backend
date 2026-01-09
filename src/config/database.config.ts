@@ -7,35 +7,47 @@ export const getDatabaseConfig = (
   const databaseUrl = configService.get<string>('databaseUrl');
   const nodeEnv = configService.get<string>('nodeEnv');
 
-  // If DATABASE_URL is provided, use it
-  if (databaseUrl) {
-    // Detect database type from URL
-    const isPostgres = databaseUrl.startsWith('postgres');
-    
-    return {
-      type: isPostgres ? 'postgres' : 'mysql',
-      url: databaseUrl,
-      entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-      synchronize: nodeEnv !== 'production',
-      logging: nodeEnv === 'development',
-      autoLoadEntities: true,
-      ssl: isPostgres ? { rejectUnauthorized: false } : undefined,
-    };
+  if (!databaseUrl) {
+    throw new Error(
+      'DATABASE_URL environment variable is required. Please set it to your PostgreSQL connection URL.',
+    );
   }
 
-  // Fallback to individual DB_ variables (MySQL)
+  // Validate that it's a PostgreSQL URL
+  if (
+    !databaseUrl.startsWith('postgres://') &&
+    !databaseUrl.startsWith('postgresql://')
+  ) {
+    throw new Error(
+      'DATABASE_URL must be a PostgreSQL connection URL (starting with postgres:// or postgresql://)',
+    );
+  }
+
+  // Parse URL to check for sslmode parameter
+  const url = new URL(databaseUrl);
+  const sslMode = url.searchParams.get('sslmode');
+
+  // Determine SSL configuration
+  let sslConfig: boolean | { rejectUnauthorized: boolean };
+
+  if (nodeEnv === 'test') {
+    // Disable SSL for test environment
+    sslConfig = false;
+  } else if (sslMode === 'disable' || sslMode === 'false') {
+    // Explicitly disable SSL if specified in connection string
+    sslConfig = false;
+  } else {
+    // Enable SSL but don't verify certificate (for self-signed certs)
+    sslConfig = { rejectUnauthorized: false };
+  }
+
   return {
-    type: 'mysql',
-    host: configService.get<string>('database.host') || 'localhost',
-    port: configService.get<number>('database.port') || 3306,
-    username: configService.get<string>('database.username') || 'root',
-    password: configService.get<string>('database.password') || 'password',
-    database: configService.get<string>('database.database') || 'football_tournament',
+    type: 'postgres',
+    url: databaseUrl,
     entities: [__dirname + '/../**/*.entity{.ts,.js}'],
     synchronize: nodeEnv !== 'production',
     logging: nodeEnv === 'development',
     autoLoadEntities: true,
-    charset: 'utf8mb4',
-    timezone: 'Z',
+    ssl: sslConfig,
   };
 };

@@ -34,7 +34,9 @@ export interface SeededTournament {
 
 const AGE_CATEGORIES = Object.values(AgeCategory);
 const TOURNAMENT_LEVELS = Object.values(TournamentLevel);
-const STATUSES = Object.values(TournamentStatus).filter(s => s !== TournamentStatus.CANCELLED);
+const STATUSES = Object.values(TournamentStatus).filter(
+  (s) => s !== TournamentStatus.CANCELLED,
+);
 
 /**
  * Generate a realistic tournament name
@@ -44,7 +46,7 @@ function generateTournamentName(ageCategory: AgeCategory): string {
   const suffix = pickRandom(TOURNAMENT_NAME_SUFFIXES);
   const year = faker.number.int({ min: 2024, max: 2026 });
   const city = faker.helpers.arrayElement(ROMANIAN_CITIES).name;
-  
+
   const patterns = [
     `${city} ${prefix} ${suffix} ${ageCategory} ${year}`,
     `${prefix} ${ageCategory} ${suffix} ${year}`,
@@ -52,7 +54,7 @@ function generateTournamentName(ageCategory: AgeCategory): string {
     `${prefix} ${city} ${suffix} ${year}`,
     `${ageCategory} ${prefix} ${suffix} ${year}`,
   ];
-  
+
   return pickRandom(patterns);
 }
 
@@ -88,11 +90,11 @@ export async function seedTournaments(
       const id = generateUUID();
       const name = generateTournamentName(ageCategory);
       const fee = generateTournamentFee();
-      
+
       // Date ranges based on status
       let startDate: Date;
       let endDate: Date;
-      
+
       switch (status) {
         case TournamentStatus.DRAFT:
           ({ startDate, endDate } = getTournamentDateRange(true));
@@ -100,7 +102,9 @@ export async function seedTournaments(
         case TournamentStatus.PUBLISHED:
           startDate = faker.date.soon({ days: 90 });
           endDate = new Date(startDate);
-          endDate.setDate(endDate.getDate() + faker.number.int({ min: 1, max: 3 }));
+          endDate.setDate(
+            endDate.getDate() + faker.number.int({ min: 1, max: 3 }),
+          );
           break;
         case TournamentStatus.ONGOING:
           startDate = faker.date.recent({ days: 2 });
@@ -120,14 +124,25 @@ export async function seedTournaments(
 
       let currentTeams = 0;
       if (status === TournamentStatus.PUBLISHED) {
-        currentTeams = faker.number.int({ min: 2, max: Math.floor(maxTeams * 0.7) });
-      } else if (status === TournamentStatus.ONGOING || status === TournamentStatus.COMPLETED) {
-        currentTeams = faker.number.int({ min: Math.floor(maxTeams * 0.6), max: maxTeams });
+        currentTeams = faker.number.int({
+          min: 2,
+          max: Math.floor(maxTeams * 0.7),
+        });
+      } else if (
+        status === TournamentStatus.ONGOING ||
+        status === TournamentStatus.COMPLETED
+      ) {
+        currentTeams = faker.number.int({
+          min: Math.floor(maxTeams * 0.6),
+          max: maxTeams,
+        });
       }
 
       const latOffset = faker.number.float({ min: -0.05, max: 0.05 });
       const lngOffset = faker.number.float({ min: -0.05, max: 0.05 });
-      const drawCompleted = status === TournamentStatus.ONGOING || status === TournamentStatus.COMPLETED;
+      const drawCompleted =
+        status === TournamentStatus.ONGOING ||
+        status === TournamentStatus.COMPLETED;
 
       await tournamentRepository.insert({
         id,
@@ -156,7 +171,8 @@ export async function seedTournaments(
         isPublished: status !== TournamentStatus.DRAFT,
         isFeatured: faker.datatype.boolean({ probability: 0.1 }),
         tags: pickRandomMultiple(TOURNAMENT_TAGS, { min: 1, max: 4 }),
-        registrationDeadline: status === TournamentStatus.DRAFT ? undefined : registrationDeadline,
+        registrationDeadline:
+          status === TournamentStatus.DRAFT ? undefined : registrationDeadline,
         contactEmail: faker.internet.email(),
         contactPhone: generateRomanianPhone(),
         drawSeed: drawCompleted ? faker.string.alphanumeric(16) : undefined,
@@ -187,10 +203,10 @@ export async function seedTournaments(
     const id = generateUUID();
     const name = generateTournamentName(ageCategory);
     const fee = generateTournamentFee();
-    
+
     let startDate: Date;
     let endDate: Date;
-    
+
     if (status === TournamentStatus.COMPLETED) {
       ({ startDate, endDate } = getTournamentDateRange(false));
     } else if (status === TournamentStatus.ONGOING) {
@@ -200,13 +216,16 @@ export async function seedTournaments(
       ({ startDate, endDate } = getTournamentDateRange(true));
     }
 
-    const currentTeams = status === TournamentStatus.DRAFT
-      ? 0
-      : faker.number.int({ min: 2, max: maxTeams });
+    const currentTeams =
+      status === TournamentStatus.DRAFT
+        ? 0
+        : faker.number.int({ min: 2, max: maxTeams });
 
     const latOffset = faker.number.float({ min: -0.05, max: 0.05 });
     const lngOffset = faker.number.float({ min: -0.05, max: 0.05 });
-    const drawCompleted = status === TournamentStatus.ONGOING || status === TournamentStatus.COMPLETED;
+    const drawCompleted =
+      status === TournamentStatus.ONGOING ||
+      status === TournamentStatus.COMPLETED;
 
     await tournamentRepository.insert({
       id,

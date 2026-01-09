@@ -13,11 +13,7 @@ services:
     environment:
       - NODE_ENV=${NODE_ENV:-development}
       - PORT=3000
-      - DB_HOST=mysql
-      - DB_PORT=3306
-      - DB_USERNAME=${DB_USERNAME:-football_user}
-      - DB_PASSWORD=${DB_PASSWORD:-football_password}
-      - DB_DATABASE=${DB_DATABASE:-nest-app-opus}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-tournamente}
       - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-15m}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-your-super-secret-refresh-key}
@@ -28,10 +24,15 @@ services:
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - AWS_REGION=${AWS_REGION:-eu-central-1}
       - AWS_S3_BUCKET=${AWS_S3_BUCKET:-football-tournament-files}
+      - AWS_S3_ENDPOINT=${AWS_S3_ENDPOINT}
       - SENDGRID_API_KEY=${SENDGRID_API_KEY}
       - SENDGRID_FROM_EMAIL=${SENDGRID_FROM_EMAIL}
+      - SENDGRID_FROM_NAME=${SENDGRID_FROM_NAME}
+      - REQUIRE_EMAIL_VERIFICATION=${REQUIRE_EMAIL_VERIFICATION:-false}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3001}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3001}
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
     networks:
       - nest-app-opus-network
@@ -42,30 +43,27 @@ services:
       retries: 3
       start_period: 40s
 
-  # MySQL Database
-  mysql:
-    image: mysql:8.0
-    container_name: nest-app-opus-mysql
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: nest-app-opus-postgres
     restart: unless-stopped
     ports:
-      - "${DB_EXTERNAL_PORT:-3306}:3306"
+      - "${DB_EXTERNAL_PORT:-5432}:5432"
     environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-root_password}
-      - MYSQL_DATABASE=${DB_DATABASE:-nest-app-opus}
-      - MYSQL_USER=${DB_USERNAME:-football_user}
-      - MYSQL_PASSWORD=${DB_PASSWORD:-football_password}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-tournamente}
     volumes:
-      - nest_app_opus_mysql_data:/var/lib/mysql
-      - ./docker/mysql/init:/docker-entrypoint-initdb.d
+      - nest_app_opus_postgres_data:/var/lib/postgresql/data
     networks:
       - nest-app-opus-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root_password}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
-    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
 
   # Redis (for caching and session storage - optional)
   redis:
@@ -86,7 +84,7 @@ services:
     command: redis-server --appendonly yes
 
 volumes:
-  nest_app_opus_mysql_data:
+  nest_app_opus_postgres_data:
     driver: local
   nest_app_opus_redis_data:
     driver: local

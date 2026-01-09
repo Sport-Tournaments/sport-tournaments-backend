@@ -7,7 +7,6 @@ import {
   IsEnum,
   IsDateString,
   ValidateIf,
-  ArrayMinSize,
   MaxLength,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -33,7 +32,9 @@ export class CreateInvitationDto {
   @IsEnum(InvitationType)
   type?: InvitationType;
 
-  @ApiPropertyOptional({ description: 'Custom message to include in invitation' })
+  @ApiPropertyOptional({
+    description: 'Custom message to include in invitation',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(1000)
@@ -50,19 +51,27 @@ export class BulkInvitationDto {
   @IsUUID()
   tournamentId: string;
 
-  @ApiPropertyOptional({ description: 'Array of club IDs to invite', type: [String] })
+  @ApiPropertyOptional({
+    description: 'Array of club IDs to invite',
+    type: [String],
+  })
   @IsOptional()
   @IsArray()
   @IsUUID('4', { each: true })
   clubIds?: string[];
 
-  @ApiPropertyOptional({ description: 'Array of emails to invite', type: [String] })
+  @ApiPropertyOptional({
+    description: 'Array of emails to invite',
+    type: [String],
+  })
   @IsOptional()
   @IsArray()
   @IsEmail({}, { each: true })
   emails?: string[];
 
-  @ApiPropertyOptional({ description: 'Custom message to include in all invitations' })
+  @ApiPropertyOptional({
+    description: 'Custom message to include in all invitations',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(1000)
@@ -96,7 +105,9 @@ export class InvitePastParticipantsDto {
   @IsUUID()
   tournamentId: string;
 
-  @ApiPropertyOptional({ description: 'Limit invitations to teams from specific past tournament' })
+  @ApiPropertyOptional({
+    description: 'Limit invitations to teams from specific past tournament',
+  })
   @IsOptional()
   @IsUUID()
   fromTournamentId?: string;

@@ -76,7 +76,11 @@ export class BracketGeneratorService {
 
     switch (type) {
       case BracketType.GROUPS_ONLY:
-        return this.generateGroupsOnlyBracket(teamCount, options.groupCount, seed);
+        return this.generateGroupsOnlyBracket(
+          teamCount,
+          options.groupCount,
+          seed,
+        );
 
       case BracketType.SINGLE_ELIMINATION:
         return this.generateSingleEliminationBracket(
@@ -101,7 +105,11 @@ export class BracketGeneratorService {
         );
 
       default:
-        return this.generateGroupsOnlyBracket(teamCount, options.groupCount, seed);
+        return this.generateGroupsOnlyBracket(
+          teamCount,
+          options.groupCount,
+          seed,
+        );
     }
   }
 
@@ -136,7 +144,6 @@ export class BracketGeneratorService {
     // Calculate number of rounds needed
     const roundsNeeded = Math.ceil(Math.log2(teamCount));
     const bracketSize = Math.pow(2, roundsNeeded);
-    const byes = bracketSize - teamCount;
 
     const playoffRounds: PlayoffRound[] = [];
     let matchId = 1;
@@ -230,7 +237,9 @@ export class BracketGeneratorService {
     // Losers bracket rounds (2 * roundsNeeded - 1 rounds)
     const loserRounds = 2 * roundsNeeded - 2;
     for (let round = 1; round <= loserRounds; round++) {
-      const matchesInRound = Math.ceil(bracketSize / Math.pow(2, Math.ceil(round / 2) + 1));
+      const matchesInRound = Math.ceil(
+        bracketSize / Math.pow(2, Math.ceil(round / 2) + 1),
+      );
       const roundName = `Losers Round ${round}`;
 
       const matches: Match[] = [];
@@ -279,8 +288,6 @@ export class BracketGeneratorService {
     teamCount: number,
     seed?: string,
   ): BracketData {
-    // Total matches = n(n-1)/2
-    const totalMatches = (teamCount * (teamCount - 1)) / 2;
     const matches: Match[] = [];
     let matchId = 1;
     let round = 1;
@@ -393,8 +400,10 @@ export class BracketGeneratorService {
    * Generate a random seed
    */
   private generateSeed(): string {
-    return Math.random().toString(36).substring(2, 15) +
-           Math.random().toString(36).substring(2, 15);
+    return (
+      Math.random().toString(36).substring(2, 15) +
+      Math.random().toString(36).substring(2, 15)
+    );
   }
 
   /**
@@ -466,7 +475,8 @@ export class BracketGeneratorService {
       // Points
       if (b.points !== a.points) return b.points - a.points;
       // Goal difference
-      if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference;
+      if (b.goalDifference !== a.goalDifference)
+        return b.goalDifference - a.goalDifference;
       // Goals for
       if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
       // Default
@@ -489,7 +499,11 @@ export class BracketGeneratorService {
     advancingPerGroup: number,
     bracketData: BracketData,
   ): BracketData {
-    const advancingTeams: { teamId: string; groupId: string; position: number }[] = [];
+    const advancingTeams: {
+      teamId: string;
+      groupId: string;
+      position: number;
+    }[] = [];
 
     // Collect advancing teams
     groupStandings.forEach((standings, groupId) => {
@@ -508,13 +522,13 @@ export class BracketGeneratorService {
     // Seed into first round matches
     if (bracketData.playoffRounds && bracketData.playoffRounds.length > 0) {
       const firstRound = bracketData.playoffRounds[0];
-      
+
       // Standard seeding: 1st place teams vs 2nd place teams from different groups
       // This is a simplified version - real tournaments have more complex seeding rules
       firstRound.matches.forEach((match, index) => {
         const team1Index = index;
         const team2Index = advancingTeams.length - 1 - index;
-        
+
         if (advancingTeams[team1Index]) {
           match.team1Id = advancingTeams[team1Index].teamId;
         }

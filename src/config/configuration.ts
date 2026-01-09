@@ -8,17 +8,8 @@ export default () => ({
     origins: process.env.CORS_ORIGINS || 'http://localhost:3000',
   },
 
-  // DATABASE_URL takes priority over individual DB_ variables
+  // PostgreSQL database connection URL (required)
   databaseUrl: process.env.DATABASE_URL,
-
-  // Fallback individual database config (used if DATABASE_URL is not set)
-  database: {
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '3306', 10),
-    username: process.env.DB_USERNAME || 'root',
-    password: process.env.DB_PASSWORD || 'password',
-    database: process.env.DB_DATABASE || 'football_tournament',
-  },
 
   jwt: {
     secret: process.env.JWT_SECRET || 'default-secret-change-me',
@@ -46,6 +37,11 @@ export default () => ({
     fromEmail: process.env.SENDGRID_FROM_EMAIL || 'noreply@yourdomain.com',
     fromName: process.env.SENDGRID_FROM_NAME || 'Football Tournament Platform',
   },
+
+  // Email verification toggle (set to 'true' to require email verification on registration)
+  requireEmailVerification:
+    process.env.REQUIRE_EMAIL_VERIFICATION === 'true' ||
+    process.env.REQUIRE_EMAIL_VERIFICATION === '1',
 
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3001',
 

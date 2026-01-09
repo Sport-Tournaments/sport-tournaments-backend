@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Club } from './entities/club.entity';
 import {
   CreateClubDto,
@@ -24,7 +24,10 @@ export class ClubsService {
     private clubsRepository: Repository<Club>,
   ) {}
 
-  async create(organizerId: string, createClubDto: CreateClubDto): Promise<Club> {
+  async create(
+    organizerId: string,
+    createClubDto: CreateClubDto,
+  ): Promise<Club> {
     // Check if club with same name already exists
     const existingClub = await this.clubsRepository.findOne({
       where: { name: createClubDto.name },
@@ -152,7 +155,10 @@ export class ClubsService {
     return this.clubsRepository.save(club);
   }
 
-  async adminUpdate(id: string, adminUpdateClubDto: AdminUpdateClubDto): Promise<Club> {
+  async adminUpdate(
+    id: string,
+    adminUpdateClubDto: AdminUpdateClubDto,
+  ): Promise<Club> {
     const club = await this.findByIdOrFail(id);
 
     Object.assign(club, adminUpdateClubDto);
