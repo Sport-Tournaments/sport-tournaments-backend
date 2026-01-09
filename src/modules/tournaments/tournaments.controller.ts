@@ -4,6 +4,7 @@ import {
   Post,
   Body,
   Patch,
+  Put,
   Param,
   Delete,
   Query,
@@ -24,6 +25,7 @@ import {
   AdminUpdateTournamentDto,
   ValidateInvitationCodeDto,
   RegenerateInvitationCodeDto,
+  UpdateAgeGroupsDto,
 } from './dto';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards';
 import { Roles, CurrentUser, Public } from '../../common/decorators';
@@ -123,6 +125,27 @@ export class TournamentsController {
       user.sub,
       user.role,
       updateTournamentDto,
+    );
+  }
+
+  @Put(':id/age-groups')
+  @Roles(UserRole.ORGANIZER)
+  @ApiOperation({ summary: 'Update tournament age groups' })
+  @ApiResponse({ status: 200, description: 'Age groups updated successfully' })
+  @ApiResponse({
+    status: 403,
+    description: 'Not allowed to update this tournament',
+  })
+  updateAgeGroups(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() updateAgeGroupsDto: UpdateAgeGroupsDto,
+  ) {
+    return this.tournamentsService.updateAgeGroups(
+      id,
+      user.sub,
+      user.role,
+      updateAgeGroupsDto.ageGroups,
     );
   }
 

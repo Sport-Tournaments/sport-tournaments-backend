@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 import { Tournament } from './entities/tournament.entity';
+import { TournamentAgeGroup } from './entities/tournament-age-group.entity';
 import {
   CreateTournamentDto,
   UpdateTournamentDto,
@@ -22,6 +23,8 @@ export class TournamentsService {
   constructor(
     @InjectRepository(Tournament)
     private tournamentsRepository: Repository<Tournament>,
+    @InjectRepository(TournamentAgeGroup)
+    private ageGroupsRepository: Repository<TournamentAgeGroup>,
   ) {}
 
   async create(
@@ -50,7 +53,22 @@ export class TournamentsService {
       status: TournamentStatus.DRAFT,
     });
 
-    return this.tournamentsRepository.save(tournament);
+    const savedTournament = await this.tournamentsRepository.save(tournament);
+
+    // Save age groups if provided
+    if (ageGroups && ageGroups.length > 0) {
+      const ageGroupEntities = ageGroups.map((ag) =>
+        this.ageGroupsRepository.create({
+          ...ag,
+          tournamentId: savedTournament.id,
+          startDate: ag.startDate ? new Date(ag.startDate) : startDate,
+          endDate: ag.endDate ? new Date(ag.endDate) : endDate,
+        }),
+      );
+      await this.ageGroupsRepository.save(ageGroupEntities);
+    }
+
+    return savedTournament;
   }
 
   async findAll(
@@ -239,7 +257,7 @@ export class TournamentsService {
   async findById(id: string): Promise<Tournament | null> {
     return this.tournamentsRepository.findOne({
       where: { id },
-      relations: ['organizer', 'registrations', 'groups'],
+      relations: ['organizer', 'registrations', 'groups', 'ageGroups'],
     });
   }
 
@@ -313,6 +331,75 @@ export class TournamentsService {
     });
 
     return this.tournamentsRepository.save(tournament);
+  }
+
+  async updateAgeGroups(
+    tournamentId: string,
+    userId: string,
+    userRole: string,
+    ageGroups: { id?: string; birthYear: number; displayLabel?: string; gameSystem?: string; teamCount?: number; minTeams?: number; startDate?: string; endDate?: string; locationId?: string; participationFee?: number; groupsCount?: number; teamsPerGroup?: number }[],
+  ): Promise<TournamentAgeGroup[]> {
+    const tournament = await this.findByIdOrFail(tournamentId);
+
+    // Only the organizer or admin can update age groups
+    if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException(
+        'You are not allowed to update this tournament',
+      );
+    }
+
+    // Cannot update completed or cancelled tournaments
+    if (
+      tournament.status === TournamentStatus.COMPLETED ||
+      tournament.status === TournamentStatus.CANCELLED
+    ) {
+      throw new BadRequestException(
+        'Cannot update a completed or cancelled tournament',
+      );
+    }
+
+    // Get existing age groups
+    const existingAgeGroups = await this.ageGroupsRepository.find({
+      where: { tournamentId },
+    });
+
+    const incomingIds = ageGroups.filter((ag) => ag.id).map((ag) => ag.id);
+    const toDelete = existingAgeGroups.filter(
+      (ag) => !incomingIds.includes(ag.id),
+    );
+
+    // Delete removed age groups
+    if (toDelete.length > 0) {
+      await this.ageGroupsRepository.remove(toDelete);
+    }
+
+    // Upsert age groups
+    const result: TournamentAgeGroup[] = [];
+    for (const ag of ageGroups) {
+      if (ag.id) {
+        // Update existing
+        const existing = existingAgeGroups.find((e) => e.id === ag.id);
+        if (existing) {
+          Object.assign(existing, {
+            ...ag,
+            startDate: ag.startDate ? new Date(ag.startDate) : existing.startDate,
+            endDate: ag.endDate ? new Date(ag.endDate) : existing.endDate,
+          });
+          result.push(await this.ageGroupsRepository.save(existing));
+        }
+      } else {
+        // Create new
+        const newAgeGroup = this.ageGroupsRepository.create({
+          ...ag,
+          tournamentId,
+          startDate: ag.startDate ? new Date(ag.startDate) : tournament.startDate,
+          endDate: ag.endDate ? new Date(ag.endDate) : tournament.endDate,
+        });
+        result.push(await this.ageGroupsRepository.save(newAgeGroup));
+      }
+    }
+
+    return result;
   }
 
   async adminUpdate(

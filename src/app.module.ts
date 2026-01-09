@@ -19,6 +19,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { FilesModule } from './modules/files/files.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { InvitationsModule } from './modules/invitations/invitations.module';
+import { LocationsModule } from './modules/locations/locations.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { InvitationsModule } from './modules/invitations/invitations.module';
     FilesModule,
     AdminModule,
     InvitationsModule,
+    LocationsModule,
   ],
   controllers: [],
   providers: [],

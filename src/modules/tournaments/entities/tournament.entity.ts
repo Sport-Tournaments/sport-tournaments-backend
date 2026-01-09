@@ -70,6 +70,7 @@ export class Tournament {
     name: 'age_category',
     type: 'enum',
     enum: AgeCategory,
+    nullable: true,
   })
   ageCategory: AgeCategory;
 
@@ -87,7 +88,7 @@ export class Tournament {
   @Column({ name: 'number_of_matches', nullable: true })
   numberOfMatches: number;
 
-  @Column({ name: 'max_teams' })
+  @Column({ name: 'max_teams', nullable: true })
   maxTeams: number;
 
   @Column({ name: 'current_teams', default: 0 })

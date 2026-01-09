@@ -15,7 +15,9 @@ import {
   DeleteObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
+import * as fs from 'fs';
+import * as path from 'path';
 import { FileEntity } from './entities/file.entity';
 import { UserRole } from '../../common/enums';
 
@@ -29,8 +31,10 @@ export interface UploadFileDto {
 
 @Injectable()
 export class FilesService {
-  private s3Client: S3Client;
+  private s3Client: S3Client | null = null;
   private bucket: string;
+  private useLocalStorage = false;
+  private localStoragePath: string;
   private readonly logger = new Logger(FilesService.name);
 
   // Allowed MIME types
@@ -66,9 +70,20 @@ export class FilesService {
         },
         forcePathStyle: true, // Required for some S3-compatible services
       });
+      this.logger.log('S3 client initialized');
+    } else {
+      // Use local file storage when S3 is not configured
+      this.useLocalStorage = true;
+      this.logger.warn('AWS S3 credentials not configured. Using local file storage.');
     }
 
     this.bucket = this.configService.get<string>('aws.s3Bucket') || 'football-tournament-files';
+    this.localStoragePath = path.join(process.cwd(), 'uploads');
+    
+    // Ensure local uploads directory exists
+    if (this.useLocalStorage && !fs.existsSync(this.localStoragePath)) {
+      fs.mkdirSync(this.localStoragePath, { recursive: true });
+    }
   }
 
   async upload(uploadFileDto: UploadFileDto): Promise<FileEntity> {
@@ -98,40 +113,65 @@ export class FilesService {
 
     // Generate unique filename
     const fileExtension = file.originalname.split('.').pop();
-    const filename = `${uuidv4()}.${fileExtension}`;
-    const s3Key = entityType
+    const filename = `${randomUUID()}.${fileExtension}`;
+    const fileKey = entityType
       ? `${entityType}/${entityId || 'general'}/${filename}`
       : `uploads/${filename}`;
 
-    // Upload to S3
-    if (this.s3Client) {
+    let fileUrl: string;
+
+    if (this.useLocalStorage) {
+      // Save to local storage
+      try {
+        const localDir = path.join(this.localStoragePath, path.dirname(fileKey));
+        if (!fs.existsSync(localDir)) {
+          fs.mkdirSync(localDir, { recursive: true });
+        }
+        const localFilePath = path.join(this.localStoragePath, fileKey);
+        fs.writeFileSync(localFilePath, file.buffer);
+        
+        // URL will be served by the static file endpoint
+        const port = this.configService.get<number>('port') || 3010;
+        fileUrl = `http://localhost:${port}/uploads/${fileKey}`;
+        this.logger.log(`File saved locally: ${localFilePath}`);
+      } catch (error) {
+        this.logger.error(`Failed to save file locally: ${error.message}`);
+        throw new BadRequestException('Failed to upload file');
+      }
+    } else if (this.s3Client) {
+      // Upload to S3/MinIO
       try {
         await this.s3Client.send(
           new PutObjectCommand({
             Bucket: this.bucket,
-            Key: s3Key,
+            Key: fileKey,
             Body: file.buffer,
             ContentType: file.mimetype,
-            ACL: isPublic ? 'public-read' : 'private',
           }),
         );
+        const endpoint = this.configService.get<string>('aws.s3Endpoint');
+        if (endpoint) {
+          // MinIO or custom S3 endpoint
+          fileUrl = `${endpoint}/${this.bucket}/${fileKey}`;
+        } else {
+          // AWS S3
+          fileUrl = `https://${this.bucket}.s3.${this.configService.get<string>('aws.region')}.amazonaws.com/${fileKey}`;
+        }
       } catch (error) {
         this.logger.error(`Failed to upload file to S3: ${error.message}`);
         throw new BadRequestException('Failed to upload file');
       }
+    } else {
+      throw new BadRequestException('No storage backend configured');
     }
-
-    // Create file record
-    const endpoint = this.configService.get<string>('aws.s3Endpoint') || `https://s3.${this.configService.get<string>('aws.region')}.amazonaws.com`;
-    const s3Url = `${endpoint}/${this.bucket}/${s3Key}`;
 
     const fileEntity = this.filesRepository.create({
       originalName: file.originalname,
       filename,
       mimeType: file.mimetype,
       size: file.size,
-      s3Key,
-      s3Url,
+      s3Key: fileKey,
+      s3Url: fileUrl,
       uploadedBy: userId,
       entityType,
       entityId,
@@ -159,6 +199,7 @@ export class FilesService {
     id: string,
     userId: string,
     userRole: string,
+    inline = false,
   ): Promise<string> {
     const file = await this.findByIdOrFail(id);
 
@@ -171,12 +212,19 @@ export class FilesService {
       throw new ForbiddenException('You do not have access to this file');
     }
 
-    // If public, return direct URL
-    if (file.isPublic) {
+    // For local storage, return the direct URL
+    if (this.useLocalStorage) {
       return file.s3Url;
     }
 
-    // Generate presigned URL for private files
+    // For public MinIO bucket, return direct URL
+    const endpoint = this.configService.get<string>('aws.s3Endpoint');
+    if (endpoint && file.isPublic) {
+      // MinIO public bucket URL
+      return `${endpoint}/${this.bucket}/${file.s3Key}`;
+    }
+
+    // Generate presigned URL for S3/MinIO
     if (!this.s3Client) {
       return file.s3Url;
     }
@@ -184,6 +232,9 @@ export class FilesService {
     const command = new GetObjectCommand({
       Bucket: this.bucket,
       Key: file.s3Key,
+      // Set Content-Disposition to inline for viewing in browser
+      ResponseContentDisposition: inline ? 'inline' : `attachment; filename="${file.originalName}"`,
+      ResponseContentType: file.mimeType,
     });
 
     return getSignedUrl(this.s3Client, command, { expiresIn: 3600 }); // 1 hour expiry

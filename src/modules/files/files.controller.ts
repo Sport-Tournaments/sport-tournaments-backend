@@ -89,11 +89,13 @@ export class FilesController {
   @ApiOperation({ summary: 'Get download URL for a file' })
   @ApiResponse({ status: 200, description: 'Download URL' })
   @ApiResponse({ status: 403, description: 'Access denied' })
-  getDownloadUrl(
+  async getDownloadUrl(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
+    @Query('inline') inline?: string,
   ) {
-    return this.filesService.getDownloadUrl(id, user.sub, user.role);
+    const url = await this.filesService.getDownloadUrl(id, user.sub, user.role, inline === 'true');
+    return { url };
   }
 
   @Get('entity/:entityType/:entityId')
