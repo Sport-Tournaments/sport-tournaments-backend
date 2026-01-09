@@ -9,12 +9,17 @@ import {
   Query,
   UseGuards,
   ParseUUIDPipe,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
 import { TournamentsService } from './tournaments.service';
 import {
@@ -186,6 +191,45 @@ export class TournamentsController {
     return this.tournamentsService.complete(id, user.sub, user.role);
   }
 
+  @Post(':id/upload-regulations')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload tournament regulations/rules document' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'PDF or document file containing tournament rules',
+        },
+      },
+      required: ['file'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Regulations uploaded successfully',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Not allowed to upload regulations',
+  })
+  @ApiResponse({ status: 404, description: 'Tournament not found' })
+  uploadRegulations(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.tournamentsService.uploadRegulations(
+      id,
+      user.sub,
+      user.role,
+      file,
+    );
+  }
+
   @Post(':id/download-regulations')
   @Public()
   @ApiOperation({ summary: 'Track regulations download' })
@@ -210,7 +254,9 @@ export class TournamentsController {
 
   @Post(':id/regenerate-invitation-code')
   @Roles(UserRole.ORGANIZER)
-  @ApiOperation({ summary: 'Regenerate invitation code for a private tournament' })
+  @ApiOperation({
+    summary: 'Regenerate invitation code for a private tournament',
+  })
   @ApiResponse({ status: 200, description: 'New invitation code generated' })
   @ApiResponse({ status: 400, description: 'Tournament is not private' })
   @ApiResponse({ status: 403, description: 'Not authorized' })
