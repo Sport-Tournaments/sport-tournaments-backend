@@ -8,17 +8,8 @@ export default () => ({
     origins: process.env.CORS_ORIGINS || 'http://localhost:3000',
   },
 
-  // DATABASE_URL takes priority over individual DB_ variables
+  // PostgreSQL database connection URL (required)
   databaseUrl: process.env.DATABASE_URL,
-
-  // Fallback individual database config (used if DATABASE_URL is not set)
-  database: {
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '3306', 10),
-    username: process.env.DB_USERNAME || '',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_DATABASE || 'football_tournament',
-  },
 
   jwt: {
     secret: process.env.JWT_SECRET || 'default-secret-change-me',
