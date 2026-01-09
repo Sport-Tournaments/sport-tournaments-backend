@@ -552,4 +552,123 @@ export class TournamentsService {
       take: limit,
     });
   }
+
+  /**
+   * Generate a unique invitation code for a private tournament
+   */
+  generateInvitationCode(): string {
+    const characters = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Removed confusing chars (O, 0, 1, I)
+    let code = '';
+    for (let i = 0; i < 8; i++) {
+      code += characters.charAt(Math.floor(Math.random() * characters.length));
+    }
+    return code;
+  }
+
+  /**
+   * Regenerate invitation code for a private tournament
+   */
+  async regenerateInvitationCode(
+    id: string,
+    userId: string,
+    userRole: string,
+    expiresInDays?: number,
+  ): Promise<{ invitationCode: string; expiresAt: Date | null }> {
+    const tournament = await this.findByIdOrFail(id);
+
+    // Check authorization
+    if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException('Only the tournament organizer can regenerate invitation codes');
+    }
+
+    if (!tournament.isPrivate) {
+      throw new BadRequestException('Invitation codes are only available for private tournaments');
+    }
+
+    // Generate new unique code
+    let code: string;
+    let attempts = 0;
+    do {
+      code = this.generateInvitationCode();
+      const existing = await this.tournamentsRepository.findOne({
+        where: { invitationCode: code },
+      });
+      if (!existing) break;
+      attempts++;
+    } while (attempts < 10);
+
+    if (attempts >= 10) {
+      throw new BadRequestException('Failed to generate unique invitation code. Please try again.');
+    }
+
+    // Calculate expiration date
+    const expiresAt = expiresInDays
+      ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000)
+      : undefined;
+
+    tournament.invitationCode = code;
+    tournament.invitationCodeExpiresAt = expiresAt;
+    await this.tournamentsRepository.save(tournament);
+
+    return { invitationCode: code, expiresAt: expiresAt || null };
+  }
+
+  /**
+   * Validate an invitation code
+   */
+  async validateInvitationCode(code: string): Promise<{
+    valid: boolean;
+    tournament?: Tournament;
+    message?: string;
+  }> {
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { invitationCode: code },
+      relations: ['organizer'],
+    });
+
+    if (!tournament) {
+      return { valid: false, message: 'Invalid invitation code' };
+    }
+
+    // Check if code has expired
+    if (tournament.invitationCodeExpiresAt && tournament.invitationCodeExpiresAt < new Date()) {
+      return { valid: false, message: 'Invitation code has expired' };
+    }
+
+    // Check if tournament is still accepting registrations
+    if (tournament.status === TournamentStatus.CANCELLED) {
+      return { valid: false, message: 'Tournament has been cancelled' };
+    }
+
+    if (tournament.status === TournamentStatus.COMPLETED) {
+      return { valid: false, message: 'Tournament has already ended' };
+    }
+
+    if (tournament.registrationDeadline && tournament.registrationDeadline < new Date()) {
+      return { valid: false, message: 'Registration deadline has passed' };
+    }
+
+    return { valid: true, tournament };
+  }
+
+  /**
+   * Get invitation code for a tournament (only organizer/admin can see)
+   */
+  async getInvitationCode(
+    id: string,
+    userId: string,
+    userRole: string,
+  ): Promise<{ invitationCode: string | null; expiresAt: Date | null }> {
+    const tournament = await this.findByIdOrFail(id);
+
+    // Check authorization
+    if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException('Only the tournament organizer can view invitation codes');
+    }
+
+    return {
+      invitationCode: tournament.invitationCode || null,
+      expiresAt: tournament.invitationCodeExpiresAt || null,
+    };
+  }
 }

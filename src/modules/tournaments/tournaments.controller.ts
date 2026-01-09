@@ -22,6 +22,8 @@ import {
   UpdateTournamentDto,
   TournamentFilterDto,
   AdminUpdateTournamentDto,
+  ValidateInvitationCodeDto,
+  RegenerateInvitationCodeDto,
 } from './dto';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards';
 import { Roles, CurrentUser, Public } from '../../common/decorators';
@@ -185,6 +187,48 @@ export class TournamentsController {
   @ApiResponse({ status: 200, description: 'Download tracked' })
   downloadRegulations(@Param('id', ParseUUIDPipe) id: string) {
     return this.tournamentsService.incrementRegulationsDownload(id);
+  }
+
+  // Invitation code endpoints
+  @Get(':id/invitation-code')
+  @Roles(UserRole.ORGANIZER)
+  @ApiOperation({ summary: 'Get invitation code for a private tournament' })
+  @ApiResponse({ status: 200, description: 'Invitation code details' })
+  @ApiResponse({ status: 403, description: 'Not authorized' })
+  @ApiResponse({ status: 404, description: 'Tournament not found' })
+  getInvitationCode(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.tournamentsService.getInvitationCode(id, user.sub, user.role);
+  }
+
+  @Post(':id/regenerate-invitation-code')
+  @Roles(UserRole.ORGANIZER)
+  @ApiOperation({ summary: 'Regenerate invitation code for a private tournament' })
+  @ApiResponse({ status: 200, description: 'New invitation code generated' })
+  @ApiResponse({ status: 400, description: 'Tournament is not private' })
+  @ApiResponse({ status: 403, description: 'Not authorized' })
+  @ApiResponse({ status: 404, description: 'Tournament not found' })
+  regenerateInvitationCode(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: RegenerateInvitationCodeDto,
+  ) {
+    return this.tournamentsService.regenerateInvitationCode(
+      id,
+      user.sub,
+      user.role,
+      dto.expiresInDays,
+    );
+  }
+
+  @Post('validate-invitation-code')
+  @Public()
+  @ApiOperation({ summary: 'Validate an invitation code' })
+  @ApiResponse({ status: 200, description: 'Validation result' })
+  validateInvitationCode(@Body() dto: ValidateInvitationCodeDto) {
+    return this.tournamentsService.validateInvitationCode(dto.code);
   }
 
   @Delete(':id')
