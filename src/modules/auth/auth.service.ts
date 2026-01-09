@@ -10,7 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThan } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { User } from '../users/entities/user.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import {
@@ -66,9 +66,8 @@ export class AuthService {
     );
 
     // Generate email verification token only if verification is required
-    const emailVerificationToken = requireEmailVerification
-      ? uuidv4()
-      : undefined;
+    const emailVerificationToken = crypto.randomUUID();
+
 
     // Create user
     const user = this.usersRepository.create({
@@ -255,7 +254,7 @@ export class AuthService {
 
     if (user) {
       // Generate reset token
-      const resetToken = uuidv4();
+      const resetToken = crypto.randomUUID();
       const resetExpires = new Date();
       resetExpires.setHours(resetExpires.getHours() + 1); // 1 hour expiry
 

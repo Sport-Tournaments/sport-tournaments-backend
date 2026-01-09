@@ -63,7 +63,7 @@ export class CreateAgeGroupDto {
   @ApiProperty({ example: 2012 })
   @IsNumber()
   @Min(1990)
-  @Max(2025)
+  @Max(2030)
   birthYear: number;
 
   @ApiPropertyOptional({ example: 'U12' })
@@ -75,6 +75,95 @@ export class CreateAgeGroupDto {
   @IsOptional()
   @IsString()
   gameSystem?: string;
+
+  @ApiPropertyOptional({ example: 16 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(2)
+  teamCount?: number;
+
+  @ApiPropertyOptional({ example: 4, description: 'Minimum number of teams required for the age group to be played' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(2)
+  minTeams?: number;
+
+  @ApiPropertyOptional({ example: 3, description: 'Guaranteed number of matches per team' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(20)
+  numberOfMatches?: number;
+
+  @ApiPropertyOptional({ example: '2025-07-01' })
+  @IsOptional()
+  @IsDateString()
+  startDate?: string;
+
+  @ApiPropertyOptional({ example: '2025-07-02' })
+  @IsOptional()
+  @IsDateString()
+  endDate?: string;
+
+  @ApiPropertyOptional({ description: 'Location ID for this age group' })
+  @IsOptional()
+  @IsUUID()
+  locationId?: string;
+
+  @ApiPropertyOptional({ example: 250.00 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  participationFee?: number;
+
+  @ApiPropertyOptional({ example: 4, description: 'Number of groups for this age category' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  groupsCount?: number;
+
+  @ApiPropertyOptional({ example: 4, description: 'Teams per group' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(2)
+  teamsPerGroup?: number;
+}
+
+export class UpdateAgeGroupDto {
+  @ApiPropertyOptional({ description: 'Age group ID (required for updates, omit for new)' })
+  @IsOptional()
+  @IsUUID()
+  id?: string;
+
+  @ApiProperty({ example: 2012 })
+  @IsNumber()
+  @Min(1990)
+  @Max(2030)
+  birthYear: number;
+
+  @ApiPropertyOptional({ example: 'U12' })
+  @IsOptional()
+  @IsString()
+  displayLabel?: string;
+
+  @ApiPropertyOptional({ example: '5+1' })
+  @IsOptional()
+  @IsString()
+  gameSystem?: string;
+
+  @ApiPropertyOptional({ example: 3, description: 'Guaranteed number of matches per team' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(20)
+  numberOfMatches?: number;
 
   @ApiPropertyOptional({ example: 16 })
   @IsOptional()
@@ -138,6 +227,13 @@ export class CreateAgeGroupDto {
   @IsNumber()
   @Min(2)
   teamsPerGroup?: number;
+}
+
+export class UpdateAgeGroupsDto {
+  @ApiProperty({ type: [UpdateAgeGroupDto], description: 'Age groups to update/create/delete' })
+  @ValidateNested({ each: true })
+  @Type(() => UpdateAgeGroupDto)
+  ageGroups: UpdateAgeGroupDto[];
 }
 
 export class CreateLocationDto {
@@ -285,9 +381,10 @@ export class CreateTournamentDto {
   @Max(180)
   longitude?: number;
 
-  @ApiProperty({ enum: AgeCategory, example: AgeCategory.U14 })
+  @ApiPropertyOptional({ enum: AgeCategory, example: AgeCategory.U14, description: 'Age category (optional if ageGroups provided)' })
+  @IsOptional()
   @IsEnum(AgeCategory)
-  ageCategory: AgeCategory;
+  ageCategory?: AgeCategory;
 
   @ApiPropertyOptional({
     enum: TournamentLevel,
@@ -320,11 +417,16 @@ export class CreateTournamentDto {
   guaranteedMatches?: number;
 
   @ApiProperty({ example: 16 })
+  @ApiPropertyOptional({
+    example: 16,
+    description: 'Max teams (optional if ageGroups provided)',
+  })
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(2)
   @Max(128)
-  maxTeams: number;
+  maxTeams?: number;
 
   @ApiPropertyOptional({ example: 'https://example.com/regulations.pdf' })
   @IsOptional()

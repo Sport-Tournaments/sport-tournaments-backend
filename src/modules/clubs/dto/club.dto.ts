@@ -7,6 +7,7 @@ import {
   IsBoolean,
   IsEmail,
   IsUrl,
+  IsHexColor,
   Min,
   Max,
 } from 'class-validator';

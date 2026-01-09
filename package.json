@@ -27,7 +27,8 @@
     "test:ci": "npm run test:db:start && npm run test:all",
     "seed": "ts-node -r tsconfig-paths/register src/seeds/run.ts",
     "seed:dev": "NODE_ENV=development ts-node -r tsconfig-paths/register src/seeds/run.ts",
-    "seed:fresh": "ts-node -r tsconfig-paths/register src/seeds/run.ts"
+    "seed:fresh": "ts-node -r tsconfig-paths/register src/seeds/run.ts",
+    "migrate:colors": "ts-node -r tsconfig-paths/register src/seeds/add-colors-migration.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.943.0",

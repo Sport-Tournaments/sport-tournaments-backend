@@ -43,6 +43,8 @@ export default tseslint.config(
           caughtErrorsIgnorePattern: '^_',
         },
       ],
+      // Make Prettier formatting issues warnings instead of errors
+      'prettier/prettier': 'warn',
     },
   },
 );

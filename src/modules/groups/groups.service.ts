@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { Group } from './entities/group.entity';
 import { Tournament } from '../tournaments/entities/tournament.entity';
 import { Registration } from '../registrations/entities/registration.entity';
@@ -93,7 +93,7 @@ export class GroupsService {
     }
 
     // Generate seed
-    const seed = executeDrawDto.seed || uuidv4();
+    const seed = executeDrawDto.seed || randomUUID();
 
     // Shuffle registrations using seeded random
     const shuffledRegistrations = this.seededShuffle([...registrations], seed);

@@ -54,6 +54,10 @@ export class TournamentAgeGroup {
   @Column({ name: 'min_teams', nullable: true })
   minTeams?: number;
 
+  // Guaranteed number of matches per team
+  @Column({ name: 'number_of_matches', nullable: true })
+  numberOfMatches?: number;
+
   // Current registered teams for this age group
   @Column({ name: 'current_teams', default: 0 })
   currentTeams: number;

@@ -1,12 +1,12 @@
 import * as bcrypt from 'bcrypt';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { faker } from '@faker-js/faker';
 
 /**
  * Generate a UUID v4
  */
 export function generateUUID(): string {
-  return uuidv4();
+  return randomUUID();
 }
 
 /**
