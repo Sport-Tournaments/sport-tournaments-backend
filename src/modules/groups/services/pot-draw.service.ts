@@ -6,7 +6,7 @@ import { Group } from '../entities/group.entity';
 import { Tournament } from '../../tournaments/entities/tournament.entity';
 import { Registration } from '../../registrations/entities/registration.entity';
 import { AssignTeamToPotDto, AssignPotsBulkDto, ExecutePotDrawDto } from '../dto/pot.dto';
-import { UserRole } from '../../../common/enums';
+import { UserRole, RegistrationStatus } from '../../../common/enums';
 
 @Injectable()
 export class PotDrawService {
@@ -27,23 +27,11 @@ export class PotDrawService {
   async assignTeamToPot(
     tournamentId: string,
     dto: AssignTeamToPotDto,
-    userId: string,
-    userRole: string,
+    userId?: string,
+    userRole?: string,
   ): Promise<TournamentPot> {
-    // Validate tournament exists and is organizer's
-    const tournament = await this.tournamentRepository.findOne({
-      where: { id: tournamentId },
-    });
-    if (!tournament) {
-      throw new NotFoundException('Tournament not found');
-    }
-
-    // Check authorization
-    if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
-      throw new ForbiddenException(
-        'You are not allowed to manage pots for this tournament',
-      );
-    }
+    // Validate tournament exists and check authorization
+    const tournament = await this.validateTournamentAccess(tournamentId, userId, userRole);
 
     // Validate registration exists and belongs to tournament
     const registration = await this.registrationRepository.findOne({
@@ -51,6 +39,11 @@ export class PotDrawService {
     });
     if (!registration) {
       throw new NotFoundException('Registration not found in this tournament');
+    }
+
+    // Only allow APPROVED registrations to be assigned to pots
+    if (registration.status !== RegistrationStatus.APPROVED) {
+      throw new BadRequestException('Only approved registrations can be assigned to pots');
     }
 
     // Check if team already assigned to a pot
@@ -80,13 +73,17 @@ export class PotDrawService {
   async assignTeamsToPotsBulk(
     tournamentId: string,
     dto: AssignPotsBulkDto,
-    userId: string,
-    userRole: string,
+    userId?: string,
+    userRole?: string,
   ): Promise<TournamentPot[]> {
+    // Validate access first (before processing bulk assignments)
+    await this.validateTournamentAccess(tournamentId, userId, userRole);
+
     const results: TournamentPot[] = [];
 
     for (const assignment of dto.assignments) {
-      const pot = await this.assignTeamToPot(tournamentId, assignment, userId, userRole);
+      // No need to re-validate access for each assignment
+      const pot = await this.assignTeamToPot(tournamentId, assignment);
       results.push(pot);
     }
 
@@ -120,28 +117,20 @@ export class PotDrawService {
   async executePotBasedDraw(
     tournamentId: string,
     dto: ExecutePotDrawDto,
-    userId: string,
-    userRole: string,
+    userId?: string,
+    userRole?: string,
   ): Promise<Group[]> {
-    // Validate tournament exists
-    const tournament = await this.tournamentRepository.findOne({
-      where: { id: tournamentId },
-      relations: ['registrations'],
-    });
-    if (!tournament) {
-      throw new NotFoundException('Tournament not found');
-    }
+    // Validate tournament exists and check authorization
+    const tournament = await this.validateTournamentAccess(tournamentId, userId, userRole, true);
 
-    // Check authorization
-    if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
-      throw new ForbiddenException(
-        'You are not allowed to execute draw for this tournament',
-      );
+    // Check if draw already completed
+    if (tournament.drawCompleted) {
+      throw new BadRequestException('Draw has already been completed for this tournament');
     }
 
     // Only count approved registrations for the draw
     const approvedRegistrations = tournament.registrations.filter(
-      (reg) => reg.status === 'APPROVED',
+      (reg) => reg.status === RegistrationStatus.APPROVED,
     );
     const totalTeams = approvedRegistrations.length;
 
@@ -240,24 +229,11 @@ export class PotDrawService {
    */
   async clearPotAssignments(
     tournamentId: string,
-    userId: string,
-    userRole: string,
+    userId?: string,
+    userRole?: string,
   ): Promise<void> {
-    // Validate tournament exists
-    const tournament = await this.tournamentRepository.findOne({
-      where: { id: tournamentId },
-    });
-    if (!tournament) {
-      throw new NotFoundException('Tournament not found');
-    }
-
-    // Check authorization
-    if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
-      throw new ForbiddenException(
-        'You are not allowed to manage pots for this tournament',
-      );
-    }
-
+    // Validate access
+    await this.validateTournamentAccess(tournamentId, userId, userRole);
     await this.potRepository.delete({ tournamentId });
   }
 
@@ -305,6 +281,41 @@ export class PotDrawService {
       letters.push(String.fromCharCode(65 + i)); // A = 65
     }
     return letters;
+  }
+
+  /**
+   * Validate tournament access and authorization
+   * @param tournamentId Tournament ID
+   * @param userId User ID (optional for read-only operations)
+   * @param userRole User role (optional for read-only operations)
+   * @param loadRelations Whether to load registrations relation
+   * @returns Tournament entity
+   */
+  private async validateTournamentAccess(
+    tournamentId: string,
+    userId?: string,
+    userRole?: string,
+    loadRelations = false,
+  ): Promise<Tournament> {
+    const tournament = await this.tournamentRepository.findOne({
+      where: { id: tournamentId },
+      relations: loadRelations ? ['registrations'] : [],
+    });
+
+    if (!tournament) {
+      throw new NotFoundException('Tournament not found');
+    }
+
+    // Authorization check: only organizer or admin can modify pots
+    if (userId && userRole) {
+      if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
+        throw new ForbiddenException(
+          'You are not allowed to manage pots for this tournament',
+        );
+      }
+    }
+
+    return tournament;
   }
 
   /**

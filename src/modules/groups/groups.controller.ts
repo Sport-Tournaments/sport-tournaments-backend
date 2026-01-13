@@ -116,36 +116,26 @@ export class GroupsController {
   @ApiOperation({ summary: 'Assign a team to a pot for seeding' })
   @ApiResponse({ status: 201, description: 'Team assigned to pot' })
   @ApiResponse({ status: 400, description: 'Invalid pot assignment' })
-  @ApiResponse({ status: 403, description: 'Not authorized' })
+  @ApiResponse({ status: 403, description: 'Not authorized to manage pots' })
   async assignTeamToPot(
     @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
     @Body() dto: AssignTeamToPotDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.potDrawService.assignTeamToPot(
-      tournamentId,
-      dto,
-      user.sub,
-      user.role,
-    );
+    return this.potDrawService.assignTeamToPot(tournamentId, dto, user.sub, user.role);
   }
 
   @Post('pots/bulk-assign')
   @ApiOperation({ summary: 'Bulk assign teams to pots' })
   @ApiResponse({ status: 201, description: 'Teams assigned to pots' })
   @ApiResponse({ status: 400, description: 'Invalid pot assignments' })
-  @ApiResponse({ status: 403, description: 'Not authorized' })
+  @ApiResponse({ status: 403, description: 'Not authorized to manage pots' })
   async assignTeamsToPotsBulk(
     @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
     @Body() dto: AssignPotsBulkDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.potDrawService.assignTeamsToPotsBulk(
-      tournamentId,
-      dto,
-      user.sub,
-      user.role,
-    );
+    return this.potDrawService.assignTeamsToPotsBulk(tournamentId, dto, user.sub, user.role);
   }
 
   @Get('pots')
@@ -186,33 +176,24 @@ export class GroupsController {
   @ApiOperation({ summary: 'Execute pot-based group draw' })
   @ApiResponse({ status: 201, description: 'Groups created with pot seeding' })
   @ApiResponse({ status: 400, description: 'Invalid tournament state' })
-  @ApiResponse({ status: 403, description: 'Not authorized' })
+  @ApiResponse({ status: 403, description: 'Not authorized to execute draw' })
   async executePotBasedDraw(
     @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
     @Body() dto: ExecutePotDrawDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.potDrawService.executePotBasedDraw(
-      tournamentId,
-      dto,
-      user.sub,
-      user.role,
-    );
+    return this.potDrawService.executePotBasedDraw(tournamentId, dto, user.sub, user.role);
   }
 
   @Delete('pots')
   @ApiOperation({ summary: 'Clear all pot assignments for tournament' })
   @ApiResponse({ status: 200, description: 'Pot assignments cleared' })
-  @ApiResponse({ status: 403, description: 'Not authorized' })
+  @ApiResponse({ status: 403, description: 'Not authorized to manage pots' })
   async clearPotAssignments(
     @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
     @CurrentUser() user: JwtPayload,
   ) {
-    await this.potDrawService.clearPotAssignments(
-      tournamentId,
-      user.sub,
-      user.role,
-    );
+    await this.potDrawService.clearPotAssignments(tournamentId, user.sub, user.role);
     return { message: 'Pot assignments cleared' };
   }
 }
