@@ -188,6 +188,9 @@ export class AuthService {
     const { refreshToken } = refreshTokenDto;
 
     // Find the refresh token in database
+    // NOTE: Cross-device token refresh is INTENTIONALLY ALLOWED
+    // Users can refresh their tokens from any device (mobile, desktop, etc.)
+    // Device info is collected for audit/analytics purposes only
     const storedToken = await this.refreshTokenRepository.findOne({
       where: { token: refreshToken, isRevoked: false },
       relations: ['user'],
