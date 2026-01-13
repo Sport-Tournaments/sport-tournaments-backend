@@ -17,11 +17,23 @@ async function bootstrap() {
   // Security middleware
   app.use(helmet());
 
-  // CORS configuration
+  // CORS configuration with proper origin validation
+  const allowedOrigins = configService
+    .get<string>('cors.origins')
+    ?.split(',')
+    .map((origin) => origin.trim()) || ['http://localhost:3000'];
+
   app.enableCors({
-    origin: configService.get<string>('cors.origins')?.split(',') || [
-      'http://localhost:3000',
-    ],
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, Postman, or server-to-server)
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(
+          new Error(`Origin ${origin} is not allowed by CORS policy`),
+        );
+      }
+    },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept-Language'],
     credentials: true,
