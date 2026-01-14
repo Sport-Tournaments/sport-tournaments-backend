@@ -20,6 +20,7 @@ import { Registration } from '../../registrations/entities/registration.entity';
 import { Group } from '../../groups/entities/group.entity';
 import { TournamentAgeGroup } from './tournament-age-group.entity';
 import { TournamentLocation } from './tournament-location.entity';
+import { TournamentPot } from '../../groups/entities/tournament-pot.entity';
 
 @Entity('tournaments')
 export class Tournament {
@@ -135,6 +136,12 @@ export class Tournament {
   @Column({ name: 'registration_deadline', type: 'date', nullable: true })
   registrationDeadline?: Date;
 
+  @Column({ name: 'registration_start_date', type: 'date', nullable: true })
+  registrationStartDate?: Date;
+
+  @Column({ name: 'registration_end_date', type: 'date', nullable: true })
+  registrationEndDate?: Date;
+
   @Column({ name: 'contact_email', nullable: true })
   contactEmail?: string;
 
@@ -249,4 +256,7 @@ export class Tournament {
 
   @OneToMany(() => TournamentLocation, (location) => location.tournament)
   locations: TournamentLocation[];
+
+  @OneToMany(() => TournamentPot, (pot) => pot.tournament)
+  pots: TournamentPot[];
 }

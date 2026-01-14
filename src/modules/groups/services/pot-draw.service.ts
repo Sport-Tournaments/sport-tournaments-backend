@@ -139,9 +139,9 @@ export class PotDrawService {
       throw new BadRequestException('No teams registered for this tournament');
     }
 
-    if (totalTeams % dto.numberOfGroups !== 0) {
+    if (dto.numberOfGroups < 2 || dto.numberOfGroups > totalTeams) {
       throw new BadRequestException(
-        `Total teams (${totalTeams}) must be divisible by number of groups (${dto.numberOfGroups})`,
+        `Number of groups must be between 2 and ${totalTeams}`,
       );
     }
 
@@ -160,8 +160,6 @@ export class PotDrawService {
       );
     }
 
-    const teamsPerGroup = totalTeams / dto.numberOfGroups;
-
     // Initialize groups with their letters
     const groupLetters = this.getGroupLetters(dto.numberOfGroups);
     const groups: { letter: string; teams: string[] }[] = groupLetters.map(
@@ -171,8 +169,8 @@ export class PotDrawService {
       }),
     );
 
-    // Execute pot-based distribution
-    // Shuffle within each pot for randomness and convert to mutable arrays
+    // Execute pot-based distribution with snake draft pattern
+    // Shuffle within each pot for randomness
     const shuffledPots = new Map<number, TournamentPot[]>();
     for (let potNum = 1; potNum <= 4; potNum++) {
       const potTeams = potAssignments.get(potNum) || [];
@@ -184,23 +182,42 @@ export class PotDrawService {
       }
     }
 
-    // Validate we have correct distribution for pot-based draw
-    // Each pot should have numberOfGroups teams (or be empty)
-    for (const [potNum, potTeams] of shuffledPots.entries()) {
-      if (potTeams.length > 0 && potTeams.length !== dto.numberOfGroups) {
-        throw new BadRequestException(
-          `Pot ${potNum} has ${potTeams.length} teams but needs exactly ${dto.numberOfGroups} teams for even distribution`,
-        );
-      }
+    // Distribute teams using snake draft pattern
+    // This ensures balanced distribution even with uneven pot sizes
+    let groupIdx = 0;
+    let direction = 1; // 1 for forward, -1 for backward (snake pattern)
+    let teamIndex = new Map<number, number>(); // Track which team in each pot
+    
+    // Initialize team indices
+    for (const potNum of [1, 2, 3, 4]) {
+      teamIndex.set(potNum, 0);
     }
 
-    // Fill groups: one team from each pot per group
-    for (let groupIdx = 0; groupIdx < dto.numberOfGroups; groupIdx++) {
+    // Continue until all teams are assigned
+    let assignedTeams = 0;
+    while (assignedTeams < totalTeams) {
+      // Try to assign one team from each pot to the current group
       for (const potNum of [1, 2, 3, 4]) {
         const potTeams = shuffledPots.get(potNum);
-        if (potTeams && potTeams.length > groupIdx) {
-          const team = potTeams[groupIdx];
+        const idx = teamIndex.get(potNum);
+        
+        if (potTeams && idx !== undefined && idx < potTeams.length && groupIdx < dto.numberOfGroups) {
+          const team = potTeams[idx];
           groups[groupIdx].teams.push(team.registrationId);
+          teamIndex.set(potNum, idx + 1);
+          assignedTeams++;
+          
+          // Move to next group
+          groupIdx += direction;
+          
+          // Handle snake pattern (reverse direction at ends)
+          if (groupIdx >= dto.numberOfGroups) {
+            groupIdx = dto.numberOfGroups - 1;
+            direction = -1;
+          } else if (groupIdx < 0) {
+            groupIdx = 0;
+            direction = 1;
+          }
         }
       }
     }
