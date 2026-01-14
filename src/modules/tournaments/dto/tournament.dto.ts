@@ -480,6 +480,16 @@ export class CreateTournamentDto {
   @IsDateString()
   registrationDeadline?: string;
 
+  @ApiPropertyOptional({ example: '2025-06-01', description: 'Registration opening date' })
+  @IsOptional()
+  @IsDateString()
+  registrationStartDate?: string;
+
+  @ApiPropertyOptional({ example: '2025-06-25', description: 'Registration closing date' })
+  @IsOptional()
+  @IsDateString()
+  registrationEndDate?: string;
+
   @ApiPropertyOptional({ example: 'organizer@tournament.com' })
   @IsOptional()
   @IsEmail()
@@ -718,6 +728,16 @@ export class UpdateTournamentDto {
   @IsOptional()
   @IsDateString()
   registrationDeadline?: string;
+
+  @ApiPropertyOptional({ example: '2025-06-01', description: 'Registration opening date' })
+  @IsOptional()
+  @IsDateString()
+  registrationStartDate?: string;
+
+  @ApiPropertyOptional({ example: '2025-06-25', description: 'Registration closing date' })
+  @IsOptional()
+  @IsDateString()
+  registrationEndDate?: string;
 
   @ApiPropertyOptional({ example: 'organizer@tournament.com' })
   @IsOptional()
@@ -994,3 +1014,4 @@ export class RegenerateInvitationCodeDto {
   @Max(365)
   expiresInDays?: number;
 }
+

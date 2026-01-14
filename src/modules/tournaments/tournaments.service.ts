@@ -53,6 +53,12 @@ export class TournamentsService {
       organizerId,
       startDate,
       endDate,
+      registrationStartDate: createTournamentDto.registrationStartDate
+        ? new Date(createTournamentDto.registrationStartDate)
+        : undefined,
+      registrationEndDate: createTournamentDto.registrationEndDate
+        ? new Date(createTournamentDto.registrationEndDate)
+        : undefined,
       registrationDeadline: createTournamentDto.registrationDeadline
         ? new Date(createTournamentDto.registrationDeadline)
         : undefined,
@@ -331,6 +337,12 @@ export class TournamentsService {
       endDate: updateTournamentDto.endDate
         ? new Date(updateTournamentDto.endDate)
         : tournament.endDate,
+      registrationStartDate: updateTournamentDto.registrationStartDate
+        ? new Date(updateTournamentDto.registrationStartDate)
+        : tournament.registrationStartDate,
+      registrationEndDate: updateTournamentDto.registrationEndDate
+        ? new Date(updateTournamentDto.registrationEndDate)
+        : tournament.registrationEndDate,
       registrationDeadline: updateTournamentDto.registrationDeadline
         ? new Date(updateTournamentDto.registrationDeadline)
         : tournament.registrationDeadline,
