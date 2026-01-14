@@ -54,6 +54,10 @@ export class TournamentAgeGroup {
   @Column({ name: 'min_teams', nullable: true })
   minTeams?: number;
 
+  // Maximum teams allowed for this age group
+  @Column({ name: 'max_teams', nullable: true })
+  maxTeams?: number;
+
   // Guaranteed number of matches per team
   @Column({ name: 'number_of_matches', nullable: true })
   numberOfMatches?: number;

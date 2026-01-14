@@ -90,6 +90,14 @@ export class CreateAgeGroupDto {
   @Min(2)
   minTeams?: number;
 
+  @ApiPropertyOptional({ example: 16, description: 'Maximum number of teams allowed for this age group' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(2)
+  @Max(128)
+  maxTeams?: number;
+
   @ApiPropertyOptional({ example: 3, description: 'Guaranteed number of matches per team' })
   @IsOptional()
   @Type(() => Number)
@@ -97,6 +105,14 @@ export class CreateAgeGroupDto {
   @Min(1)
   @Max(20)
   numberOfMatches?: number;
+
+  @ApiPropertyOptional({ example: 3, description: 'Guaranteed number of matches per team (same as numberOfMatches for consistency)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(20)
+  guaranteedMatches?: number;
 
   @ApiPropertyOptional({ example: '2025-07-01' })
   @IsOptional()
@@ -178,6 +194,14 @@ export class UpdateAgeGroupDto {
   @IsNumber()
   @Min(2)
   minTeams?: number;
+
+  @ApiPropertyOptional({ example: 16, description: 'Maximum number of teams allowed for this age group' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(2)
+  @Max(128)
+  maxTeams?: number;
 
   @ApiPropertyOptional({ example: '2025-07-01' })
   @IsOptional()
