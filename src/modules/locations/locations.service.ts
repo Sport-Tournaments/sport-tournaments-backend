@@ -121,16 +121,22 @@ export class LocationsService {
   private mapNominatimResult(result: any): LocationResultDto {
     const address = result.address || {};
 
+    // Extract city/village name (but not county)
+    const cityName =
+      address.city ||
+      address.town ||
+      address.village ||
+      address.municipality ||
+      '';
+    
+    // Extract region/county (state for US, county for Romania, etc.)
+    const regionName = address.state || address.county || address.region || '';
+
     return {
       displayName: result.display_name,
-      city:
-        address.city ||
-        address.town ||
-        address.village ||
-        address.municipality ||
-        address.county ||
-        '',
-      region: address.state || address.region || '',
+      formattedAddress: result.display_name, // Same as displayName for now
+      city: cityName || address.county || '', // Use county as fallback only if no city/village
+      region: regionName,
       country: address.country || '',
       countryCode: (address.country_code || '').toUpperCase(),
       latitude: parseFloat(result.lat),

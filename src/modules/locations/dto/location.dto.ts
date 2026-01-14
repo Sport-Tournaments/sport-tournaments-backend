@@ -25,6 +25,9 @@ export class LocationResultDto {
   @ApiProperty({ example: 'Barcelona, Catalonia, Spain' })
   displayName: string;
 
+  @ApiProperty({ example: 'Barcelona, Catalonia, Spain' })
+  formattedAddress: string;
+
   @ApiProperty({ example: 'Barcelona' })
   city: string;
 
