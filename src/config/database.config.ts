@@ -45,7 +45,7 @@ export const getDatabaseConfig = (
     type: 'postgres',
     url: databaseUrl,
     entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-    synchronize: nodeEnv !== 'production',
+    synchronize: true,
     logging: nodeEnv === 'development',
     autoLoadEntities: true,
     ssl: sslConfig,
