@@ -17,7 +17,7 @@ import {
 } from '@nestjs/swagger';
 import { GroupsService } from './groups.service';
 import { PotDrawService } from './services/pot-draw.service';
-import { ExecuteDrawDto, UpdateBracketDto, CreateGroupDto } from './dto';
+import { ExecuteDrawDto, UpdateBracketDto, CreateGroupDto, ConfigureGroupsDto, UpdateGroupDto, GroupConfigurationResponseDto } from './dto';
 import { AssignTeamToPotDto, AssignPotsBulkDto, ExecutePotDrawDto } from './dto/pot.dto';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards';
 import { CurrentUser, Public } from '../../common/decorators';
@@ -106,6 +106,45 @@ export class GroupsController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.groupsService.resetDraw(tournamentId, user.sub, user.role);
+  }
+
+  // =====================================================
+  // Manual Group Configuration endpoints
+  // =====================================================
+
+  @Post('groups/configure')
+  @ApiOperation({ summary: 'Configure manual group setup' })
+  @ApiResponse({ status: 201, description: 'Group configuration created', type: GroupConfigurationResponseDto })
+  @ApiResponse({ status: 400, description: 'Invalid configuration' })
+  @ApiResponse({ status: 403, description: 'Not authorized' })
+  configureGroups(
+    @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: ConfigureGroupsDto,
+  ) {
+    return this.groupsService.configureGroups(tournamentId, user.sub, user.role, dto);
+  }
+
+  @Get('groups/configuration')
+  @ApiOperation({ summary: 'Get current group configuration' })
+  @ApiResponse({ status: 200, description: 'Configuration retrieved', type: GroupConfigurationResponseDto })
+  @ApiResponse({ status: 404, description: 'No configuration found' })
+  getGroupConfiguration(@Param('tournamentId', ParseUUIDPipe) tournamentId: string) {
+    return this.groupsService.getGroupConfiguration(tournamentId);
+  }
+
+  @Patch('groups/:groupId')
+  @ApiOperation({ summary: 'Update a specific group' })
+  @ApiResponse({ status: 200, description: 'Group updated' })
+  @ApiResponse({ status: 403, description: 'Not authorized' })
+  @ApiResponse({ status: 404, description: 'Group not found' })
+  updateGroup(
+    @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
+    @Param('groupId', ParseUUIDPipe) groupId: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: UpdateGroupDto,
+  ) {
+    return this.groupsService.updateGroup(tournamentId, groupId, user.sub, user.role, dto);
   }
 
   // =====================================================

@@ -10,7 +10,7 @@ import { randomUUID } from 'crypto';
 import { Group } from './entities/group.entity';
 import { Tournament } from '../tournaments/entities/tournament.entity';
 import { Registration } from '../registrations/entities/registration.entity';
-import { ExecuteDrawDto, UpdateBracketDto, CreateGroupDto } from './dto';
+import { ExecuteDrawDto, UpdateBracketDto, CreateGroupDto, ConfigureGroupsDto, UpdateGroupDto, GroupConfigurationResponseDto } from './dto';
 import {
   TournamentStatus,
   RegistrationStatus,
@@ -337,6 +337,255 @@ export class GroupsService {
       ...createGroupDto,
       teams: createGroupDto.teams || [],
     });
+
+    return this.groupsRepository.save(group);
+  }
+
+  // =====================================================
+  // Manual Group Configuration methods (Issue #41)
+  // =====================================================
+
+  async configureGroups(
+    tournamentId: string,
+    userId: string,
+    userRole: string,
+    dto: ConfigureGroupsDto,
+  ): Promise<GroupConfigurationResponseDto> {
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id: tournamentId },
+    });
+
+    if (!tournament) {
+      throw new NotFoundException('Tournament not found');
+    }
+
+    // Check permission
+    if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException(
+        'You are not allowed to configure groups for this tournament',
+      );
+    }
+
+    // Get approved registrations count
+    const registeredTeamsCount = await this.registrationsRepository.count({
+      where: {
+        tournamentId,
+        status: RegistrationStatus.APPROVED,
+      },
+    });
+
+    // Validation
+    const errors: string[] = [];
+    
+    // Validate number of groups matches teamsPerGroup array length
+    if (dto.numberOfGroups !== dto.teamsPerGroup.length) {
+      errors.push(
+        `Number of groups (${dto.numberOfGroups}) must match teamsPerGroup array length (${dto.teamsPerGroup.length})`,
+      );
+    }
+
+    // Validate each group has at least 1 team
+    dto.teamsPerGroup.forEach((group) => {
+      if (group.teamCount < 1) {
+        errors.push(`Group ${group.groupLetter} must have at least 1 team`);
+      }
+    });
+
+    // Calculate total teams allocated
+    const totalTeamsAllocated = dto.teamsPerGroup.reduce(
+      (sum, group) => sum + group.teamCount,
+      0,
+    );
+
+    // Validate total teams matches registered teams
+    if (totalTeamsAllocated !== registeredTeamsCount) {
+      errors.push(
+        `Total teams allocated (${totalTeamsAllocated}) must equal total registered teams (${registeredTeamsCount})`,
+      );
+    }
+
+    // Validate unique group letters
+    const groupLetters = dto.teamsPerGroup.map((g) => g.groupLetter);
+    const uniqueLetters = new Set(groupLetters);
+    if (groupLetters.length !== uniqueLetters.size) {
+      errors.push('Group letters must be unique');
+    }
+
+    const isValid = errors.length === 0;
+
+    // If validation passes, save configuration
+    if (isValid) {
+      tournament.numberOfGroups = dto.numberOfGroups;
+      tournament.groupConfiguration = dto.teamsPerGroup;
+      tournament.groupConfigCreatedAt = new Date();
+      await this.tournamentsRepository.save(tournament);
+
+      // Create empty groups based on configuration
+      const existingGroups = await this.groupsRepository.find({
+        where: { tournamentId },
+      });
+
+      // Delete existing groups if any
+      if (existingGroups.length > 0) {
+        await this.groupsRepository.delete({ tournamentId });
+      }
+
+      // Create new groups
+      const newGroups = dto.teamsPerGroup.map((config, index) =>
+        this.groupsRepository.create({
+          tournamentId,
+          groupLetter: config.groupLetter,
+          teams: [],
+          groupOrder: index,
+        }),
+      );
+
+      await this.groupsRepository.save(newGroups);
+    }
+
+    return {
+      tournamentId,
+      numberOfGroups: dto.numberOfGroups,
+      teamsPerGroup: dto.teamsPerGroup,
+      totalTeamsAllocated,
+      totalRegisteredTeams: registeredTeamsCount,
+      isValid,
+      errors,
+      createdAt: tournament.groupConfigCreatedAt || new Date(),
+    };
+  }
+
+  async getGroupConfiguration(
+    tournamentId: string,
+  ): Promise<GroupConfigurationResponseDto> {
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id: tournamentId },
+    });
+
+    if (!tournament) {
+      throw new NotFoundException('Tournament not found');
+    }
+
+    if (!tournament.numberOfGroups || !tournament.groupConfiguration) {
+      throw new NotFoundException('No group configuration found for this tournament');
+    }
+
+    // Get approved registrations count
+    const registeredTeamsCount = await this.registrationsRepository.count({
+      where: {
+        tournamentId,
+        status: RegistrationStatus.APPROVED,
+      },
+    });
+
+    // Calculate total teams allocated
+    const totalTeamsAllocated = tournament.groupConfiguration.reduce(
+      (sum, group) => sum + group.teamCount,
+      0,
+    );
+
+    // Validation
+    const errors: string[] = [];
+    if (totalTeamsAllocated !== registeredTeamsCount) {
+      errors.push(
+        `Configuration out of sync: ${totalTeamsAllocated} allocated vs ${registeredTeamsCount} registered`,
+      );
+    }
+
+    const isValid = errors.length === 0;
+
+    return {
+      tournamentId,
+      numberOfGroups: tournament.numberOfGroups,
+      teamsPerGroup: tournament.groupConfiguration,
+      totalTeamsAllocated,
+      totalRegisteredTeams: registeredTeamsCount,
+      isValid,
+      errors,
+      createdAt: tournament.groupConfigCreatedAt || tournament.createdAt,
+    };
+  }
+
+  async updateGroup(
+    tournamentId: string,
+    groupId: string,
+    userId: string,
+    userRole: string,
+    dto: UpdateGroupDto,
+  ): Promise<Group> {
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id: tournamentId },
+    });
+
+    if (!tournament) {
+      throw new NotFoundException('Tournament not found');
+    }
+
+    // Check permission
+    if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException(
+        'You are not allowed to update groups for this tournament',
+      );
+    }
+
+    const group = await this.groupsRepository.findOne({
+      where: { id: groupId, tournamentId },
+    });
+
+    if (!group) {
+      throw new NotFoundException('Group not found');
+    }
+
+    // Validate teams exist if provided
+    if (dto.teams && dto.teams.length > 0) {
+      const registrations = await this.registrationsRepository.find({
+        where: {
+          tournamentId,
+          status: RegistrationStatus.APPROVED,
+        },
+      });
+
+      const validRegistrationIds = registrations.map((r) => r.id);
+      const invalidTeams = dto.teams.filter(
+        (teamId) => !validRegistrationIds.includes(teamId),
+      );
+
+      if (invalidTeams.length > 0) {
+        throw new BadRequestException(
+          `Invalid registration IDs: ${invalidTeams.join(', ')}`,
+        );
+      }
+
+      // Check if configuration exists and validate team count
+      if (tournament.groupConfiguration) {
+        const groupConfig = tournament.groupConfiguration.find(
+          (g) => g.groupLetter === group.groupLetter,
+        );
+        
+        if (groupConfig && dto.teams.length > groupConfig.teamCount) {
+          throw new BadRequestException(
+            `Group ${group.groupLetter} can only have ${groupConfig.teamCount} teams (tried to assign ${dto.teams.length})`,
+          );
+        }
+      }
+
+      group.teams = dto.teams;
+    }
+
+    if (dto.groupLetter !== undefined) {
+      // Check if new letter conflicts with existing groups
+      const existingGroup = await this.groupsRepository.findOne({
+        where: { tournamentId, groupLetter: dto.groupLetter },
+      });
+
+      if (existingGroup && existingGroup.id !== groupId) {
+        throw new BadRequestException(
+          `Group ${dto.groupLetter} already exists`,
+        );
+      }
+
+      group.groupLetter = dto.groupLetter;
+    }
 
     return this.groupsRepository.save(group);
   }
