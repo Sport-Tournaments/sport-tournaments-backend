@@ -15,6 +15,7 @@ import {
   Currency,
   AgeCategory,
 } from '../../../common/enums';
+import { DateOnlyTransformer } from '../../../common/transformers';
 import { User } from '../../users/entities/user.entity';
 import { Registration } from '../../registrations/entities/registration.entity';
 import { Group } from '../../groups/entities/group.entity';
@@ -51,11 +52,11 @@ export class Tournament {
   status: TournamentStatus;
 
   @Index()
-  @Column({ name: 'start_date', type: 'date' })
-  startDate: Date;
+  @Column({ name: 'start_date', type: 'date', transformer: new DateOnlyTransformer() })
+  startDate: Date | string;
 
-  @Column({ name: 'end_date', type: 'date' })
-  endDate: Date;
+  @Column({ name: 'end_date', type: 'date', transformer: new DateOnlyTransformer() })
+  endDate: Date | string;
 
   @Column()
   location: string;
@@ -92,7 +93,6 @@ export class Tournament {
   @Column({ name: 'guaranteed_matches', nullable: true })
   guaranteedMatches: number;
 
-  @Column({ name: 'max_teams' })
   @Column({ name: 'max_teams', nullable: true })
   maxTeams: number;
 
@@ -133,14 +133,14 @@ export class Tournament {
   @Column({ type: 'json', nullable: true })
   tags?: string[];
 
-  @Column({ name: 'registration_deadline', type: 'date', nullable: true })
-  registrationDeadline?: Date;
+  @Column({ name: 'registration_deadline', type: 'date', nullable: true, transformer: new DateOnlyTransformer() })
+  registrationDeadline?: Date | string;
 
-  @Column({ name: 'registration_start_date', type: 'date', nullable: true })
-  registrationStartDate?: Date;
+  @Column({ name: 'registration_start_date', type: 'date', nullable: true, transformer: new DateOnlyTransformer() })
+  registrationStartDate?: Date | string;
 
-  @Column({ name: 'registration_end_date', type: 'date', nullable: true })
-  registrationEndDate?: Date;
+  @Column({ name: 'registration_end_date', type: 'date', nullable: true, transformer: new DateOnlyTransformer() })
+  registrationEndDate?: Date | string;
 
   @Column({ name: 'contact_email', nullable: true })
   contactEmail?: string;
