@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { RegistrationsService } from './registrations.service';
 import { Registration } from './entities/registration.entity';
+import { RegistrationDocument } from './entities/registration-document.entity';
 import { Tournament } from '../tournaments/entities/tournament.entity';
 import { Club } from '../clubs/entities/club.entity';
 import { CreateRegistrationDto } from './dto';
@@ -81,6 +82,14 @@ describe('RegistrationsService', () => {
     find: jest.fn(),
   };
 
+  const mockDocumentsRepo = {
+    create: jest.fn(),
+    save: jest.fn(),
+    findOne: jest.fn(),
+    find: jest.fn(),
+    remove: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -96,6 +105,10 @@ describe('RegistrationsService', () => {
         {
           provide: getRepositoryToken(Club),
           useValue: mockClubsRepo,
+        },
+        {
+          provide: getRepositoryToken(RegistrationDocument),
+          useValue: mockDocumentsRepo,
         },
       ],
     }).compile();

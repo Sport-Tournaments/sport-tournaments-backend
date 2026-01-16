@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Registration } from './entities/registration.entity';
+import { Registration, RegistrationDocument } from './entities';
 import { Tournament } from '../tournaments/entities/tournament.entity';
 import { Club } from '../clubs/entities/club.entity';
 import {
@@ -18,6 +18,10 @@ import {
   ApproveRegistrationDto,
   RejectRegistrationDto,
   BulkReviewDto,
+  UploadDocumentDto,
+  DocumentResponseDto,
+  ConfirmFitnessDto,
+  FitnessStatusDto,
 } from './dto';
 import { PaginationDto } from '../../common/dto';
 import { PaginatedResponse } from '../../common/interfaces';
@@ -27,9 +31,13 @@ import {
   UserRole,
   PaymentStatus,
 } from '../../common/enums';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class RegistrationsService {
+  private readonly uploadsPath = path.join(process.cwd(), 'uploads', 'documents');
+
   constructor(
     @InjectRepository(Registration)
     private registrationsRepository: Repository<Registration>,
@@ -37,7 +45,14 @@ export class RegistrationsService {
     private tournamentsRepository: Repository<Tournament>,
     @InjectRepository(Club)
     private clubsRepository: Repository<Club>,
-  ) {}
+    @InjectRepository(RegistrationDocument)
+    private documentsRepository: Repository<RegistrationDocument>,
+  ) {
+    // Ensure uploads directory exists
+    if (!fs.existsSync(this.uploadsPath)) {
+      fs.mkdirSync(this.uploadsPath, { recursive: true });
+    }
+  }
 
   async create(
     tournamentId: string,
@@ -631,5 +646,288 @@ export class RegistrationsService {
       relations: ['club', 'club.owner'],
       order: { registrationDate: 'ASC' },
     });
+  }
+
+  /**
+   * Upload document for registration
+   */
+  async uploadDocument(
+    registrationId: string,
+    uploadDocumentDto: UploadDocumentDto,
+    file: Express.Multer.File,
+    userId: string,
+    userRole: string,
+  ): Promise<DocumentResponseDto> {
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+
+    const registration = await this.findByIdOrFail(registrationId);
+
+    // Check authorization - user must own the club or be organizer/admin
+    const club = await this.clubsRepository.findOne({
+      where: { id: registration.clubId },
+    });
+
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id: registration.tournamentId },
+    });
+
+    const isClubOwner = club?.organizerId === userId;
+    const isTournamentOrganizer = tournament?.organizerId === userId;
+
+    if (!isClubOwner && !isTournamentOrganizer && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException(
+        'You are not allowed to upload documents for this registration',
+      );
+    }
+
+    // Validate file type
+    const allowedMimeTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      throw new BadRequestException(
+        'Invalid file type. Allowed: PDF, JPG, PNG',
+      );
+    }
+
+    // Validate file size (10MB max)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      throw new BadRequestException('File size exceeds 10MB limit');
+    }
+
+    // Generate unique filename
+    const timestamp = Date.now();
+    const ext = path.extname(file.originalname);
+    const fileName = `${registrationId}-${timestamp}${ext}`;
+    const filePath = path.join(this.uploadsPath, fileName);
+
+    // Save file
+    fs.writeFileSync(filePath, file.buffer);
+
+    // Create document record
+    const document = this.documentsRepository.create({
+      registrationId,
+      documentType: uploadDocumentDto.documentType,
+      fileName: file.originalname,
+      filePath: filePath,
+      fileSize: file.size,
+      mimeType: file.mimetype,
+      uploadedBy: userId,
+      notes: uploadDocumentDto.notes,
+    });
+
+    const savedDocument = await this.documentsRepository.save(document);
+
+    return {
+      id: savedDocument.id,
+      registrationId: savedDocument.registrationId,
+      documentType: savedDocument.documentType,
+      fileName: savedDocument.fileName,
+      fileSize: savedDocument.fileSize,
+      mimeType: savedDocument.mimeType,
+      uploadedBy: savedDocument.uploadedBy,
+      uploadedAt: savedDocument.uploadedAt,
+      notes: savedDocument.notes,
+    };
+  }
+
+  /**
+   * Get all documents for a registration
+   */
+  async getDocuments(
+    registrationId: string,
+    userId: string,
+    userRole: string,
+  ): Promise<DocumentResponseDto[]> {
+    const registration = await this.findByIdOrFail(registrationId);
+
+    // Check authorization
+    const club = await this.clubsRepository.findOne({
+      where: { id: registration.clubId },
+    });
+
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id: registration.tournamentId },
+    });
+
+    const isClubOwner = club?.organizerId === userId;
+    const isTournamentOrganizer = tournament?.organizerId === userId;
+
+    if (!isClubOwner && !isTournamentOrganizer && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException(
+        'You are not allowed to view documents for this registration',
+      );
+    }
+
+    const documents = await this.documentsRepository.find({
+      where: { registrationId },
+      order: { uploadedAt: 'DESC' },
+    });
+
+    return documents.map((doc) => ({
+      id: doc.id,
+      registrationId: doc.registrationId,
+      documentType: doc.documentType,
+      fileName: doc.fileName,
+      fileSize: doc.fileSize,
+      mimeType: doc.mimeType,
+      uploadedBy: doc.uploadedBy,
+      uploadedAt: doc.uploadedAt,
+      notes: doc.notes,
+    }));
+  }
+
+  /**
+   * Delete a document
+   */
+  async deleteDocument(
+    registrationId: string,
+    docId: string,
+    userId: string,
+    userRole: string,
+  ): Promise<void> {
+    const registration = await this.findByIdOrFail(registrationId);
+
+    const document = await this.documentsRepository.findOne({
+      where: { id: docId, registrationId },
+    });
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    // Check authorization
+    const club = await this.clubsRepository.findOne({
+      where: { id: registration.clubId },
+    });
+
+    const isClubOwner = club?.organizerId === userId;
+    const isUploader = document.uploadedBy === userId;
+
+    if (!isClubOwner && !isUploader && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException(
+        'You are not allowed to delete this document',
+      );
+    }
+
+    // Delete file from filesystem
+    if (fs.existsSync(document.filePath)) {
+      fs.unlinkSync(document.filePath);
+    }
+
+    await this.documentsRepository.remove(document);
+  }
+
+  /**
+   * Confirm fitness for registration
+   */
+  async confirmFitness(
+    registrationId: string,
+    confirmFitnessDto: ConfirmFitnessDto,
+    userId: string,
+    userRole: string,
+  ): Promise<Registration> {
+    const registration = await this.findByIdOrFail(registrationId);
+
+    // Check if user is coach/staff of the club
+    const club = await this.clubsRepository.findOne({
+      where: { id: registration.clubId },
+    });
+
+    const isClubOwner = club?.organizerId === userId;
+
+    if (!isClubOwner && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException(
+        'Only club coaches/staff can confirm fitness',
+      );
+    }
+
+    if (!confirmFitnessDto.coachConfirmation) {
+      throw new BadRequestException(
+        'Coach confirmation is required to confirm fitness',
+      );
+    }
+
+    registration.fitnessConfirmed = true;
+    registration.fitnessConfirmedById = userId;
+    registration.fitnessConfirmedAt = new Date();
+    registration.fitnessNotes = confirmFitnessDto.notes;
+
+    return this.registrationsRepository.save(registration);
+  }
+
+  /**
+   * Get fitness confirmation status
+   */
+  async getFitnessStatus(
+    registrationId: string,
+    userId: string,
+    userRole: string,
+  ): Promise<FitnessStatusDto> {
+    const registration = await this.findByIdOrFail(registrationId);
+
+    // Check authorization
+    const club = await this.clubsRepository.findOne({
+      where: { id: registration.clubId },
+    });
+
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id: registration.tournamentId },
+    });
+
+    const isClubOwner = club?.organizerId === userId;
+    const isTournamentOrganizer = tournament?.organizerId === userId;
+
+    if (!isClubOwner && !isTournamentOrganizer && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException(
+        'You are not allowed to view fitness status for this registration',
+      );
+    }
+
+    return {
+      fitnessConfirmed: registration.fitnessConfirmed,
+      confirmedById: registration.fitnessConfirmedById,
+      confirmedAt: registration.fitnessConfirmedAt,
+      notes: registration.fitnessNotes,
+    };
+  }
+
+  /**
+   * Get my registration for a tournament
+   */
+  async getMyRegistration(
+    tournamentId: string,
+    userId: string,
+  ): Promise<Registration | null> {
+    // Find clubs owned by the user
+    const clubs = await this.clubsRepository.find({
+      where: { organizerId: userId },
+      select: ['id'],
+    });
+
+    if (clubs.length === 0) {
+      return null;
+    }
+
+    const clubIds = clubs.map((c) => c.id);
+
+    // Find registration for any of the user's clubs
+    const registration = await this.registrationsRepository
+      .createQueryBuilder('registration')
+      .leftJoinAndSelect('registration.club', 'club')
+      .leftJoinAndSelect('registration.tournament', 'tournament')
+      .leftJoinAndSelect('registration.payment', 'payment')
+      .where('registration.tournamentId = :tournamentId', { tournamentId })
+      .andWhere('registration.clubId IN (:...clubIds)', { clubIds })
+      .getOne();
+
+    if (!registration) {
+      throw new NotFoundException(
+        'No registration found for this tournament',
+      );
+    }
+
+    return registration;
   }
 }
