@@ -8,6 +8,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Tournament } from './tournament.entity';
+import { DateOnlyTransformer } from '../../../common/transformers';
 
 // Game systems available per age category
 export type GameSystem =
@@ -71,11 +72,11 @@ export class TournamentAgeGroup {
   guaranteedMatches?: number;
 
   // Independent date range for this age group
-  @Column({ name: 'start_date', type: 'date' })
-  startDate: Date;
+  @Column({ name: 'start_date', type: 'date', transformer: new DateOnlyTransformer() })
+  startDate: Date | string;
 
-  @Column({ name: 'end_date', type: 'date' })
-  endDate: Date;
+  @Column({ name: 'end_date', type: 'date', transformer: new DateOnlyTransformer() })
+  endDate: Date | string;
 
   // Optional: assigned location ID (references TournamentLocation)
   @Column({ name: 'location_id', nullable: true })

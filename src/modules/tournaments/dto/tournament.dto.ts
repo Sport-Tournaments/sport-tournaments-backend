@@ -14,6 +14,7 @@ import {
   Min,
   Max,
   IsObject,
+  Matches,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
@@ -114,14 +115,16 @@ export class CreateAgeGroupDto {
   @Max(20)
   guaranteedMatches?: number;
 
-  @ApiPropertyOptional({ example: '2025-07-01' })
+  @ApiPropertyOptional({ example: '2025-07-01', description: 'Age group start date (YYYY-MM-DD format)' })
   @IsOptional()
   @IsDateString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'startDate must be in YYYY-MM-DD format' })
   startDate?: string;
 
-  @ApiPropertyOptional({ example: '2025-07-02' })
+  @ApiPropertyOptional({ example: '2025-07-02', description: 'Age group end date (YYYY-MM-DD format)' })
   @IsOptional()
   @IsDateString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'endDate must be in YYYY-MM-DD format' })
   endDate?: string;
 
   @ApiPropertyOptional({ description: 'Location ID for this age group' })
@@ -203,14 +206,16 @@ export class UpdateAgeGroupDto {
   @Max(128)
   maxTeams?: number;
 
-  @ApiPropertyOptional({ example: '2025-07-01' })
+  @ApiPropertyOptional({ example: '2025-07-01', description: 'Age group start date (YYYY-MM-DD format)' })
   @IsOptional()
   @IsDateString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'startDate must be in YYYY-MM-DD format' })
   startDate?: string;
 
-  @ApiPropertyOptional({ example: '2025-07-02' })
+  @ApiPropertyOptional({ example: '2025-07-02', description: 'Age group end date (YYYY-MM-DD format)' })
   @IsOptional()
   @IsDateString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'endDate must be in YYYY-MM-DD format' })
   endDate?: string;
 
   @ApiPropertyOptional({ description: 'Location ID for this age group' })
@@ -375,12 +380,14 @@ export class CreateTournamentDto {
   @MaxLength(5000)
   description?: string;
 
-  @ApiProperty({ example: '2025-07-01' })
+  @ApiProperty({ example: '2025-07-01', description: 'Tournament start date (YYYY-MM-DD format, date only)' })
   @IsDateString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'startDate must be in YYYY-MM-DD format' })
   startDate: string;
 
-  @ApiProperty({ example: '2025-07-05' })
+  @ApiProperty({ example: '2025-07-05', description: 'Tournament end date (YYYY-MM-DD format, date only)' })
   @IsDateString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'endDate must be in YYYY-MM-DD format' })
   endDate: string;
 
   @ApiProperty({ example: 'Barcelona, Spain' })
@@ -628,14 +635,16 @@ export class UpdateTournamentDto {
   @MaxLength(5000)
   description?: string;
 
-  @ApiPropertyOptional({ example: '2025-07-01' })
+  @ApiPropertyOptional({ example: '2025-07-01', description: 'Tournament start date (YYYY-MM-DD format)' })
   @IsOptional()
   @IsDateString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'startDate must be in YYYY-MM-DD format' })
   startDate?: string;
 
-  @ApiPropertyOptional({ example: '2025-07-05' })
+  @ApiPropertyOptional({ example: '2025-07-05', description: 'Tournament end date (YYYY-MM-DD format)' })
   @IsOptional()
   @IsDateString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'endDate must be in YYYY-MM-DD format' })
   endDate?: string;
 
   @ApiPropertyOptional({ example: 'Barcelona, Spain' })

@@ -36,11 +36,8 @@ export class TournamentsService {
     organizerId: string,
     createTournamentDto: CreateTournamentDto,
   ): Promise<Tournament> {
-    // Validate dates
-    const startDate = new Date(createTournamentDto.startDate);
-    const endDate = new Date(createTournamentDto.endDate);
-
-    if (endDate < startDate) {
+    // Validate dates - compare as strings in YYYY-MM-DD format
+    if (createTournamentDto.endDate < createTournamentDto.startDate) {
       throw new BadRequestException('End date must be after start date');
     }
 
@@ -48,20 +45,10 @@ export class TournamentsService {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { ageGroups, locations, ...tournamentData } = createTournamentDto;
 
+    // Pass date strings directly - the transformer will handle conversion
     const tournament = this.tournamentsRepository.create({
       ...tournamentData,
       organizerId,
-      startDate,
-      endDate,
-      registrationStartDate: createTournamentDto.registrationStartDate
-        ? new Date(createTournamentDto.registrationStartDate)
-        : undefined,
-      registrationEndDate: createTournamentDto.registrationEndDate
-        ? new Date(createTournamentDto.registrationEndDate)
-        : undefined,
-      registrationDeadline: createTournamentDto.registrationDeadline
-        ? new Date(createTournamentDto.registrationDeadline)
-        : undefined,
       status: TournamentStatus.DRAFT,
     });
 
@@ -73,8 +60,8 @@ export class TournamentsService {
         this.ageGroupsRepository.create({
           ...ag,
           tournamentId: savedTournament.id,
-          startDate: ag.startDate ? new Date(ag.startDate) : startDate,
-          endDate: ag.endDate ? new Date(ag.endDate) : endDate,
+          startDate: ag.startDate || createTournamentDto.startDate,
+          endDate: ag.endDate || createTournamentDto.endDate,
         }),
       );
       await this.ageGroupsRepository.save(ageGroupEntities);
@@ -317,36 +304,17 @@ export class TournamentsService {
 
     // Validate dates if being updated
     if (updateTournamentDto.startDate || updateTournamentDto.endDate) {
-      const startDate = updateTournamentDto.startDate
-        ? new Date(updateTournamentDto.startDate)
-        : tournament.startDate;
-      const endDate = updateTournamentDto.endDate
-        ? new Date(updateTournamentDto.endDate)
-        : tournament.endDate;
+      const startDate = updateTournamentDto.startDate || tournament.startDate;
+      const endDate = updateTournamentDto.endDate || tournament.endDate;
 
+      // Compare as strings in YYYY-MM-DD format
       if (endDate < startDate) {
         throw new BadRequestException('End date must be after start date');
       }
     }
 
-    Object.assign(tournament, {
-      ...updateTournamentDto,
-      startDate: updateTournamentDto.startDate
-        ? new Date(updateTournamentDto.startDate)
-        : tournament.startDate,
-      endDate: updateTournamentDto.endDate
-        ? new Date(updateTournamentDto.endDate)
-        : tournament.endDate,
-      registrationStartDate: updateTournamentDto.registrationStartDate
-        ? new Date(updateTournamentDto.registrationStartDate)
-        : tournament.registrationStartDate,
-      registrationEndDate: updateTournamentDto.registrationEndDate
-        ? new Date(updateTournamentDto.registrationEndDate)
-        : tournament.registrationEndDate,
-      registrationDeadline: updateTournamentDto.registrationDeadline
-        ? new Date(updateTournamentDto.registrationDeadline)
-        : tournament.registrationDeadline,
-    });
+    // Pass values directly - the transformer will handle conversion
+    Object.assign(tournament, updateTournamentDto);
 
     return this.tournamentsRepository.save(tournament);
   }
@@ -398,20 +366,17 @@ export class TournamentsService {
         // Update existing
         const existing = existingAgeGroups.find((e) => e.id === ag.id);
         if (existing) {
-          Object.assign(existing, {
-            ...ag,
-            startDate: ag.startDate ? new Date(ag.startDate) : existing.startDate,
-            endDate: ag.endDate ? new Date(ag.endDate) : existing.endDate,
-          });
+          // Pass values directly - transformer handles conversion
+          Object.assign(existing, ag);
           result.push(await this.ageGroupsRepository.save(existing));
         }
       } else {
-        // Create new
+        // Create new - pass date strings directly
         const newAgeGroup = this.ageGroupsRepository.create({
           ...ag,
           tournamentId,
-          startDate: ag.startDate ? new Date(ag.startDate) : tournament.startDate,
-          endDate: ag.endDate ? new Date(ag.endDate) : tournament.endDate,
+          startDate: ag.startDate || tournament.startDate,
+          endDate: ag.endDate || tournament.endDate,
         });
         result.push(await this.ageGroupsRepository.save(newAgeGroup));
       }
