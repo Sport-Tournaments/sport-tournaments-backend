@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   ManyToOne,
   OneToOne,
+  OneToMany,
   Index,
   JoinColumn,
 } from 'typeorm';
@@ -14,6 +15,7 @@ import { Tournament } from '../../tournaments/entities/tournament.entity';
 import { Club } from '../../clubs/entities/club.entity';
 import { Payment } from '../../payments/entities/payment.entity';
 import { User } from '../../users/entities/user.entity';
+import { RegistrationDocument } from './registration-document.entity';
 
 @Entity('registrations')
 @Index(['tournamentId', 'clubId'], { unique: true })
@@ -101,6 +103,26 @@ export class Registration {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
+  // Fitness confirmation fields
+  @Column({ name: 'fitness_confirmed', default: false })
+  fitnessConfirmed: boolean;
+
+  @Column({ name: 'fitness_confirmed_by_id', nullable: true })
+  fitnessConfirmedById?: string;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'fitness_confirmed_by_id' })
+  fitnessConfirmedBy?: User;
+
+  @Column({ name: 'fitness_confirmed_at', type: 'timestamp', nullable: true })
+  fitnessConfirmedAt?: Date;
+
+  @Column({ name: 'fitness_notes', type: 'text', nullable: true })
+  fitnessNotes?: string;
+
   @OneToOne(() => Payment, (payment) => payment.registration)
   payment: Payment;
+
+  @OneToMany(() => RegistrationDocument, (document) => document.registration)
+  documents: RegistrationDocument[];
 }

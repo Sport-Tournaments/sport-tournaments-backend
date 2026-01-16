@@ -9,7 +9,10 @@ import {
   Query,
   UseGuards,
   ParseUUIDPipe,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
@@ -25,6 +28,8 @@ import {
   ApproveRegistrationDto,
   RejectRegistrationDto,
   BulkReviewDto,
+  UploadDocumentDto,
+  ConfirmFitnessDto,
 } from './dto';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards';
 import { Roles, CurrentUser, Public } from '../../common/decorators';
@@ -213,5 +218,98 @@ export class RegistrationsController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.registrationsService.remove(id, user.sub, user.role);
+  }
+
+  // Document Upload Endpoints
+  @Post('registrations/:id/documents')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Upload document for registration' })
+  @ApiResponse({ status: 201, description: 'Document uploaded successfully' })
+  uploadDocument(
+    @Param('id', ParseUUIDPipe) registrationId: string,
+    @Body() uploadDocumentDto: UploadDocumentDto,
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.registrationsService.uploadDocument(
+      registrationId,
+      uploadDocumentDto,
+      file,
+      user.sub,
+      user.role,
+    );
+  }
+
+  @Get('registrations/:id/documents')
+  @ApiOperation({ summary: 'Get all documents for registration' })
+  @ApiResponse({ status: 200, description: 'List of documents' })
+  getDocuments(
+    @Param('id', ParseUUIDPipe) registrationId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.registrationsService.getDocuments(
+      registrationId,
+      user.sub,
+      user.role,
+    );
+  }
+
+  @Delete('registrations/:id/documents/:docId')
+  @ApiOperation({ summary: 'Delete a document' })
+  @ApiResponse({ status: 200, description: 'Document deleted' })
+  deleteDocument(
+    @Param('id', ParseUUIDPipe) registrationId: string,
+    @Param('docId', ParseUUIDPipe) docId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.registrationsService.deleteDocument(
+      registrationId,
+      docId,
+      user.sub,
+      user.role,
+    );
+  }
+
+  // Fitness Confirmation Endpoints
+  @Post('registrations/:id/confirm-fitness')
+  @ApiOperation({ summary: 'Confirm fitness for registration' })
+  @ApiResponse({ status: 200, description: 'Fitness confirmed' })
+  confirmFitness(
+    @Param('id', ParseUUIDPipe) registrationId: string,
+    @Body() confirmFitnessDto: ConfirmFitnessDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.registrationsService.confirmFitness(
+      registrationId,
+      confirmFitnessDto,
+      user.sub,
+      user.role,
+    );
+  }
+
+  @Get('registrations/:id/fitness')
+  @ApiOperation({ summary: 'Get fitness confirmation status' })
+  @ApiResponse({ status: 200, description: 'Fitness status' })
+  getFitnessStatus(
+    @Param('id', ParseUUIDPipe) registrationId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.registrationsService.getFitnessStatus(
+      registrationId,
+      user.sub,
+      user.role,
+    );
+  }
+
+  // My Registration Endpoint
+  @Get('tournaments/:tournamentId/my-registration')
+  @ApiOperation({ summary: 'Get current user registration for tournament' })
+  @ApiResponse({ status: 200, description: 'User registration' })
+  @ApiResponse({ status: 404, description: 'No registration found' })
+  getMyRegistration(
+    @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.registrationsService.getMyRegistration(tournamentId, user.sub);
   }
 }
