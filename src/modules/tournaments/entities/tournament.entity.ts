@@ -239,6 +239,16 @@ export class Tournament {
   @Column({ nullable: true })
   country?: string;
 
+  // Group Configuration (Issue #41)
+  @Column({ name: 'number_of_groups', nullable: true })
+  numberOfGroups?: number;
+
+  @Column({ name: 'group_configuration', type: 'json', nullable: true })
+  groupConfiguration?: { groupLetter: string; teamCount: number }[];
+
+  @Column({ name: 'group_config_created_at', nullable: true })
+  groupConfigCreatedAt?: Date;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
