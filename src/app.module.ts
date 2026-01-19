@@ -20,6 +20,7 @@ import { FilesModule } from './modules/files/files.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { InvitationsModule } from './modules/invitations/invitations.module';
 import { LocationsModule } from './modules/locations/locations.module';
+import { MailModule } from './modules/mail/mail.module';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { LocationsModule } from './modules/locations/locations.module';
     GroupsModule,
     PaymentsModule,
     NotificationsModule,
+    MailModule,
     FilesModule,
     AdminModule,
     InvitationsModule,

@@ -22,6 +22,7 @@ import {
   ChangePasswordDto,
 } from './dto';
 import { UserRole } from '../../common/enums';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class AuthService {
@@ -34,6 +35,7 @@ export class AuthService {
     private refreshTokenRepository: Repository<RefreshToken>,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private mailService: MailService,
   ) {}
 
   async register(
@@ -257,7 +259,7 @@ export class AuthService {
 
     if (user) {
       // Generate reset token
-      const resetToken = crypto.randomUUID();
+      const resetToken = randomUUID();
       const resetExpires = new Date();
       resetExpires.setHours(resetExpires.getHours() + 1); // 1 hour expiry
 
@@ -266,8 +268,18 @@ export class AuthService {
         passwordResetExpires: resetExpires,
       });
 
-      // TODO: Send password reset email
-      this.logger.log(`Password reset token for ${email}: ${resetToken}`);
+      // Send password reset email
+      try {
+        await this.mailService.sendPasswordResetEmail(
+          user.email,
+          resetToken,
+          user.firstName,
+        );
+        this.logger.log(`Password reset email sent to ${email}`);
+      } catch (error) {
+        this.logger.error(`Failed to send password reset email to ${email}:`, error);
+        // Still return success to prevent email enumeration
+      }
     }
 
     // Always return success to prevent email enumeration

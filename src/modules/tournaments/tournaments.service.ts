@@ -5,6 +5,7 @@ import {
   BadRequestException,
   Inject,
   forwardRef,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThanOrEqual } from 'typeorm';
@@ -23,6 +24,8 @@ import { FilesService } from '../files/files.service';
 
 @Injectable()
 export class TournamentsService {
+  private readonly logger = new Logger(TournamentsService.name);
+
   constructor(
     @InjectRepository(Tournament)
     private tournamentsRepository: Repository<Tournament>,
@@ -287,8 +290,11 @@ export class TournamentsService {
 
     // Only the organizer or admin can update the tournament
     if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
+      this.logger.warn(
+        `Unauthorized update attempt: User ${userId} (role: ${userRole}) tried to update tournament ${id} owned by ${tournament.organizerId}`,
+      );
       throw new ForbiddenException(
-        'You are not allowed to update this tournament',
+        'You are not allowed to update this tournament. Only the tournament organizer can make changes.',
       );
     }
 
@@ -437,6 +443,7 @@ export class TournamentsService {
     }
 
     tournament.status = TournamentStatus.CANCELLED;
+    tournament.isPublished = false;
 
     return this.tournamentsRepository.save(tournament);
   }
@@ -461,6 +468,7 @@ export class TournamentsService {
     }
 
     tournament.status = TournamentStatus.ONGOING;
+    // Keep isPublished true for ongoing tournaments - they are still publicly visible
 
     return this.tournamentsRepository.save(tournament);
   }
@@ -485,6 +493,7 @@ export class TournamentsService {
     }
 
     tournament.status = TournamentStatus.COMPLETED;
+    // Keep isPublished true for completed tournaments - they remain publicly visible for history
 
     return this.tournamentsRepository.save(tournament);
   }

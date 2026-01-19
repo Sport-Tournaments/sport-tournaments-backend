@@ -9,12 +9,17 @@ import {
   Query,
   UseGuards,
   ParseUUIDPipe,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
 import { ClubsService } from './clubs.service';
 import {
@@ -36,6 +41,7 @@ export class ClubsController {
   constructor(private readonly clubsService: ClubsService) {}
 
   @Post()
+  @Roles(UserRole.ORGANIZER, UserRole.PARTICIPANT, UserRole.USER)
   @ApiOperation({ summary: 'Create a new club' })
   @ApiResponse({ status: 201, description: 'Club created successfully' })
   @ApiResponse({
@@ -58,6 +64,7 @@ export class ClubsController {
   }
 
   @Get('my-clubs')
+  @Roles(UserRole.ORGANIZER, UserRole.PARTICIPANT, UserRole.USER)
   @ApiOperation({ summary: 'Get clubs owned by current user' })
   @ApiResponse({ status: 200, description: 'List of user clubs' })
   getMyClubs(@CurrentUser() user: JwtPayload) {
@@ -90,6 +97,7 @@ export class ClubsController {
   }
 
   @Patch(':id')
+  @Roles(UserRole.ORGANIZER, UserRole.PARTICIPANT, UserRole.USER)
   @ApiOperation({ summary: 'Update club' })
   @ApiResponse({ status: 200, description: 'Club updated successfully' })
   @ApiResponse({ status: 403, description: 'Not allowed to update this club' })
@@ -100,6 +108,33 @@ export class ClubsController {
     @Body() updateClubDto: UpdateClubDto,
   ) {
     return this.clubsService.update(id, user.sub, user.role, updateClubDto);
+  }
+
+  @Patch(':id/logo')
+  @Roles(UserRole.ORGANIZER, UserRole.PARTICIPANT, UserRole.USER)
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Upload club logo' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Logo uploaded successfully' })
+  @ApiResponse({ status: 403, description: 'Not allowed to update this club' })
+  @ApiResponse({ status: 404, description: 'Club not found' })
+  uploadLogo(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.clubsService.uploadLogo(id, user.sub, user.role, file);
   }
 
   @Patch(':id/admin')

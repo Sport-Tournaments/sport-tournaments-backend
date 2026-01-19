@@ -59,9 +59,10 @@ export class RegistrationsService {
     userId: string,
     createRegistrationDto: CreateRegistrationDto,
   ): Promise<Registration> {
-    // Get tournament
+    // Get tournament with age groups
     const tournament = await this.tournamentsRepository.findOne({
       where: { id: tournamentId },
+      relations: ['ageGroups'],
     });
 
     if (!tournament) {
@@ -84,7 +85,20 @@ export class RegistrationsService {
     }
 
     // Check if tournament is full
-    if (tournament.currentTeams >= tournament.maxTeams) {
+    // Calculate total max teams: if tournament has maxTeams set, use it, otherwise sum from age groups
+    let totalMaxTeams = 0;
+    if (tournament.maxTeams && tournament.maxTeams > 0) {
+      totalMaxTeams = tournament.maxTeams;
+    } else if (tournament.ageGroups && tournament.ageGroups.length > 0) {
+      // Sum maxTeams from all age groups
+      totalMaxTeams = tournament.ageGroups.reduce(
+        (sum, ag) => sum + (ag.maxTeams || 0),
+        0,
+      );
+    }
+
+    // Only check capacity if there's a limit (totalMaxTeams > 0)
+    if (totalMaxTeams > 0 && tournament.currentTeams >= totalMaxTeams) {
       throw new BadRequestException('Tournament is full');
     }
 
