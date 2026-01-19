@@ -5,6 +5,7 @@ import {
   BadRequestException,
   Inject,
   forwardRef,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThanOrEqual } from 'typeorm';
@@ -23,6 +24,8 @@ import { FilesService } from '../files/files.service';
 
 @Injectable()
 export class TournamentsService {
+  private readonly logger = new Logger(TournamentsService.name);
+
   constructor(
     @InjectRepository(Tournament)
     private tournamentsRepository: Repository<Tournament>,
@@ -287,8 +290,11 @@ export class TournamentsService {
 
     // Only the organizer or admin can update the tournament
     if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
+      this.logger.warn(
+        `Unauthorized update attempt: User ${userId} (role: ${userRole}) tried to update tournament ${id} owned by ${tournament.organizerId}`,
+      );
       throw new ForbiddenException(
-        'You are not allowed to update this tournament',
+        'You are not allowed to update this tournament. Only the tournament organizer can make changes.',
       );
     }
 
