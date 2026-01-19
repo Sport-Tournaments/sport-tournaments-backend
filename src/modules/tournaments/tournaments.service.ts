@@ -437,6 +437,7 @@ export class TournamentsService {
     }
 
     tournament.status = TournamentStatus.CANCELLED;
+    tournament.isPublished = false;
 
     return this.tournamentsRepository.save(tournament);
   }
@@ -461,6 +462,7 @@ export class TournamentsService {
     }
 
     tournament.status = TournamentStatus.ONGOING;
+    // Keep isPublished true for ongoing tournaments - they are still publicly visible
 
     return this.tournamentsRepository.save(tournament);
   }
@@ -485,6 +487,7 @@ export class TournamentsService {
     }
 
     tournament.status = TournamentStatus.COMPLETED;
+    // Keep isPublished true for completed tournaments - they remain publicly visible for history
 
     return this.tournamentsRepository.save(tournament);
   }
