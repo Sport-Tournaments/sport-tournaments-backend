@@ -165,6 +165,12 @@ export class TournamentsService {
       queryBuilder.andWhere('tournament.currentTeams < tournament.maxTeams');
     }
 
+    if (filters?.isPrivate !== undefined) {
+      queryBuilder.andWhere('tournament.isPrivate = :isPrivate', {
+        isPrivate: filters.isPrivate,
+      });
+    }
+
     if (filters?.search) {
       queryBuilder.andWhere(
         '(LOWER(tournament.name) LIKE LOWER(:search) OR LOWER(tournament.description) LIKE LOWER(:search) OR LOWER(tournament.location) LIKE LOWER(:search))',
