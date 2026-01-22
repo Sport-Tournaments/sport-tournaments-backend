@@ -82,6 +82,10 @@ export class TournamentAgeGroup {
   @Column({ name: 'location_id', nullable: true })
   locationId?: string;
 
+  // Optional: override game location address for this age group
+  @Column({ name: 'location_address', nullable: true })
+  locationAddress?: string;
+
   // Participation fee specific to this age group (optional, defaults to tournament fee)
   @Column({
     name: 'participation_fee',
