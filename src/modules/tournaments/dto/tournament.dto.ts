@@ -176,35 +176,12 @@ export class UpdateAgeGroupDto {
   @IsString()
   gameSystem?: string;
 
-  @ApiPropertyOptional({ example: 3, description: 'Guaranteed number of matches per team' })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(1)
-  @Max(20)
-  numberOfMatches?: number;
-
   @ApiPropertyOptional({ example: 16 })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(2)
   teamCount?: number;
-
-  @ApiPropertyOptional({ example: 4, description: 'Minimum number of teams required for the age group to be played' })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(2)
-  minTeams?: number;
-
-  @ApiPropertyOptional({ example: 16, description: 'Maximum number of teams allowed for this age group' })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(2)
-  @Max(128)
-  maxTeams?: number;
 
   @ApiPropertyOptional({ example: '2025-07-01', description: 'Age group start date (YYYY-MM-DD format)' })
   @IsOptional()
@@ -222,23 +199,6 @@ export class UpdateAgeGroupDto {
   @IsOptional()
   @IsUUID()
   locationId?: string;
-
-  @ApiPropertyOptional({ example: 250.0 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
-  participationFee?: number;
-
-  @ApiPropertyOptional({
-    example: 3,
-    description: 'Guaranteed number of matches per team',
-  })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(1)
-  guaranteedMatches?: number;
 
   @ApiPropertyOptional({
     example: 4,
@@ -685,31 +645,6 @@ export class UpdateTournamentDto {
   @IsString()
   gameSystem?: string;
 
-  @ApiPropertyOptional({ example: 20 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(1)
-  numberOfMatches?: number;
-
-  @ApiPropertyOptional({
-    example: 3,
-    description: 'Guaranteed number of matches per team',
-  })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(1)
-  guaranteedMatches?: number;
-
-  @ApiPropertyOptional({ example: 16 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(2)
-  @Max(128)
-  maxTeams?: number;
-
   @ApiPropertyOptional({ example: 'https://example.com/regulations.pdf' })
   @IsOptional()
   @IsString()
@@ -719,13 +654,6 @@ export class UpdateTournamentDto {
   @IsOptional()
   @IsEnum(Currency)
   currency?: Currency;
-
-  @ApiPropertyOptional({ example: 250.0 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
-  participationFee?: number;
 
   @ApiPropertyOptional({ example: ['youth', 'competitive'] })
   @IsOptional()
