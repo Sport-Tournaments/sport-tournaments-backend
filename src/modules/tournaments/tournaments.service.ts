@@ -8,7 +8,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThanOrEqual } from 'typeorm';
+import { Repository, MoreThanOrEqual, DeepPartial } from 'typeorm';
 import { Tournament } from './entities/tournament.entity';
 import { TournamentAgeGroup } from './entities/tournament-age-group.entity';
 import {
@@ -86,7 +86,7 @@ export class TournamentsService {
 
     // Save age groups if provided
     if (ageGroups && ageGroups.length > 0) {
-      const ageGroupEntities = ageGroups.map((ag) => {
+      const ageGroupEntities: DeepPartial<TournamentAgeGroup>[] = ageGroups.map((ag) => {
         const {
           minTeams,
           maxTeams,
@@ -96,17 +96,17 @@ export class TournamentsService {
           ...rest
         } = ag as any;
 
-        return this.ageGroupsRepository.create({
+        return {
           ...rest,
           tournamentId: savedTournament.id,
           startDate: ag.startDate || createTournamentDto.startDate,
           endDate: ag.endDate || createTournamentDto.endDate,
-          minTeams: null,
-          maxTeams: null,
-          guaranteedMatches: null,
-          numberOfMatches: null,
-          participationFee: null,
-        });
+          minTeams: undefined,
+          maxTeams: undefined,
+          guaranteedMatches: undefined,
+          numberOfMatches: undefined,
+          participationFee: undefined,
+        };
       });
       await this.ageGroupsRepository.save(ageGroupEntities);
     }
@@ -439,17 +439,17 @@ export class TournamentsService {
         }
       } else {
         // Create new - pass date strings directly
-        const newAgeGroup = this.ageGroupsRepository.create({
+        const newAgeGroup: DeepPartial<TournamentAgeGroup> = {
           ...rest,
           tournamentId,
           startDate: ag.startDate || tournament.startDate,
           endDate: ag.endDate || tournament.endDate,
-          minTeams: null,
-          maxTeams: null,
-          guaranteedMatches: null,
-          numberOfMatches: null,
-          participationFee: null,
-        });
+          minTeams: undefined,
+          maxTeams: undefined,
+          guaranteedMatches: undefined,
+          numberOfMatches: undefined,
+          participationFee: undefined,
+        };
         result.push(await this.ageGroupsRepository.save(newAgeGroup));
       }
     }
