@@ -132,6 +132,14 @@ export class CreateAgeGroupDto {
   @IsUUID()
   locationId?: string;
 
+  @ApiPropertyOptional({
+    description: 'Override game location address for this age group',
+    example: 'Strada Stadionului nr. 1, Brașov (Stadionul Silviu Ploeșteanu)',
+  })
+  @IsOptional()
+  @IsString()
+  locationAddress?: string;
+
   @ApiPropertyOptional({ example: 250.00 })
   @IsOptional()
   @Type(() => Number)
@@ -199,6 +207,14 @@ export class UpdateAgeGroupDto {
   @IsOptional()
   @IsUUID()
   locationId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Override game location address for this age group',
+    example: 'Strada Stadionului nr. 1, Brașov (Stadionul Silviu Ploeșteanu)',
+  })
+  @IsOptional()
+  @IsString()
+  locationAddress?: string;
 
   @ApiPropertyOptional({
     example: 4,
