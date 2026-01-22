@@ -54,6 +54,35 @@ export class RegistrationsService {
     }
   }
 
+  private normalizeDateOnly(
+    value?: Date | string | null,
+  ): Date | null {
+    if (!value) return null;
+
+    if (typeof value === 'string') {
+      const [year, month, day] = value.split('-').map(Number);
+      if (Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day)) {
+        return new Date(year, month - 1, day);
+      }
+      return new Date(value);
+    }
+
+    const date = value instanceof Date ? value : new Date(value);
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  }
+
+  private getStartOfDay(value?: Date | string | null): Date | null {
+    const date = this.normalizeDateOnly(value);
+    if (!date) return null;
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
+  }
+
+  private getEndOfDay(value?: Date | string | null): Date | null {
+    const date = this.normalizeDateOnly(value);
+    if (!date) return null;
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+  }
+
   async create(
     tournamentId: string,
     userId: string,
@@ -76,11 +105,20 @@ export class RegistrationsService {
       );
     }
 
-    // Check if registration deadline has passed
-    if (
-      tournament.registrationDeadline &&
-      new Date() > tournament.registrationDeadline
-    ) {
+    const now = new Date();
+    const registrationStart = this.getStartOfDay(tournament.registrationStartDate);
+    const registrationEnd = this.getEndOfDay(tournament.registrationEndDate);
+    const registrationDeadline = this.getEndOfDay(tournament.registrationDeadline);
+
+    if (registrationStart && now < registrationStart) {
+      throw new BadRequestException('Registration has not started yet');
+    }
+
+    if (registrationEnd && now > registrationEnd) {
+      throw new BadRequestException('Registration period has ended');
+    }
+
+    if (!registrationEnd && registrationDeadline && now > registrationDeadline) {
       throw new BadRequestException('Registration deadline has passed');
     }
 

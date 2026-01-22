@@ -35,6 +35,33 @@ export class TournamentsService {
     private ageGroupsRepository: Repository<TournamentAgeGroup>,
   ) {}
 
+  private normalizeDateOnly(value?: Date | string | null): Date | null {
+    if (!value) return null;
+
+    if (typeof value === 'string') {
+      const [year, month, day] = value.split('-').map(Number);
+      if (Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day)) {
+        return new Date(year, month - 1, day);
+      }
+      return new Date(value);
+    }
+
+    const date = value instanceof Date ? value : new Date(value);
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  }
+
+  private getStartOfDay(value?: Date | string | null): Date | null {
+    const date = this.normalizeDateOnly(value);
+    if (!date) return null;
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
+  }
+
+  private getEndOfDay(value?: Date | string | null): Date | null {
+    const date = this.normalizeDateOnly(value);
+    if (!date) return null;
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+  }
+
   async create(
     organizerId: string,
     createTournamentDto: CreateTournamentDto,
@@ -728,7 +755,20 @@ export class TournamentsService {
       return { valid: false, message: 'Tournament has already ended' };
     }
 
-    if (tournament.registrationDeadline && tournament.registrationDeadline < new Date()) {
+    const now = new Date();
+    const registrationStart = this.getStartOfDay(tournament.registrationStartDate);
+    const registrationEnd = this.getEndOfDay(tournament.registrationEndDate);
+    const registrationDeadline = this.getEndOfDay(tournament.registrationDeadline);
+
+    if (registrationStart && now < registrationStart) {
+      return { valid: false, message: 'Registration has not started yet' };
+    }
+
+    if (registrationEnd && now > registrationEnd) {
+      return { valid: false, message: 'Registration period has ended' };
+    }
+
+    if (!registrationEnd && registrationDeadline && now > registrationDeadline) {
       return { valid: false, message: 'Registration deadline has passed' };
     }
 
