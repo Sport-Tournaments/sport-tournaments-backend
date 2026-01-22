@@ -134,7 +134,12 @@ export class TournamentsController {
   }
 
   @Put(':id/age-groups')
-  @Roles(UserRole.ORGANIZER)
+  @Roles(
+    UserRole.ORGANIZER,
+    UserRole.PARTICIPANT,
+    UserRole.USER,
+    UserRole.ADMIN,
+  )
   @ApiOperation({ summary: 'Update tournament age groups' })
   @ApiResponse({ status: 200, description: 'Age groups updated successfully' })
   @ApiResponse({
