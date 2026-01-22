@@ -86,14 +86,28 @@ export class TournamentsService {
 
     // Save age groups if provided
     if (ageGroups && ageGroups.length > 0) {
-      const ageGroupEntities = ageGroups.map((ag) =>
-        this.ageGroupsRepository.create({
-          ...ag,
+      const ageGroupEntities = ageGroups.map((ag) => {
+        const {
+          minTeams,
+          maxTeams,
+          guaranteedMatches,
+          numberOfMatches,
+          participationFee,
+          ...rest
+        } = ag as any;
+
+        return this.ageGroupsRepository.create({
+          ...rest,
           tournamentId: savedTournament.id,
           startDate: ag.startDate || createTournamentDto.startDate,
           endDate: ag.endDate || createTournamentDto.endDate,
-        }),
-      );
+          minTeams: null,
+          maxTeams: null,
+          guaranteedMatches: null,
+          numberOfMatches: null,
+          participationFee: null,
+        });
+      });
       await this.ageGroupsRepository.save(ageGroupEntities);
     }
 
@@ -401,21 +415,40 @@ export class TournamentsService {
     // Upsert age groups
     const result: TournamentAgeGroup[] = [];
     for (const ag of ageGroups) {
+      const {
+        minTeams,
+        maxTeams,
+        guaranteedMatches,
+        numberOfMatches,
+        participationFee,
+        ...rest
+      } = ag as any;
+
       if (ag.id) {
         // Update existing
         const existing = existingAgeGroups.find((e) => e.id === ag.id);
         if (existing) {
           // Pass values directly - transformer handles conversion
-          Object.assign(existing, ag);
+          Object.assign(existing, rest);
+          existing.minTeams = null as any;
+          existing.maxTeams = null as any;
+          existing.guaranteedMatches = null as any;
+          existing.numberOfMatches = null as any;
+          existing.participationFee = null as any;
           result.push(await this.ageGroupsRepository.save(existing));
         }
       } else {
         // Create new - pass date strings directly
         const newAgeGroup = this.ageGroupsRepository.create({
-          ...ag,
+          ...rest,
           tournamentId,
           startDate: ag.startDate || tournament.startDate,
           endDate: ag.endDate || tournament.endDate,
+          minTeams: null,
+          maxTeams: null,
+          guaranteedMatches: null,
+          numberOfMatches: null,
+          participationFee: null,
         });
         result.push(await this.ageGroupsRepository.save(newAgeGroup));
       }

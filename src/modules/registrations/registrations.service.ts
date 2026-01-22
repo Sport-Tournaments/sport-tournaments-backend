@@ -128,9 +128,9 @@ export class RegistrationsService {
     if (tournament.maxTeams && tournament.maxTeams > 0) {
       totalMaxTeams = tournament.maxTeams;
     } else if (tournament.ageGroups && tournament.ageGroups.length > 0) {
-      // Sum maxTeams from all age groups
+      // Sum maxTeams from all age groups, fallback to teamCount if maxTeams is not set
       totalMaxTeams = tournament.ageGroups.reduce(
-        (sum, ag) => sum + (ag.maxTeams || 0),
+        (sum, ag) => sum + (ag.maxTeams || ag.teamCount || 0),
         0,
       );
     }
