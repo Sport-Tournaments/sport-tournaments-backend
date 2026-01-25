@@ -323,6 +323,7 @@ export class TournamentsService {
   async findByOrganizer(organizerId: string): Promise<Tournament[]> {
     return this.tournamentsRepository.find({
       where: { organizerId },
+      relations: ['ageGroups'],
       order: { startDate: 'DESC' },
     });
   }
