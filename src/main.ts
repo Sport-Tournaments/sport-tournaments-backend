@@ -13,6 +13,8 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   const configService = app.get(ConfigService);
+  const nodeEnv = configService.get<string>('nodeEnv') || 'development';
+  const isDevelopment = nodeEnv === 'development';
 
   // Security middleware
   app.use(helmet());
@@ -23,16 +25,37 @@ async function bootstrap() {
     ?.split(',')
     .map((origin) => origin.trim()) || ['http://localhost:3000'];
 
+  const isLocalNetworkHost = (host: string) => {
+    if (host === 'localhost' || host === '127.0.0.1') return true;
+    if (/^10\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.test(host)) return true;
+    if (/^192\.168\.(\d{1,3})\.(\d{1,3})$/.test(host)) return true;
+    if (/^172\.(1[6-9]|2\d|3[0-1])\.(\d{1,3})\.(\d{1,3})$/.test(host)) return true;
+    return false;
+  };
+
   app.enableCors({
     origin: (origin, callback) => {
       // Allow requests with no origin (like mobile apps, Postman, or server-to-server)
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
-      } else {
-        callback(
-          new Error(`Origin ${origin} is not allowed by CORS policy`),
-        );
+        return;
       }
+
+      if (isDevelopment) {
+        try {
+          const { hostname } = new URL(origin);
+          if (isLocalNetworkHost(hostname)) {
+            callback(null, true);
+            return;
+          }
+        } catch {
+          // ignore malformed origin
+        }
+      }
+
+      callback(
+        new Error(`Origin ${origin} is not allowed by CORS policy`),
+      );
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept-Language'],
@@ -146,7 +169,6 @@ Most endpoints require JWT authentication. Include the access token in the Autho
   });
 
   const port = configService.get<number>('port') || 3000;
-  const nodeEnv = configService.get<string>('nodeEnv') || 'development';
   await app.listen(port);
 
   logger.log(`Application is running on: http://localhost:${port}`);
