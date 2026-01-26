@@ -35,6 +35,40 @@ export class TournamentsService {
     private ageGroupsRepository: Repository<TournamentAgeGroup>,
   ) {}
 
+  private slugify(value: string): string {
+    return value
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/[\s_-]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
+  private async generateUniqueSlug(baseValue: string, excludeId?: string): Promise<string> {
+    const baseSlug = this.slugify(baseValue);
+    if (!baseSlug) {
+      throw new BadRequestException('Slug cannot be empty');
+    }
+
+    let candidate = baseSlug;
+    let suffix = 1;
+
+    // Loop until we find a unique slug (or the existing one for the same record)
+    while (true) {
+      const existing = await this.tournamentsRepository.findOne({
+        where: { urlSlug: candidate },
+        select: ['id', 'urlSlug'],
+      });
+
+      if (!existing || existing.id === excludeId) {
+        return candidate;
+      }
+
+      suffix += 1;
+      candidate = `${baseSlug}-${suffix}`;
+    }
+  }
+
   private normalizeDateOnly(value?: Date | string | null): Date | null {
     if (!value) return null;
 
@@ -74,6 +108,13 @@ export class TournamentsService {
     // Extract nested DTO arrays to handle separately (not stored in tournament entity)
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { ageGroups, locations, ...tournamentData } = createTournamentDto;
+
+    if (createTournamentDto.urlSlug || createTournamentDto.name) {
+      const slugSource = createTournamentDto.urlSlug || createTournamentDto.name;
+      if (slugSource) {
+        tournamentData.urlSlug = await this.generateUniqueSlug(slugSource);
+      }
+    }
 
     // Pass date strings directly - the transformer will handle conversion
     const tournament = this.tournamentsRepository.create({
@@ -321,6 +362,23 @@ export class TournamentsService {
     return this.normalizeDraftStatus(tournament);
   }
 
+  async findBySlug(slug: string): Promise<Tournament | null> {
+    return this.tournamentsRepository.findOne({
+      where: { urlSlug: slug },
+      relations: ['organizer', 'registrations', 'groups', 'ageGroups'],
+    });
+  }
+
+  async findBySlugOrFail(slug: string): Promise<Tournament> {
+    const tournament = await this.findBySlug(slug);
+
+    if (!tournament) {
+      throw new NotFoundException(`Tournament with slug ${slug} not found`);
+    }
+
+    return this.normalizeDraftStatus(tournament);
+  }
+
   async findByOrganizer(organizerId: string): Promise<Tournament[]> {
     const tournaments = await this.tournamentsRepository.find({
       where: { organizerId },
@@ -379,6 +437,14 @@ export class TournamentsService {
       if (endDate < startDate) {
         throw new BadRequestException('End date must be after start date');
       }
+    }
+
+    // Handle slug updates (user can modify; auto-generate if missing)
+    if (updateTournamentDto.urlSlug !== undefined) {
+      const slugSource = updateTournamentDto.urlSlug || updateTournamentDto.name || '';
+      tournament.urlSlug = await this.generateUniqueSlug(slugSource, tournament.id);
+    } else if (!tournament.urlSlug && updateTournamentDto.name) {
+      tournament.urlSlug = await this.generateUniqueSlug(updateTournamentDto.name, tournament.id);
     }
 
     // Pass values directly - the transformer will handle conversion
