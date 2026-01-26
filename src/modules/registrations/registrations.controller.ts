@@ -155,6 +155,38 @@ export class RegistrationsController {
     return this.registrationsService.approve(id, user.sub, user.role, dto);
   }
 
+  @Post('registrations/:id/approve-with-payment')
+  @ApiOperation({ summary: 'Approve registration with payment' })
+  @ApiResponse({ status: 200, description: 'Registration approved with payment' })
+  approveWithPayment(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: ApproveRegistrationDto,
+  ) {
+    return this.registrationsService.approveWithPayment(
+      id,
+      user.sub,
+      user.role,
+      dto,
+    );
+  }
+
+  @Post('registrations/:id/approve-without-payment')
+  @ApiOperation({ summary: 'Approve registration without payment' })
+  @ApiResponse({ status: 200, description: 'Registration approved without payment' })
+  approveWithoutPayment(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: ApproveRegistrationDto,
+  ) {
+    return this.registrationsService.approveWithoutPayment(
+      id,
+      user.sub,
+      user.role,
+      dto,
+    );
+  }
+
   @Post('registrations/:id/reject')
   @ApiOperation({ summary: 'Reject registration' })
   @ApiResponse({ status: 200, description: 'Registration rejected' })
