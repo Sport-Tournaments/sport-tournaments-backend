@@ -396,7 +396,7 @@ export class TournamentsService {
     tournamentId: string,
     userId: string,
     userRole: string,
-    ageGroups: { id?: string; birthYear: number; displayLabel?: string; gameSystem?: string; teamCount?: number; minTeams?: number; startDate?: string; endDate?: string; locationId?: string; locationAddress?: string; participationFee?: number; groupsCount?: number; teamsPerGroup?: number }[],
+    ageGroups: { id?: string; birthYear: number; displayLabel?: string; ageCategory?: string; level?: string; format?: string; gameSystem?: string; teamCount?: number; minTeams?: number; startDate?: string; endDate?: string; locationId?: string; locationAddress?: string; participationFee?: number; groupsCount?: number; teamsPerGroup?: number }[],
   ): Promise<TournamentAgeGroup[]> {
     const tournament = await this.findByIdOrFail(tournamentId);
 

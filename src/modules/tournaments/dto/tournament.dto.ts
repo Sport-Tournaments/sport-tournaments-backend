@@ -23,6 +23,7 @@ import {
   TournamentLevel,
   Currency,
   AgeCategory,
+  TournamentFormat,
 } from '../../../common/enums';
 import { BracketType } from '../../groups/services/bracket-generator.service';
 import { PaginationDto } from '../../../common/dto';
@@ -71,6 +72,21 @@ export class CreateAgeGroupDto {
   @IsOptional()
   @IsString()
   displayLabel?: string;
+
+  @ApiPropertyOptional({ enum: AgeCategory, example: AgeCategory.U14 })
+  @IsOptional()
+  @IsEnum(AgeCategory)
+  ageCategory?: AgeCategory;
+
+  @ApiPropertyOptional({ enum: TournamentLevel, example: TournamentLevel.LEVEL_II })
+  @IsOptional()
+  @IsEnum(TournamentLevel)
+  level?: TournamentLevel;
+
+  @ApiPropertyOptional({ enum: TournamentFormat, example: TournamentFormat.GROUPS_PLUS_KNOCKOUT })
+  @IsOptional()
+  @IsEnum(TournamentFormat)
+  format?: TournamentFormat;
 
   @ApiPropertyOptional({ example: '5+1' })
   @IsOptional()
@@ -178,6 +194,21 @@ export class UpdateAgeGroupDto {
   @IsOptional()
   @IsString()
   displayLabel?: string;
+
+  @ApiPropertyOptional({ enum: AgeCategory })
+  @IsOptional()
+  @IsEnum(AgeCategory)
+  ageCategory?: AgeCategory;
+
+  @ApiPropertyOptional({ enum: TournamentLevel })
+  @IsOptional()
+  @IsEnum(TournamentLevel)
+  level?: TournamentLevel;
+
+  @ApiPropertyOptional({ enum: TournamentFormat })
+  @IsOptional()
+  @IsEnum(TournamentFormat)
+  format?: TournamentFormat;
 
   @ApiPropertyOptional({ example: '5+1' })
   @IsOptional()
