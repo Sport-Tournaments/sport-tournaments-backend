@@ -20,7 +20,7 @@ export class AssignPotsBulkDto {
 
 export class ExecutePotDrawDto {
   @IsNumber()
-  @Min(2)
+  @Min(1)
   @Max(32)
   numberOfGroups: number;
 }
