@@ -147,7 +147,7 @@ export class TournamentsService {
           maxTeams: undefined,
           guaranteedMatches: undefined,
           numberOfMatches: undefined,
-          participationFee: undefined,
+          participationFee: participationFee ?? undefined,
         };
       });
       await this.ageGroupsRepository.save(ageGroupEntities);
@@ -524,7 +524,9 @@ export class TournamentsService {
           existing.maxTeams = null as any;
           existing.guaranteedMatches = null as any;
           existing.numberOfMatches = null as any;
-          existing.participationFee = null as any;
+          if (participationFee !== undefined) {
+            existing.participationFee = participationFee as any;
+          }
           result.push(await this.ageGroupsRepository.save(existing));
         }
       } else {
@@ -538,7 +540,7 @@ export class TournamentsService {
           maxTeams: undefined,
           guaranteedMatches: undefined,
           numberOfMatches: undefined,
-          participationFee: undefined,
+          participationFee: participationFee ?? undefined,
         };
         result.push(await this.ageGroupsRepository.save(newAgeGroup));
       }

@@ -49,7 +49,7 @@ export class PaymentsService {
     // Get registration with tournament
     const registration = await this.registrationsRepository.findOne({
       where: { id: registrationId },
-      relations: ['tournament', 'club'],
+      relations: ['tournament', 'club', 'ageGroup'],
     });
 
     if (!registration) {
@@ -73,7 +73,9 @@ export class PaymentsService {
     }
 
     const tournament = registration.tournament;
-    const amount = Math.round(Number(tournament.participationFee) * 100); // Convert to cents
+    const effectiveParticipationFee =
+      registration.ageGroup?.participationFee ?? tournament.participationFee ?? 0;
+    const amount = Math.round(Number(effectiveParticipationFee) * 100); // Convert to cents
     const currency = tournament.currency.toLowerCase();
 
     // Create Stripe payment intent
@@ -92,13 +94,13 @@ export class PaymentsService {
     let payment: Payment;
     if (existingPayment) {
       existingPayment.stripePaymentIntentId = paymentIntent.id;
-      existingPayment.amount = Number(tournament.participationFee);
+      existingPayment.amount = Number(effectiveParticipationFee);
       existingPayment.currency = tournament.currency;
       payment = await this.paymentsRepository.save(existingPayment);
     } else {
       payment = this.paymentsRepository.create({
         registrationId,
-        amount: Number(tournament.participationFee),
+        amount: Number(effectiveParticipationFee),
         currency: tournament.currency,
         stripePaymentIntentId: paymentIntent.id,
         status: PaymentStatus.PENDING,
@@ -109,7 +111,7 @@ export class PaymentsService {
     return {
       clientSecret: paymentIntent.client_secret!,
       paymentId: payment.id,
-      amount: Number(tournament.participationFee),
+      amount: Number(effectiveParticipationFee),
       currency: tournament.currency,
     };
   }

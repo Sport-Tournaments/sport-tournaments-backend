@@ -156,7 +156,7 @@ export class CreateAgeGroupDto {
   @IsString()
   locationAddress?: string;
 
-  @ApiPropertyOptional({ example: 250.00 })
+  @ApiPropertyOptional({ example: 250.0 })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
@@ -246,6 +246,13 @@ export class UpdateAgeGroupDto {
   @IsOptional()
   @IsString()
   locationAddress?: string;
+
+  @ApiPropertyOptional({ example: 250.0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  participationFee?: number;
 
   @ApiPropertyOptional({
     example: 4,
