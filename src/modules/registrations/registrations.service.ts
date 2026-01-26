@@ -105,6 +105,10 @@ export class RegistrationsService {
       );
     }
 
+    if (tournament.isRegistrationClosed) {
+      throw new BadRequestException('Registrations are closed for this tournament');
+    }
+
     const now = new Date();
     const registrationStart = this.getStartOfDay(tournament.registrationStartDate);
     const registrationEnd = this.getEndOfDay(tournament.registrationEndDate);

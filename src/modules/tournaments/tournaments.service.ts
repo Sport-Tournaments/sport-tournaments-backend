@@ -789,6 +789,10 @@ export class TournamentsService {
       return { valid: false, message: 'Tournament has already ended' };
     }
 
+    if (tournament.isRegistrationClosed) {
+      return { valid: false, message: 'Registrations are closed for this tournament' };
+    }
+
     const now = new Date();
     const registrationStart = this.getStartOfDay(tournament.registrationStartDate);
     const registrationEnd = this.getEndOfDay(tournament.registrationEndDate);

@@ -105,6 +105,9 @@ export class Tournament {
   @Column({ name: 'regulations_download_count', default: 0 })
   regulationsDownloadCount: number;
 
+  @Column({ name: 'is_registration_closed', default: false })
+  isRegistrationClosed: boolean;
+
   @Column({
     type: 'enum',
     enum: Currency,
