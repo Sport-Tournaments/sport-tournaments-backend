@@ -463,6 +463,14 @@ export class CreateTournamentDto {
   @IsDateString()
   registrationDeadline?: string;
 
+  @ApiPropertyOptional({
+    example: false,
+    description: 'Whether registrations are manually closed',
+  })
+  @IsOptional()
+  @IsBoolean()
+  isRegistrationClosed?: boolean;
+
   @ApiPropertyOptional({ example: '2025-06-01', description: 'Registration opening date' })
   @IsOptional()
   @IsDateString()
@@ -681,6 +689,14 @@ export class UpdateTournamentDto {
   @IsOptional()
   @IsDateString()
   registrationDeadline?: string;
+
+  @ApiPropertyOptional({
+    example: false,
+    description: 'Whether registrations are manually closed',
+  })
+  @IsOptional()
+  @IsBoolean()
+  isRegistrationClosed?: boolean;
 
   @ApiPropertyOptional({ example: '2025-06-01', description: 'Registration opening date' })
   @IsOptional()
