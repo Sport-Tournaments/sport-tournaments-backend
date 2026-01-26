@@ -47,7 +47,7 @@ export class Tournament {
   @Column({
     type: 'enum',
     enum: TournamentStatus,
-    default: TournamentStatus.DRAFT,
+    default: TournamentStatus.PUBLISHED,
   })
   status: TournamentStatus;
 
@@ -127,7 +127,7 @@ export class Tournament {
   @Column({ name: 'is_premium', default: false })
   isPremium: boolean;
 
-  @Column({ name: 'is_published', default: false })
+  @Column({ name: 'is_published', default: true })
   isPublished: boolean;
 
   @Column({ name: 'is_featured', default: false })
