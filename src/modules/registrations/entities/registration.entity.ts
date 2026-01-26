@@ -19,7 +19,7 @@ import { User } from '../../users/entities/user.entity';
 import { RegistrationDocument } from './registration-document.entity';
 
 @Entity('registrations')
-@Index(['tournamentId', 'clubId'], { unique: true })
+@Index(['tournamentId', 'clubId', 'ageGroupId'], { unique: true })
 export class Registration {
   @PrimaryGeneratedColumn('uuid')
   id: string;
