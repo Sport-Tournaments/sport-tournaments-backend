@@ -18,6 +18,11 @@ export class CreateRegistrationDto {
   @IsUUID()
   clubId: string;
 
+  @ApiPropertyOptional({ description: 'Age group ID for the tournament category' })
+  @IsOptional()
+  @IsUUID()
+  ageGroupId?: string;
+
   @ApiPropertyOptional({ example: 15 })
   @IsOptional()
   @Type(() => Number)
@@ -50,6 +55,10 @@ export class CreateRegistrationDto {
 }
 
 export class UpdateRegistrationDto {
+  @ApiPropertyOptional({ description: 'Age group ID for the tournament category' })
+  @IsOptional()
+  @IsUUID()
+  ageGroupId?: string;
   @ApiPropertyOptional({ example: 15 })
   @IsOptional()
   @Type(() => Number)
