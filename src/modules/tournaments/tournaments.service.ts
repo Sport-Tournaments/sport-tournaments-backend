@@ -389,6 +389,10 @@ export class TournamentsService {
       tournament.isPublished = true;
     }
 
+    if (tournament.status === TournamentStatus.PUBLISHED) {
+      tournament.isPublished = true;
+    }
+
     return this.tournamentsRepository.save(tournament);
   }
 
