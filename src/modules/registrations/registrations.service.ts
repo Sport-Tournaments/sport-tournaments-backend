@@ -365,11 +365,12 @@ export class RegistrationsService {
     return this.registrationsRepository.save(registration);
   }
 
-  async approve(
-    id: string, 
-    userId: string, 
+  private async approveInternal(
+    id: string,
+    userId: string,
     userRole: string,
     dto?: ApproveRegistrationDto,
+    options?: { markPaymentCompleted?: boolean },
   ): Promise<Registration> {
     const registration = await this.findByIdOrFail(id);
 
@@ -395,7 +396,40 @@ export class RegistrationsService {
       registration.reviewNotes = dto.reviewNotes;
     }
 
+    if (options?.markPaymentCompleted) {
+      registration.paymentStatus = PaymentStatus.COMPLETED;
+    }
+
     return this.registrationsRepository.save(registration);
+  }
+
+  async approve(
+    id: string,
+    userId: string,
+    userRole: string,
+    dto?: ApproveRegistrationDto,
+  ): Promise<Registration> {
+    return this.approveInternal(id, userId, userRole, dto);
+  }
+
+  async approveWithPayment(
+    id: string,
+    userId: string,
+    userRole: string,
+    dto?: ApproveRegistrationDto,
+  ): Promise<Registration> {
+    return this.approveInternal(id, userId, userRole, dto, {
+      markPaymentCompleted: true,
+    });
+  }
+
+  async approveWithoutPayment(
+    id: string,
+    userId: string,
+    userRole: string,
+    dto?: ApproveRegistrationDto,
+  ): Promise<Registration> {
+    return this.approveInternal(id, userId, userRole, dto);
   }
 
   async reject(
