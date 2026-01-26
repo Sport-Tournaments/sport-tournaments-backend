@@ -637,6 +637,11 @@ export class CreateTournamentDto {
 }
 
 export class UpdateTournamentDto {
+  @ApiPropertyOptional({ enum: TournamentStatus })
+  @IsOptional()
+  @IsEnum(TournamentStatus)
+  status?: TournamentStatus;
+
   @ApiPropertyOptional({ example: 'Summer Youth Cup 2025' })
   @IsOptional()
   @IsString()
