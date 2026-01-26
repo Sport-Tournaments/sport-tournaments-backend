@@ -139,9 +139,9 @@ export class PotDrawService {
       throw new BadRequestException('No teams registered for this tournament');
     }
 
-    if (dto.numberOfGroups < 2 || dto.numberOfGroups > totalTeams) {
+    if (dto.numberOfGroups < 1 || dto.numberOfGroups > totalTeams) {
       throw new BadRequestException(
-        `Number of groups must be between 2 and ${totalTeams}`,
+        `Number of groups must be between 1 and ${totalTeams}`,
       );
     }
 
