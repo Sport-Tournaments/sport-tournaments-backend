@@ -108,6 +108,9 @@ export class Tournament {
   @Column({ name: 'is_registration_closed', default: false })
   isRegistrationClosed: boolean;
 
+  @Column({ name: 'whatsapp_group_link', type: 'varchar', length: 500, nullable: true })
+  whatsappGroupLink?: string;
+
   @Column({
     type: 'enum',
     enum: Currency,

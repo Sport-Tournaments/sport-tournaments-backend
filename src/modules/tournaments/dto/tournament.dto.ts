@@ -471,6 +471,15 @@ export class CreateTournamentDto {
   @IsBoolean()
   isRegistrationClosed?: boolean;
 
+  @ApiPropertyOptional({
+    example: 'https://chat.whatsapp.com/your-invite-code',
+    description: 'WhatsApp group invite link (visible to approved clubs)',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  whatsappGroupLink?: string;
+
   @ApiPropertyOptional({ example: '2025-06-01', description: 'Registration opening date' })
   @IsOptional()
   @IsDateString()
@@ -697,6 +706,15 @@ export class UpdateTournamentDto {
   @IsOptional()
   @IsBoolean()
   isRegistrationClosed?: boolean;
+
+  @ApiPropertyOptional({
+    example: 'https://chat.whatsapp.com/your-invite-code',
+    description: 'WhatsApp group invite link (visible to approved clubs)',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  whatsappGroupLink?: string;
 
   @ApiPropertyOptional({ example: '2025-06-01', description: 'Registration opening date' })
   @IsOptional()
