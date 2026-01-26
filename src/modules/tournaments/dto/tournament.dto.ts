@@ -966,7 +966,7 @@ export class AdminUpdateTournamentDto extends UpdateTournamentDto {
   @ApiPropertyOptional({ enum: TournamentStatus })
   @IsOptional()
   @IsEnum(TournamentStatus)
-  status?: TournamentStatus;
+  declare status?: TournamentStatus;
 
   @ApiPropertyOptional()
   @IsOptional()
