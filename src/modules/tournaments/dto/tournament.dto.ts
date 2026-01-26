@@ -364,6 +364,12 @@ export class CreateLocationDto {
   @IsString()
   contactPhone?: string;
 
+  @ApiPropertyOptional({ example: 'https://chat.whatsapp.com/your-group-code' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  whatsappGroupLink?: string;
+
   @ApiPropertyOptional({ example: 'venue@example.com' })
   @IsOptional()
   @IsEmail()
@@ -528,6 +534,12 @@ export class CreateTournamentDto {
   @IsOptional()
   @IsString()
   contactPhone?: string;
+
+  @ApiPropertyOptional({ example: 'https://chat.whatsapp.com/your-group-code' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  whatsappGroupLink?: string;
 
   @ApiPropertyOptional({ example: 'Spain' })
   @IsOptional()
@@ -763,6 +775,12 @@ export class UpdateTournamentDto {
   @IsOptional()
   @IsString()
   contactPhone?: string;
+
+  @ApiPropertyOptional({ example: 'https://chat.whatsapp.com/your-group-code' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  whatsappGroupLink?: string;
 
   @ApiPropertyOptional({ example: 'Spain' })
   @IsOptional()

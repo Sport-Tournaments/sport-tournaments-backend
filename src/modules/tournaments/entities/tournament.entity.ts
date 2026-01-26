@@ -151,6 +151,9 @@ export class Tournament {
   @Column({ name: 'contact_phone', nullable: true })
   contactPhone?: string;
 
+  @Column({ name: 'whatsapp_group_link', nullable: true })
+  whatsappGroupLink?: string;
+
   @Column({ name: 'draw_seed', nullable: true })
   drawSeed?: string;
 
