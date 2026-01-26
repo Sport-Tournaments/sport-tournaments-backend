@@ -79,8 +79,7 @@ export class TournamentsService {
     const tournament = this.tournamentsRepository.create({
       ...tournamentData,
       organizerId,
-      status: TournamentStatus.PUBLISHED,
-      isPublished: true,
+      status: TournamentStatus.DRAFT,
     });
 
     const savedTournament = await this.tournamentsRepository.save(tournament);
@@ -318,28 +317,15 @@ export class TournamentsService {
       throw new NotFoundException(`Tournament with ID ${id} not found`);
     }
 
-    return this.normalizeDraftStatus(tournament);
+    return tournament;
   }
 
   async findByOrganizer(organizerId: string): Promise<Tournament[]> {
-    const tournaments = await this.tournamentsRepository.find({
+    return this.tournamentsRepository.find({
       where: { organizerId },
       relations: ['ageGroups'],
       order: { startDate: 'DESC' },
     });
-
-    return Promise.all(tournaments.map((tournament) => this.normalizeDraftStatus(tournament)));
-  }
-
-  private async normalizeDraftStatus(tournament: Tournament): Promise<Tournament> {
-    if (tournament.status !== TournamentStatus.DRAFT) {
-      return tournament;
-    }
-
-    tournament.status = TournamentStatus.PUBLISHED;
-    tournament.isPublished = true;
-
-    return this.tournamentsRepository.save(tournament);
   }
 
   async update(
@@ -383,11 +369,6 @@ export class TournamentsService {
 
     // Pass values directly - the transformer will handle conversion
     Object.assign(tournament, updateTournamentDto);
-
-    if (tournament.status === TournamentStatus.DRAFT) {
-      tournament.status = TournamentStatus.PUBLISHED;
-      tournament.isPublished = true;
-    }
 
     return this.tournamentsRepository.save(tournament);
   }
@@ -485,11 +466,6 @@ export class TournamentsService {
 
     Object.assign(tournament, adminUpdateTournamentDto);
 
-    if (tournament.status === TournamentStatus.DRAFT) {
-      tournament.status = TournamentStatus.PUBLISHED;
-      tournament.isPublished = true;
-    }
-
     return this.tournamentsRepository.save(tournament);
   }
 
@@ -506,11 +482,8 @@ export class TournamentsService {
       );
     }
 
-    if (
-      tournament.status === TournamentStatus.CANCELLED ||
-      tournament.status === TournamentStatus.COMPLETED
-    ) {
-      throw new BadRequestException('Cannot publish cancelled or completed tournaments');
+    if (tournament.status !== TournamentStatus.DRAFT) {
+      throw new BadRequestException('Only draft tournaments can be published');
     }
 
     tournament.status = TournamentStatus.PUBLISHED;
