@@ -12,6 +12,7 @@ import {
 } from 'typeorm';
 import { RegistrationStatus, PaymentStatus } from '../../../common/enums';
 import { Tournament } from '../../tournaments/entities/tournament.entity';
+import { TournamentAgeGroup } from '../../tournaments/entities/tournament-age-group.entity';
 import { Club } from '../../clubs/entities/club.entity';
 import { Payment } from '../../payments/entities/payment.entity';
 import { User } from '../../users/entities/user.entity';
@@ -32,6 +33,14 @@ export class Registration {
   })
   @JoinColumn({ name: 'tournament_id' })
   tournament: Tournament;
+
+  @Index()
+  @Column({ name: 'age_group_id', nullable: true })
+  ageGroupId?: string;
+
+  @ManyToOne(() => TournamentAgeGroup, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'age_group_id' })
+  ageGroup?: TournamentAgeGroup;
 
   @Index()
   @Column({ name: 'club_id' })

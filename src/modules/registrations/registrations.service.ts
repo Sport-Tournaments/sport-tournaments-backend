@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Registration, RegistrationDocument } from './entities';
 import { Tournament } from '../tournaments/entities/tournament.entity';
+import { TournamentAgeGroup } from '../tournaments/entities/tournament-age-group.entity';
 import { Club } from '../clubs/entities/club.entity';
 import {
   CreateRegistrationDto,
@@ -43,6 +44,8 @@ export class RegistrationsService {
     private registrationsRepository: Repository<Registration>,
     @InjectRepository(Tournament)
     private tournamentsRepository: Repository<Tournament>,
+    @InjectRepository(TournamentAgeGroup)
+    private ageGroupsRepository: Repository<TournamentAgeGroup>,
     @InjectRepository(Club)
     private clubsRepository: Repository<Club>,
     @InjectRepository(RegistrationDocument)
@@ -126,22 +129,39 @@ export class RegistrationsService {
       throw new BadRequestException('Registration deadline has passed');
     }
 
-    // Check if tournament is full
-    // Calculate total max teams: if tournament has maxTeams set, use it, otherwise sum from age groups
-    let totalMaxTeams = 0;
-    if (tournament.maxTeams && tournament.maxTeams > 0) {
-      totalMaxTeams = tournament.maxTeams;
-    } else if (tournament.ageGroups && tournament.ageGroups.length > 0) {
-      // Sum maxTeams from all age groups, fallback to teamCount if maxTeams is not set
-      totalMaxTeams = tournament.ageGroups.reduce(
-        (sum, ag) => sum + (ag.maxTeams || ag.teamCount || 0),
-        0,
-      );
-    }
+    const hasAgeGroups = tournament.ageGroups && tournament.ageGroups.length > 0;
+    let selectedAgeGroup: TournamentAgeGroup | null = null;
 
-    // Only check capacity if there's a limit (totalMaxTeams > 0)
-    if (totalMaxTeams > 0 && tournament.currentTeams >= totalMaxTeams) {
-      throw new BadRequestException('Tournament is full');
+    if (hasAgeGroups) {
+      if (!createRegistrationDto.ageGroupId) {
+        throw new BadRequestException('Age group is required for this tournament');
+      }
+
+      selectedAgeGroup =
+        tournament.ageGroups.find((ag) => ag.id === createRegistrationDto.ageGroupId) ||
+        null;
+
+      if (!selectedAgeGroup) {
+        throw new BadRequestException('Invalid age group selection');
+      }
+
+      const ageGroupMaxTeams =
+        selectedAgeGroup.maxTeams ||
+        selectedAgeGroup.teamCount ||
+        (selectedAgeGroup.teamsPerGroup && selectedAgeGroup.groupsCount
+          ? selectedAgeGroup.teamsPerGroup * selectedAgeGroup.groupsCount
+          : 0);
+
+      if (ageGroupMaxTeams > 0 && selectedAgeGroup.currentTeams >= ageGroupMaxTeams) {
+        throw new BadRequestException('Selected category is full');
+      }
+    } else {
+      // Check if tournament is full (no age groups)
+      if (tournament.maxTeams && tournament.maxTeams > 0) {
+        if (tournament.currentTeams >= tournament.maxTeams) {
+          throw new BadRequestException('Tournament is full');
+        }
+      }
     }
 
     // Get club and verify ownership
@@ -192,6 +212,14 @@ export class RegistrationsService {
       1,
     );
 
+    if (selectedAgeGroup) {
+      await this.ageGroupsRepository.increment(
+        { id: selectedAgeGroup.id },
+        'currentTeams',
+        1,
+      );
+    }
+
     return savedRegistration;
   }
 
@@ -207,6 +235,7 @@ export class RegistrationsService {
       .createQueryBuilder('registration')
       .leftJoinAndSelect('registration.club', 'club')
       .leftJoinAndSelect('registration.tournament', 'tournament')
+      .leftJoinAndSelect('registration.ageGroup', 'ageGroup')
       .where('registration.tournamentId = :tournamentId', { tournamentId });
 
     if (filters?.status) {
@@ -247,7 +276,7 @@ export class RegistrationsService {
   async findById(id: string): Promise<Registration | null> {
     return this.registrationsRepository.findOne({
       where: { id },
-      relations: ['club', 'tournament', 'payment'],
+      relations: ['club', 'tournament', 'payment', 'ageGroup'],
     });
   }
 
@@ -316,7 +345,8 @@ export class RegistrationsService {
       throw new BadRequestException('Can only update pending registrations');
     }
 
-    Object.assign(registration, updateRegistrationDto);
+    const { ageGroupId: _ageGroupId, ...updatePayload } = updateRegistrationDto;
+    Object.assign(registration, updatePayload);
 
     return this.registrationsRepository.save(registration);
   }
@@ -405,6 +435,14 @@ export class RegistrationsService {
       1,
     );
 
+    if (registration.ageGroupId) {
+      await this.ageGroupsRepository.decrement(
+        { id: registration.ageGroupId },
+        'currentTeams',
+        1,
+      );
+    }
+
     return this.registrationsRepository.save(registration);
   }
 
@@ -440,6 +478,14 @@ export class RegistrationsService {
         'currentTeams',
         1,
       );
+
+      if (registration.ageGroupId) {
+        await this.ageGroupsRepository.decrement(
+          { id: registration.ageGroupId },
+          'currentTeams',
+          1,
+        );
+      }
     }
 
     return this.registrationsRepository.save(registration);
@@ -476,6 +522,14 @@ export class RegistrationsService {
         'currentTeams',
         1,
       );
+
+      if (registration.ageGroupId) {
+        await this.ageGroupsRepository.decrement(
+          { id: registration.ageGroupId },
+          'currentTeams',
+          1,
+        );
+      }
     }
 
     await this.registrationsRepository.remove(registration);
@@ -979,6 +1033,7 @@ export class RegistrationsService {
       .createQueryBuilder('registration')
       .leftJoinAndSelect('registration.club', 'club')
       .leftJoinAndSelect('registration.tournament', 'tournament')
+      .leftJoinAndSelect('registration.ageGroup', 'ageGroup')
       .leftJoinAndSelect('registration.payment', 'payment')
       .where('registration.tournamentId = :tournamentId', { tournamentId })
       .andWhere('registration.clubId IN (:...clubIds)', { clubIds })
