@@ -191,13 +191,16 @@ export class RegistrationsService {
       );
     }
 
+    const effectiveParticipationFee =
+      selectedAgeGroup?.participationFee ?? tournament.participationFee ?? 0;
+
     // Create registration
     const registration = this.registrationsRepository.create({
       ...createRegistrationDto,
       tournamentId,
       status: RegistrationStatus.PENDING,
       paymentStatus:
-        tournament.participationFee > 0
+        Number(effectiveParticipationFee) > 0
           ? PaymentStatus.PENDING
           : PaymentStatus.COMPLETED,
     });
