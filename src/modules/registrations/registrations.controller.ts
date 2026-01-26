@@ -341,7 +341,25 @@ export class RegistrationsController {
   getMyRegistration(
     @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
     @CurrentUser() user: JwtPayload,
+    @Query('ageGroupId') ageGroupId?: string,
   ) {
-    return this.registrationsService.getMyRegistration(tournamentId, user.sub);
+    return this.registrationsService.getMyRegistration(
+      tournamentId,
+      user.sub,
+      ageGroupId,
+    );
+  }
+
+  @Get('tournaments/:tournamentId/my-registrations')
+  @ApiOperation({ summary: 'Get current user registrations for tournament' })
+  @ApiResponse({ status: 200, description: 'User registrations' })
+  getMyRegistrationsForTournament(
+    @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.registrationsService.getMyRegistrationsForTournament(
+      tournamentId,
+      user.sub,
+    );
   }
 }

@@ -6,7 +6,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { Registration, RegistrationDocument } from './entities';
 import { Tournament } from '../tournaments/entities/tournament.entity';
 import { TournamentAgeGroup } from '../tournaments/entities/tournament-age-group.entity';
@@ -177,17 +177,22 @@ export class RegistrationsService {
       throw new ForbiddenException('You can only register your own clubs');
     }
 
-    // Check if club is already registered
+    // Check if club is already registered (per age group when applicable)
     const existingRegistration = await this.registrationsRepository.findOne({
       where: {
         tournamentId,
         clubId: createRegistrationDto.clubId,
+        ageGroupId: hasAgeGroups
+          ? selectedAgeGroup?.id
+          : IsNull(),
       },
     });
 
     if (existingRegistration) {
       throw new ConflictException(
-        'This club is already registered for this tournament',
+        hasAgeGroups
+          ? 'This club is already registered for the selected category'
+          : 'This club is already registered for this tournament',
       );
     }
 
@@ -316,6 +321,7 @@ export class RegistrationsService {
       .createQueryBuilder('registration')
       .leftJoinAndSelect('registration.club', 'club')
       .leftJoinAndSelect('registration.tournament', 'tournament')
+      .leftJoinAndSelect('registration.ageGroup', 'ageGroup')
       .where('registration.clubId IN (:...clubIds)', { clubIds })
       .orderBy('registration.registrationDate', 'DESC')
       .getMany();
@@ -1052,6 +1058,7 @@ export class RegistrationsService {
   async getMyRegistration(
     tournamentId: string,
     userId: string,
+    ageGroupId?: string,
   ): Promise<Registration | null> {
     // Find clubs owned by the user
     const clubs = await this.clubsRepository.find({
@@ -1066,7 +1073,7 @@ export class RegistrationsService {
     const clubIds = clubs.map((c) => c.id);
 
     // Find registration for any of the user's clubs
-    const registration = await this.registrationsRepository
+    const queryBuilder = this.registrationsRepository
       .createQueryBuilder('registration')
       .leftJoinAndSelect('registration.club', 'club')
       .leftJoinAndSelect('registration.tournament', 'tournament')
@@ -1074,7 +1081,15 @@ export class RegistrationsService {
       .leftJoinAndSelect('registration.payment', 'payment')
       .where('registration.tournamentId = :tournamentId', { tournamentId })
       .andWhere('registration.clubId IN (:...clubIds)', { clubIds })
-      .getOne();
+      .orderBy('registration.registrationDate', 'DESC');
+
+    if (ageGroupId) {
+      queryBuilder.andWhere('registration.ageGroupId = :ageGroupId', {
+        ageGroupId,
+      });
+    }
+
+    const registration = await queryBuilder.getOne();
 
     if (!registration) {
       throw new NotFoundException(
@@ -1083,5 +1098,32 @@ export class RegistrationsService {
     }
 
     return registration;
+  }
+
+  async getMyRegistrationsForTournament(
+    tournamentId: string,
+    userId: string,
+  ): Promise<Registration[]> {
+    const clubs = await this.clubsRepository.find({
+      where: { organizerId: userId },
+      select: ['id'],
+    });
+
+    if (clubs.length === 0) {
+      return [];
+    }
+
+    const clubIds = clubs.map((c) => c.id);
+
+    return this.registrationsRepository
+      .createQueryBuilder('registration')
+      .leftJoinAndSelect('registration.club', 'club')
+      .leftJoinAndSelect('registration.tournament', 'tournament')
+      .leftJoinAndSelect('registration.ageGroup', 'ageGroup')
+      .leftJoinAndSelect('registration.payment', 'payment')
+      .where('registration.tournamentId = :tournamentId', { tournamentId })
+      .andWhere('registration.clubId IN (:...clubIds)', { clubIds })
+      .orderBy('registration.registrationDate', 'DESC')
+      .getMany();
   }
 }
