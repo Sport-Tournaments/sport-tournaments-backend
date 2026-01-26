@@ -610,6 +610,9 @@ export class CreateTournamentDto {
   })
   @IsOptional()
   @IsString()
+  @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
+    message: 'urlSlug must be lowercase letters, numbers, and hyphens only',
+  })
   @MaxLength(100)
   urlSlug?: string;
 
@@ -841,6 +844,9 @@ export class UpdateTournamentDto {
   })
   @IsOptional()
   @IsString()
+  @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
+    message: 'urlSlug must be lowercase letters, numbers, and hyphens only',
+  })
   @MaxLength(100)
   urlSlug?: string;
 }

@@ -103,6 +103,15 @@ export class TournamentsController {
     return this.tournamentsService.getStatistics();
   }
 
+  @Get('slug/:slug')
+  @Public()
+  @ApiOperation({ summary: 'Get tournament by slug' })
+  @ApiResponse({ status: 200, description: 'Tournament details' })
+  @ApiResponse({ status: 404, description: 'Tournament not found' })
+  findBySlug(@Param('slug') slug: string) {
+    return this.tournamentsService.findBySlugOrFail(slug);
+  }
+
   @Get(':id')
   @Public()
   @ApiOperation({ summary: 'Get tournament by ID' })
