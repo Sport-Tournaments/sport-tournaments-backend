@@ -38,6 +38,10 @@ export default () => ({
     fromName: process.env.SENDGRID_FROM_NAME || 'Football Tournament Platform',
   },
 
+  googleMaps: {
+    apiKey: process.env.GOOGLE_MAPS_API_KEY,
+  },
+
   // Email verification toggle (set to 'true' to require email verification on registration)
   requireEmailVerification:
     process.env.REQUIRE_EMAIL_VERIFICATION === 'true' ||

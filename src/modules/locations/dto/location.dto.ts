@@ -46,6 +46,9 @@ export class LocationResultDto {
   @ApiProperty({ example: 2.1734 })
   longitude: number;
 
+  @ApiPropertyOptional({ example: 'ChIJ5TCOcRa7yhQRLlO1w2b9U_E' })
+  placeId?: string;
+
   @ApiPropertyOptional({ example: '08001' })
   postalCode?: string;
 
