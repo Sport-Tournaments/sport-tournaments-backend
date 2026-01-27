@@ -407,6 +407,7 @@ export class TournamentsService {
     updateTournamentDto: UpdateTournamentDto,
   ): Promise<Tournament> {
     const tournament = await this.findByIdOrFail(id);
+    const previousStatus = tournament.status;
 
     // Only the organizer or admin can update the tournament
     if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
@@ -453,10 +454,14 @@ export class TournamentsService {
     if (tournament.status === TournamentStatus.DRAFT) {
       tournament.status = TournamentStatus.PUBLISHED;
       tournament.isPublished = true;
+      tournament.isRegistrationClosed = false;
     }
 
     if (tournament.status === TournamentStatus.PUBLISHED) {
       tournament.isPublished = true;
+      if (previousStatus !== TournamentStatus.PUBLISHED) {
+        tournament.isRegistrationClosed = false;
+      }
     }
 
     return this.tournamentsRepository.save(tournament);
@@ -554,12 +559,18 @@ export class TournamentsService {
     adminUpdateTournamentDto: AdminUpdateTournamentDto,
   ): Promise<Tournament> {
     const tournament = await this.findByIdOrFail(id);
+    const previousStatus = tournament.status;
 
     Object.assign(tournament, adminUpdateTournamentDto);
 
     if (tournament.status === TournamentStatus.DRAFT) {
       tournament.status = TournamentStatus.PUBLISHED;
       tournament.isPublished = true;
+      tournament.isRegistrationClosed = false;
+    }
+
+    if (tournament.status === TournamentStatus.PUBLISHED && previousStatus !== TournamentStatus.PUBLISHED) {
+      tournament.isRegistrationClosed = false;
     }
 
     return this.tournamentsRepository.save(tournament);
@@ -587,6 +598,7 @@ export class TournamentsService {
 
     tournament.status = TournamentStatus.PUBLISHED;
     tournament.isPublished = true;
+    tournament.isRegistrationClosed = false;
 
     return this.tournamentsRepository.save(tournament);
   }
@@ -610,31 +622,6 @@ export class TournamentsService {
 
     tournament.status = TournamentStatus.CANCELLED;
     tournament.isPublished = false;
-
-    return this.tournamentsRepository.save(tournament);
-  }
-
-  async start(
-    id: string,
-    userId: string,
-    userRole: string,
-  ): Promise<Tournament> {
-    const tournament = await this.findByIdOrFail(id);
-
-    if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
-      throw new ForbiddenException(
-        'You are not allowed to start this tournament',
-      );
-    }
-
-    if (tournament.status !== TournamentStatus.PUBLISHED) {
-      throw new BadRequestException(
-        'Only published tournaments can be started',
-      );
-    }
-
-    tournament.status = TournamentStatus.ONGOING;
-    // Keep isPublished true for ongoing tournaments - they are still publicly visible
 
     return this.tournamentsRepository.save(tournament);
   }
