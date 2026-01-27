@@ -32,10 +32,14 @@ export default () => ({
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
   },
 
-  sendgrid: {
-    apiKey: process.env.SENDGRID_API_KEY,
-    fromEmail: process.env.SENDGRID_FROM_EMAIL || 'noreply@yourdomain.com',
-    fromName: process.env.SENDGRID_FROM_NAME || 'Football Tournament Platform',
+  smtp: {
+    host: process.env.SMTP_HOST,
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+    port: parseInt(process.env.SMTP_PORT || '465', 10),
+    secure: process.env.SMTP_SECURE !== 'false',
+    fromEmail: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER,
+    fromName: process.env.SMTP_FROM_NAME || 'Tournamente',
   },
 
   googleMaps: {

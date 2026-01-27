@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const sgMail = require('@sendgrid/mail');
+import * as nodemailer from 'nodemailer';
+import type { Transporter } from 'nodemailer';
 
 @Injectable()
 export class MailService {
@@ -10,27 +10,39 @@ export class MailService {
   private readonly fromName: string;
   private readonly frontendUrl: string;
   private readonly isConfigured: boolean;
+  private transporter: Transporter | null = null;
 
   constructor(private configService: ConfigService) {
-    const apiKey = this.configService.get<string>('sendgrid.apiKey');
+    const smtpHost = this.configService.get<string>('smtp.host');
+    const smtpUser = this.configService.get<string>('smtp.user');
+    const smtpPass = this.configService.get<string>('smtp.pass');
+    const smtpPort = this.configService.get<number>('smtp.port') || 465;
+    const smtpSecure = this.configService.get<boolean>('smtp.secure') ?? true;
+
     this.fromEmail =
-      this.configService.get<string>('sendgrid.fromEmail') ||
-      'noreply@yourdomain.com';
+      this.configService.get<string>('smtp.fromEmail') || smtpUser || 'noreply@yourdomain.com';
     this.fromName =
-      this.configService.get<string>('sendgrid.fromName') ||
-      'Football Tournament Platform';
+      this.configService.get<string>('smtp.fromName') || 'Tournamente';
     this.frontendUrl =
-      this.configService.get<string>('FRONTEND_URL') ||
+      this.configService.get<string>('frontendUrl') ||
       'http://localhost:3000';
 
-    if (apiKey) {
-      sgMail.setApiKey(apiKey);
+    if (smtpHost && smtpUser && smtpPass) {
+      this.transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpSecure,
+        auth: {
+          user: smtpUser,
+          pass: smtpPass,
+        },
+      });
       this.isConfigured = true;
-      this.logger.log('SendGrid mail service configured');
+      this.logger.log('SMTP mail service configured');
     } else {
       this.isConfigured = false;
       this.logger.warn(
-        'SendGrid API key not configured - emails will be logged only',
+        'SMTP not configured - emails will be logged only',
       );
     }
   }
@@ -50,7 +62,7 @@ export class MailService {
         <p>We received a request to reset your password for your Football Tournament Platform account.</p>
         <p>Click the button below to reset your password:</p>
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${resetUrl}" 
+          <a href="${resetUrl}"
              style="background-color: #1E40AF; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">
             Reset Password
           </a>
@@ -101,7 +113,7 @@ Football Tournament Platform
       verificationSection = `
         <p>Please verify your email address by clicking the button below:</p>
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${verifyUrl}" 
+          <a href="${verifyUrl}"
              style="background-color: #22C55E; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">
             Verify Email
           </a>
@@ -156,27 +168,27 @@ Football Tournament Platform
     html: string,
     text: string,
   ): Promise<boolean> {
-    const msg = {
-      to,
+    const mailOptions = {
       from: {
-        email: this.fromEmail,
         name: this.fromName,
+        address: this.fromEmail,
       },
+      to,
       subject,
       text,
       html,
     };
 
-    if (!this.isConfigured) {
-      this.logger.log(`[EMAIL - NOT SENT - No API key configured]`);
+    if (!this.isConfigured || !this.transporter) {
+      this.logger.log(`[EMAIL - NOT SENT - SMTP not configured]`);
       this.logger.log(`To: ${to}`);
       this.logger.log(`Subject: ${subject}`);
       this.logger.debug(`Content: ${text}`);
-      return true; // Return true for development without SendGrid
+      return true;
     }
 
     try {
-      await sgMail.send(msg);
+      await this.transporter.sendMail(mailOptions);
       this.logger.log(`Email sent successfully to ${to}: ${subject}`);
       return true;
     } catch (error) {
