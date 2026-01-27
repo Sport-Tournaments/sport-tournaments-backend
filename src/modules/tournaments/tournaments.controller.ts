@@ -206,17 +206,6 @@ export class TournamentsController {
     return this.tournamentsService.cancel(id, user.sub, user.role);
   }
 
-  @Post(':id/start')
-  @Roles(UserRole.ORGANIZER, UserRole.PARTICIPANT, UserRole.USER)
-  @ApiOperation({ summary: 'Start tournament' })
-  @ApiResponse({ status: 200, description: 'Tournament started' })
-  start(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: JwtPayload,
-  ) {
-    return this.tournamentsService.start(id, user.sub, user.role);
-  }
-
   @Post(':id/complete')
   @Roles(UserRole.ORGANIZER, UserRole.PARTICIPANT, UserRole.USER)
   @ApiOperation({ summary: 'Complete tournament' })
