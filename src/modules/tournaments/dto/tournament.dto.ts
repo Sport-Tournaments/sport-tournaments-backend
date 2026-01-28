@@ -439,7 +439,6 @@ export class CreateTournamentDto {
 
   @ApiPropertyOptional({
     enum: TournamentLevel,
-    default: TournamentLevel.LEVEL_II,
   })
   @IsOptional()
   @IsEnum(TournamentLevel)
