@@ -179,9 +179,18 @@ export class TournamentsService {
     }
 
     if (filters?.ageCategory) {
-      queryBuilder.andWhere('tournament.ageCategory = :ageCategory', {
-        ageCategory: filters.ageCategory,
-      });
+      queryBuilder.andWhere(
+        `(
+          CAST(tournament.ageCategory AS text) = :ageCategory
+          OR EXISTS (
+            SELECT 1
+            FROM tournament_age_groups ageGroup
+            WHERE ageGroup.tournament_id = tournament.id
+              AND CAST(ageGroup.age_category AS text) = :ageCategory
+          )
+        )`,
+        { ageCategory: filters.ageCategory },
+      );
     }
 
     if (filters?.level) {
@@ -191,9 +200,13 @@ export class TournamentsService {
     }
 
     if (filters?.country) {
-      queryBuilder.andWhere('tournament.country = :country', {
-        country: filters.country,
-      });
+      queryBuilder.andWhere(
+        '(LOWER(tournament.country) = LOWER(:country) OR LOWER(tournament.location) LIKE LOWER(:countryLike))',
+        {
+          country: filters.country,
+          countryLike: `%${filters.country}%`,
+        },
+      );
     }
 
     if (filters?.startDateFrom && filters?.startDateTo) {
