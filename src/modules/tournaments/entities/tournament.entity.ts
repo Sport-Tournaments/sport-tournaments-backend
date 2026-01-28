@@ -80,9 +80,9 @@ export class Tournament {
   @Column({
     type: 'enum',
     enum: TournamentLevel,
-    default: TournamentLevel.LEVEL_II,
+    nullable: true,
   })
-  level: TournamentLevel;
+  level?: TournamentLevel;
 
   @Column({ name: 'game_system', nullable: true })
   gameSystem: string;
