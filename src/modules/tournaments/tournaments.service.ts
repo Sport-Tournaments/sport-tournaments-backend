@@ -100,9 +100,22 @@ export class TournamentsService {
     organizerId: string,
     createTournamentDto: CreateTournamentDto,
   ): Promise<Tournament> {
-    // Validate dates - compare as strings in YYYY-MM-DD format
-    if (createTournamentDto.endDate < createTournamentDto.startDate) {
+    // Validate dates only if both are provided - dates are now optional and managed per age group
+    if (createTournamentDto.startDate && createTournamentDto.endDate && createTournamentDto.endDate < createTournamentDto.startDate) {
       throw new BadRequestException('End date must be after start date');
+    }
+
+    // Validate registration dates if provided
+    if (createTournamentDto.startDate && createTournamentDto.registrationStartDate && createTournamentDto.registrationStartDate >= createTournamentDto.startDate) {
+      throw new BadRequestException('Registration start date must be before tournament start date');
+    }
+
+    if (createTournamentDto.startDate && createTournamentDto.registrationEndDate && createTournamentDto.registrationEndDate >= createTournamentDto.startDate) {
+      throw new BadRequestException('Registration must close before the tournament starts');
+    }
+
+    if (createTournamentDto.registrationStartDate && createTournamentDto.registrationEndDate && createTournamentDto.registrationEndDate < createTournamentDto.registrationStartDate) {
+      throw new BadRequestException('Registration end date must be after registration start date');
     }
 
     // Extract nested DTO arrays to handle separately (not stored in tournament entity)
@@ -447,11 +460,27 @@ export class TournamentsService {
       const startDate = updateTournamentDto.startDate || tournament.startDate;
       const endDate = updateTournamentDto.endDate || tournament.endDate;
 
-      // Compare as strings in YYYY-MM-DD format
-      if (endDate < startDate) {
+      // Compare as strings in YYYY-MM-DD format - only if both dates exist
+      if (startDate && endDate && endDate < startDate) {
         throw new BadRequestException('End date must be after start date');
       }
     }
+
+    // Validate registration dates if being updated and tournament has a start date
+    const startDate = updateTournamentDto.startDate || tournament.startDate;
+    if (startDate && updateTournamentDto.registrationStartDate && updateTournamentDto.registrationStartDate >= startDate) {
+      throw new BadRequestException('Registration start date must be before tournament start date');
+    }
+
+    if (startDate && updateTournamentDto.registrationEndDate && updateTournamentDto.registrationEndDate >= startDate) {
+      throw new BadRequestException('Registration must close before the tournament starts');
+    }
+
+    if (updateTournamentDto.registrationStartDate && updateTournamentDto.registrationEndDate && updateTournamentDto.registrationEndDate < updateTournamentDto.registrationStartDate) {
+      throw new BadRequestException('Registration end date must be after registration start date');
+    }
+
+    // Also check against existing registration dates if not being updated
 
     // Handle slug updates (user can modify; auto-generate if missing)
     if (updateTournamentDto.urlSlug !== undefined) {
