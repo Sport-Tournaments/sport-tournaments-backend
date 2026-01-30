@@ -103,6 +103,13 @@ export class TournamentAgeGroup {
   @Column({ name: 'end_date', type: 'date', transformer: new DateOnlyTransformer() })
   endDate: Date | string;
 
+  // Registration dates specific to this age group (optional)
+  @Column({ name: 'registration_start_date', type: 'date', nullable: true, transformer: new DateOnlyTransformer() })
+  registrationStartDate?: Date | string;
+
+  @Column({ name: 'registration_end_date', type: 'date', nullable: true, transformer: new DateOnlyTransformer() })
+  registrationEndDate?: Date | string;
+
   // Optional: assigned location ID (references TournamentLocation)
   @Column({ name: 'location_id', nullable: true })
   locationId?: string;
