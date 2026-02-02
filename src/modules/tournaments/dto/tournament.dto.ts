@@ -143,6 +143,18 @@ export class CreateAgeGroupDto {
   @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'endDate must be in YYYY-MM-DD format' })
   endDate?: string;
 
+  @ApiPropertyOptional({ example: '2025-06-15', description: 'Registration start date for this age group (YYYY-MM-DD format)' })
+  @IsOptional()
+  @IsDateString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'registrationStartDate must be in YYYY-MM-DD format' })
+  registrationStartDate?: string;
+
+  @ApiPropertyOptional({ example: '2025-06-30', description: 'Registration end date for this age group (YYYY-MM-DD format)' })
+  @IsOptional()
+  @IsDateString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'registrationEndDate must be in YYYY-MM-DD format' })
+  registrationEndDate?: string;
+
   @ApiPropertyOptional({ description: 'Location ID for this age group' })
   @IsOptional()
   @IsUUID()
@@ -233,6 +245,18 @@ export class UpdateAgeGroupDto {
   @IsDateString()
   @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'endDate must be in YYYY-MM-DD format' })
   endDate?: string;
+
+  @ApiPropertyOptional({ example: '2025-06-15', description: 'Registration start date for this age group (YYYY-MM-DD format)' })
+  @IsOptional()
+  @IsDateString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'registrationStartDate must be in YYYY-MM-DD format' })
+  registrationStartDate?: string;
+
+  @ApiPropertyOptional({ example: '2025-06-30', description: 'Registration end date for this age group (YYYY-MM-DD format)' })
+  @IsOptional()
+  @IsDateString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'registrationEndDate must be in YYYY-MM-DD format' })
+  registrationEndDate?: string;
 
   @ApiPropertyOptional({ description: 'Location ID for this age group' })
   @IsOptional()
@@ -400,15 +424,17 @@ export class CreateTournamentDto {
   @MaxLength(5000)
   description?: string;
 
-  @ApiProperty({ example: '2025-07-01', description: 'Tournament start date (YYYY-MM-DD format, date only)' })
+  @ApiPropertyOptional({ example: '2025-07-01', description: 'Tournament start date (YYYY-MM-DD format, date only) - use age group dates instead' })
+  @IsOptional()
   @IsDateString()
   @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'startDate must be in YYYY-MM-DD format' })
-  startDate: string;
+  startDate?: string;
 
-  @ApiProperty({ example: '2025-07-05', description: 'Tournament end date (YYYY-MM-DD format, date only)' })
+  @ApiPropertyOptional({ example: '2025-07-05', description: 'Tournament end date (YYYY-MM-DD format, date only) - use age group dates instead' })
+  @IsOptional()
   @IsDateString()
   @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'endDate must be in YYYY-MM-DD format' })
-  endDate: string;
+  endDate?: string;
 
   @ApiProperty({ example: 'Barcelona, Spain' })
   @IsString()
@@ -439,7 +465,6 @@ export class CreateTournamentDto {
 
   @ApiPropertyOptional({
     enum: TournamentLevel,
-    default: TournamentLevel.LEVEL_II,
   })
   @IsOptional()
   @IsEnum(TournamentLevel)
@@ -515,14 +540,16 @@ export class CreateTournamentDto {
   @IsBoolean()
   isRegistrationClosed?: boolean;
 
-  @ApiPropertyOptional({ example: '2025-06-01', description: 'Registration opening date' })
+  @ApiPropertyOptional({ example: '2025-06-01', description: 'Registration opening date (YYYY-MM-DD format)' })
   @IsOptional()
   @IsDateString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'registrationStartDate must be in YYYY-MM-DD format' })
   registrationStartDate?: string;
 
-  @ApiPropertyOptional({ example: '2025-06-25', description: 'Registration closing date' })
+  @ApiPropertyOptional({ example: '2025-06-25', description: 'Registration closing date (YYYY-MM-DD format)' })
   @IsOptional()
   @IsDateString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'registrationEndDate must be in YYYY-MM-DD format' })
   registrationEndDate?: string;
 
   @ApiPropertyOptional({ example: 'organizer@tournament.com' })
@@ -756,14 +783,16 @@ export class UpdateTournamentDto {
   @IsBoolean()
   isRegistrationClosed?: boolean;
 
-  @ApiPropertyOptional({ example: '2025-06-01', description: 'Registration opening date' })
+  @ApiPropertyOptional({ example: '2025-06-01', description: 'Registration opening date (YYYY-MM-DD format)' })
   @IsOptional()
   @IsDateString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'registrationStartDate must be in YYYY-MM-DD format' })
   registrationStartDate?: string;
 
-  @ApiPropertyOptional({ example: '2025-06-25', description: 'Registration closing date' })
+  @ApiPropertyOptional({ example: '2025-06-25', description: 'Registration closing date (YYYY-MM-DD format)' })
   @IsOptional()
   @IsDateString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'registrationEndDate must be in YYYY-MM-DD format' })
   registrationEndDate?: string;
 
   @ApiPropertyOptional({ example: 'organizer@tournament.com' })

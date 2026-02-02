@@ -52,11 +52,11 @@ export class Tournament {
   status: TournamentStatus;
 
   @Index()
-  @Column({ name: 'start_date', type: 'date', transformer: new DateOnlyTransformer() })
-  startDate: Date | string;
+  @Column({ name: 'start_date', type: 'date', nullable: true, transformer: new DateOnlyTransformer() })
+  startDate?: Date | string;
 
-  @Column({ name: 'end_date', type: 'date', transformer: new DateOnlyTransformer() })
-  endDate: Date | string;
+  @Column({ name: 'end_date', type: 'date', nullable: true, transformer: new DateOnlyTransformer() })
+  endDate?: Date | string;
 
   @Column()
   location: string;
@@ -80,9 +80,9 @@ export class Tournament {
   @Column({
     type: 'enum',
     enum: TournamentLevel,
-    default: TournamentLevel.LEVEL_II,
+    nullable: true,
   })
-  level: TournamentLevel;
+  level?: TournamentLevel;
 
   @Column({ name: 'game_system', nullable: true })
   gameSystem: string;
