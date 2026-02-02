@@ -13,10 +13,14 @@ export default () => ({
 
   jwt: {
     secret: process.env.JWT_SECRET || 'default-secret-change-me',
-    expiresIn: process.env.JWT_EXPIRES_IN || '15m',
+    expiresIn: process.env.JWT_EXPIRES_IN || '60d',
+    // 60 days in seconds (2 months)
+    expiresInSeconds: parseInt(process.env.JWT_EXPIRES_IN_SECONDS || String(60 * 24 * 60 * 60), 10),
     refreshSecret:
       process.env.JWT_REFRESH_SECRET || 'default-refresh-secret-change-me',
-    refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
+    refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '60d',
+    // 60 days in seconds (2 months)
+    refreshExpiresInSeconds: parseInt(process.env.JWT_REFRESH_EXPIRES_IN_SECONDS || String(60 * 24 * 60 * 60), 10),
   },
 
   aws: {

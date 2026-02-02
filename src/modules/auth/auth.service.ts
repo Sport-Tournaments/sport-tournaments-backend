@@ -388,15 +388,20 @@ export class AuthService {
     const jwtRefreshSecret =
       this.configService.get<string>('jwt.refreshSecret') ||
       'default-refresh-secret';
+    // 60 days in seconds (2 months)
+    const jwtExpiresIn =
+      this.configService.get<number>('jwt.expiresInSeconds') || 60 * 24 * 60 * 60;
+    const jwtRefreshExpiresIn =
+      this.configService.get<number>('jwt.refreshExpiresInSeconds') || 60 * 24 * 60 * 60;
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         secret: jwtSecret,
-        expiresIn: '15m',
+        expiresIn: jwtExpiresIn,
       }),
       this.jwtService.signAsync(payload, {
         secret: jwtRefreshSecret,
-        expiresIn: '7d',
+        expiresIn: jwtRefreshExpiresIn,
       }),
     ]);
 
@@ -409,34 +414,11 @@ export class AuthService {
     ipAddress?: string,
     deviceInfo?: string,
   ): Promise<void> {
-    const expiresIn =
-      this.configService.get<string>('jwt.refreshExpiresIn') || '7d';
+    // 60 days in seconds (2 months) as default
+    const expiresInSeconds =
+      this.configService.get<number>('jwt.refreshExpiresInSeconds') || 60 * 24 * 60 * 60;
     const expiresAt = new Date();
-
-    // Parse expiry time
-    const match = expiresIn.match(/(\d+)([dhms])/);
-    if (match) {
-      const value = parseInt(match[1], 10);
-      const unit = match[2];
-
-      switch (unit) {
-        case 'd':
-          expiresAt.setDate(expiresAt.getDate() + value);
-          break;
-        case 'h':
-          expiresAt.setHours(expiresAt.getHours() + value);
-          break;
-        case 'm':
-          expiresAt.setMinutes(expiresAt.getMinutes() + value);
-          break;
-        case 's':
-          expiresAt.setSeconds(expiresAt.getSeconds() + value);
-          break;
-      }
-    } else {
-      // Default to 7 days
-      expiresAt.setDate(expiresAt.getDate() + 7);
-    }
+    expiresAt.setSeconds(expiresAt.getSeconds() + expiresInSeconds);
 
     const refreshToken = this.refreshTokenRepository.create({
       userId,
