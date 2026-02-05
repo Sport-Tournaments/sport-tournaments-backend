@@ -106,6 +106,11 @@ export class AdminUpdateRegistrationDto extends UpdateRegistrationDto {
 }
 
 export class RegistrationFilterDto extends PaginationDto {
+  @ApiPropertyOptional({ description: 'Filter by age group ID' })
+  @IsOptional()
+  @IsUUID()
+  ageGroupId?: string;
+
   @ApiPropertyOptional({ enum: RegistrationStatus })
   @IsOptional()
   @IsEnum(RegistrationStatus)
