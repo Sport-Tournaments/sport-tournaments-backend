@@ -27,7 +27,6 @@ async function bootstrap() {
 
   const isLocalNetworkHost = (host: string) => {
     if (host === 'localhost' || host === '127.0.0.1') return true;
-    if (host === 'host.containers.internal' || host === 'host.docker.internal') return true;
     if (/^10\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.test(host)) return true;
     if (/^192\.168\.(\d{1,3})\.(\d{1,3})$/.test(host)) return true;
     if (/^172\.(1[6-9]|2\d|3[0-1])\.(\d{1,3})\.(\d{1,3})$/.test(host)) return true;

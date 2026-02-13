@@ -99,16 +99,6 @@ export class RegistrationsController {
     return this.registrationsService.getStatusStatistics(tournamentId);
   }
 
-  @Get('tournaments/:tournamentId/registrations/statistics-by-age-group')
-  @Public()
-  @ApiOperation({ summary: 'Get registration statistics grouped by age group' })
-  @ApiResponse({ status: 200, description: 'Registration statistics by age group' })
-  getStatusStatisticsByAgeGroup(
-    @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
-  ) {
-    return this.registrationsService.getStatusStatisticsByAgeGroup(tournamentId);
-  }
-
   @Get('registrations/my-registrations')
   @ApiOperation({ summary: 'Get all registrations for current user clubs' })
   @ApiResponse({ status: 200, description: 'List of registrations' })
