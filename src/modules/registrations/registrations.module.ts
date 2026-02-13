@@ -8,6 +8,7 @@ import { RegistrationDocument } from './entities/registration-document.entity';
 import { Tournament } from '../tournaments/entities/tournament.entity';
 import { TournamentAgeGroup } from '../tournaments/entities/tournament-age-group.entity';
 import { Club } from '../clubs/entities/club.entity';
+import { Team } from '../teams/entities/team.entity';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { Club } from '../clubs/entities/club.entity';
       Tournament,
       TournamentAgeGroup,
       Club,
+      Team,
     ]),
     MulterModule.register({
       limits: {

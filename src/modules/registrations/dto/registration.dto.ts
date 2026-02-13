@@ -18,6 +18,10 @@ export class CreateRegistrationDto {
   @IsUUID()
   clubId: string;
 
+  @ApiProperty({ description: 'Team ID to register under the club' })
+  @IsUUID()
+  teamId: string;
+
   @ApiPropertyOptional({ description: 'Age group ID for the tournament category' })
   @IsOptional()
   @IsUUID()
@@ -129,7 +133,7 @@ export class RegistrationFilterDto extends PaginationDto {
 
 // Review workflow DTOs
 export class ApproveRegistrationDto {
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     example: 'All documents verified and in order.',
     description: 'Notes from the reviewer about the approval'
   })
@@ -139,14 +143,14 @@ export class ApproveRegistrationDto {
 }
 
 export class RejectRegistrationDto {
-  @ApiProperty({ 
+  @ApiProperty({
     example: 'Missing medical certificates for 3 players.',
     description: 'Reason for rejecting the registration'
   })
   @IsString()
   rejectionReason: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     example: 'Please resubmit with complete documentation.',
     description: 'Additional notes for the registrant'
   })
@@ -156,14 +160,14 @@ export class RejectRegistrationDto {
 }
 
 export class BulkReviewDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Array of registration IDs to process',
     type: [String]
   })
   @IsUUID('4', { each: true })
   registrationIds: string[];
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     example: 'Bulk approval for verified teams.',
     description: 'Notes for all registrations being processed'
   })

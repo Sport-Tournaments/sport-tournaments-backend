@@ -14,12 +14,13 @@ import { RegistrationStatus, PaymentStatus } from '../../../common/enums';
 import { Tournament } from '../../tournaments/entities/tournament.entity';
 import { TournamentAgeGroup } from '../../tournaments/entities/tournament-age-group.entity';
 import { Club } from '../../clubs/entities/club.entity';
+import { Team } from '../../teams/entities/team.entity';
 import { Payment } from '../../payments/entities/payment.entity';
 import { User } from '../../users/entities/user.entity';
 import { RegistrationDocument } from './registration-document.entity';
 
 @Entity('registrations')
-@Index(['tournamentId', 'clubId', 'ageGroupId'], { unique: true })
+@Index(['tournamentId', 'clubId', 'teamId', 'ageGroupId'], { unique: true })
 export class Registration {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -49,6 +50,14 @@ export class Registration {
   @ManyToOne(() => Club, (club) => club.registrations, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'club_id' })
   club: Club;
+
+  @Index()
+  @Column({ name: 'team_id', nullable: true })
+  teamId?: string;
+
+  @ManyToOne(() => Team, (team) => team.registrations, { onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'team_id' })
+  team?: Team;
 
   @Column({
     type: 'enum',
