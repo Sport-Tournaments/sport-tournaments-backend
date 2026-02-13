@@ -21,7 +21,6 @@ import { AdminModule } from './modules/admin/admin.module';
 import { InvitationsModule } from './modules/invitations/invitations.module';
 import { LocationsModule } from './modules/locations/locations.module';
 import { MailModule } from './modules/mail/mail.module';
-import { TeamsModule } from './modules/teams/teams.module';
 
 @Module({
   imports: [
@@ -67,7 +66,6 @@ import { TeamsModule } from './modules/teams/teams.module';
     AdminModule,
     InvitationsModule,
     LocationsModule,
-    TeamsModule,
   ],
   controllers: [],
   providers: [],
