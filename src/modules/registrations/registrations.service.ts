@@ -11,6 +11,7 @@ import { Registration, RegistrationDocument } from './entities';
 import { Tournament } from '../tournaments/entities/tournament.entity';
 import { TournamentAgeGroup } from '../tournaments/entities/tournament-age-group.entity';
 import { Club } from '../clubs/entities/club.entity';
+import { Team } from '../teams/entities/team.entity';
 import {
   CreateRegistrationDto,
   UpdateRegistrationDto,
@@ -48,6 +49,8 @@ export class RegistrationsService {
     private ageGroupsRepository: Repository<TournamentAgeGroup>,
     @InjectRepository(Club)
     private clubsRepository: Repository<Club>,
+    @InjectRepository(Team)
+    private teamsRepository: Repository<Team>,
     @InjectRepository(RegistrationDocument)
     private documentsRepository: Repository<RegistrationDocument>,
   ) {
@@ -177,11 +180,25 @@ export class RegistrationsService {
       throw new ForbiddenException('You can only register your own clubs');
     }
 
+    // Get team and verify club ownership
+    const team = await this.teamsRepository.findOne({
+      where: { id: createRegistrationDto.teamId },
+    });
+
+    if (!team) {
+      throw new NotFoundException('Team not found');
+    }
+
+    if (team.clubId !== club.id) {
+      throw new BadRequestException('Selected team does not belong to the club');
+    }
+
     // Check if club is already registered (per age group when applicable)
     const existingRegistration = await this.registrationsRepository.findOne({
       where: {
         tournamentId,
         clubId: createRegistrationDto.clubId,
+        teamId: createRegistrationDto.teamId,
         ageGroupId: hasAgeGroups
           ? selectedAgeGroup?.id
           : IsNull(),
@@ -191,8 +208,8 @@ export class RegistrationsService {
     if (existingRegistration) {
       throw new ConflictException(
         hasAgeGroups
-          ? 'This club is already registered for the selected category'
-          : 'This club is already registered for this tournament',
+          ? 'This team is already registered for the selected category'
+          : 'This team is already registered for this tournament',
       );
     }
 
@@ -242,6 +259,7 @@ export class RegistrationsService {
     const queryBuilder = this.registrationsRepository
       .createQueryBuilder('registration')
       .leftJoinAndSelect('registration.club', 'club')
+      .leftJoinAndSelect('registration.team', 'team')
       .leftJoinAndSelect('registration.tournament', 'tournament')
       .leftJoinAndSelect('registration.ageGroup', 'ageGroup')
       .where('registration.tournamentId = :tournamentId', { tournamentId });
@@ -284,7 +302,7 @@ export class RegistrationsService {
   async findById(id: string): Promise<Registration | null> {
     return this.registrationsRepository.findOne({
       where: { id },
-      relations: ['club', 'tournament', 'payment', 'ageGroup'],
+      relations: ['club', 'team', 'tournament', 'payment', 'ageGroup'],
     });
   }
 
@@ -301,7 +319,7 @@ export class RegistrationsService {
   async findByClub(clubId: string): Promise<Registration[]> {
     return this.registrationsRepository.find({
       where: { clubId },
-      relations: ['tournament'],
+      relations: ['tournament', 'team'],
       order: { registrationDate: 'DESC' },
     });
   }
@@ -320,6 +338,7 @@ export class RegistrationsService {
     return this.registrationsRepository
       .createQueryBuilder('registration')
       .leftJoinAndSelect('registration.club', 'club')
+      .leftJoinAndSelect('registration.team', 'team')
       .leftJoinAndSelect('registration.tournament', 'tournament')
       .leftJoinAndSelect('registration.ageGroup', 'ageGroup')
       .where('registration.clubId IN (:...clubIds)', { clubIds })
@@ -634,6 +653,117 @@ export class RegistrationsService {
     };
   }
 
+  /**
+   * Get registration statistics grouped by age group
+   */
+  async getStatusStatisticsByAgeGroup(tournamentId: string): Promise<{
+    overall: {
+      total: number;
+      pending: number;
+      approved: number;
+      rejected: number;
+      withdrawn: number;
+      paidCount: number;
+      unpaidCount: number;
+    };
+    byAgeGroup: Array<{
+      ageGroupId: string;
+      ageGroupLabel: string;
+      total: number;
+      pending: number;
+      approved: number;
+      rejected: number;
+      withdrawn: number;
+      maxTeams: number;
+    }>;
+  }> {
+    // Get overall statistics
+    const overallStats = await this.getStatusStatistics(tournamentId);
+
+    // Get all age groups for this tournament
+    const ageGroups = await this.ageGroupsRepository.find({
+      where: { tournamentId },
+      order: { birthYear: 'DESC' },
+    });
+
+    // Get statistics grouped by age group
+    const statsByAgeGroup = await this.registrationsRepository
+      .createQueryBuilder('registration')
+      .select('registration.ageGroupId', 'ageGroupId')
+      .addSelect('registration.status', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .where('registration.tournamentId = :tournamentId', { tournamentId })
+      .andWhere('registration.ageGroupId IS NOT NULL')
+      .groupBy('registration.ageGroupId')
+      .addGroupBy('registration.status')
+      .getRawMany();
+
+    // Group the results by age group
+    const ageGroupStatsMap = new Map<
+      string,
+      { pending: number; approved: number; rejected: number; withdrawn: number }
+    >();
+
+    for (const stat of statsByAgeGroup) {
+      if (!ageGroupStatsMap.has(stat.ageGroupId)) {
+        ageGroupStatsMap.set(stat.ageGroupId, {
+          pending: 0,
+          approved: 0,
+          rejected: 0,
+          withdrawn: 0,
+        });
+      }
+      const groupStats = ageGroupStatsMap.get(stat.ageGroupId)!;
+      groupStats[stat.status.toLowerCase() as keyof typeof groupStats] = parseInt(
+        stat.count,
+        10,
+      );
+    }
+
+    // Build the result with age group details
+    const byAgeGroup = ageGroups.map((ageGroup) => {
+      const stats = ageGroupStatsMap.get(ageGroup.id) || {
+        pending: 0,
+        approved: 0,
+        rejected: 0,
+        withdrawn: 0,
+      };
+
+      const maxTeams =
+        ageGroup.teamCount ??
+        ageGroup.maxTeams ??
+        (ageGroup.teamsPerGroup && ageGroup.groupsCount
+          ? ageGroup.teamsPerGroup * ageGroup.groupsCount
+          : 0);
+
+      // Build age group label
+      let ageGroupLabel = ageGroup.displayLabel;
+      if (!ageGroupLabel && ageGroup.ageCategory) {
+        ageGroupLabel = ageGroup.ageCategory;
+      } else if (!ageGroupLabel && ageGroup.birthYear) {
+        ageGroupLabel = `Birth Year ${ageGroup.birthYear}`;
+      } else if (!ageGroupLabel) {
+        ageGroupLabel = 'Unknown Category';
+      }
+
+      return {
+        ageGroupId: ageGroup.id,
+        ageGroupLabel,
+        total: stats.pending + stats.approved + stats.rejected + stats.withdrawn,
+        pending: stats.pending,
+        approved: stats.approved,
+        rejected: stats.rejected,
+        withdrawn: stats.withdrawn,
+        maxTeams,
+      };
+    });
+
+    return {
+      overall: overallStats,
+      byAgeGroup,
+    };
+  }
+
   async getApprovedRegistrations(
     tournamentId: string,
   ): Promise<Registration[]> {
@@ -642,7 +772,7 @@ export class RegistrationsService {
         tournamentId,
         status: RegistrationStatus.APPROVED,
       },
-      relations: ['club'],
+      relations: ['club', 'team'],
       order: { registrationDate: 'ASC' },
     });
   }
@@ -796,7 +926,7 @@ export class RegistrationsService {
         tournamentId,
         status: RegistrationStatus.PENDING,
       },
-      relations: ['club', 'club.owner'],
+      relations: ['club', 'club.owner', 'team'],
       order: { registrationDate: 'ASC' },
     });
   }
@@ -1076,6 +1206,7 @@ export class RegistrationsService {
     const queryBuilder = this.registrationsRepository
       .createQueryBuilder('registration')
       .leftJoinAndSelect('registration.club', 'club')
+      .leftJoinAndSelect('registration.team', 'team')
       .leftJoinAndSelect('registration.tournament', 'tournament')
       .leftJoinAndSelect('registration.ageGroup', 'ageGroup')
       .leftJoinAndSelect('registration.payment', 'payment')
@@ -1118,6 +1249,7 @@ export class RegistrationsService {
     return this.registrationsRepository
       .createQueryBuilder('registration')
       .leftJoinAndSelect('registration.club', 'club')
+      .leftJoinAndSelect('registration.team', 'team')
       .leftJoinAndSelect('registration.tournament', 'tournament')
       .leftJoinAndSelect('registration.ageGroup', 'ageGroup')
       .leftJoinAndSelect('registration.payment', 'payment')
