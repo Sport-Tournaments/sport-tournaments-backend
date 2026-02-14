@@ -52,7 +52,7 @@ export class MailService {
     resetToken: string,
     userName?: string,
   ): Promise<boolean> {
-    const resetUrl = `${this.frontendUrl}/reset-password?token=${resetToken}`;
+    const resetUrl = `${this.frontendUrl}/auth/reset-password?token=${resetToken}`;
 
     const subject = 'Reset Your Password';
     const htmlContent = `
@@ -109,7 +109,7 @@ Football Tournament Platform
 
     let verificationSection = '';
     if (verificationToken) {
-      const verifyUrl = `${this.frontendUrl}/verify-email?token=${verificationToken}`;
+      const verifyUrl = `${this.frontendUrl}/auth/verify-email?token=${verificationToken}`;
       verificationSection = `
         <p>Please verify your email address by clicking the button below:</p>
         <div style="text-align: center; margin: 30px 0;">
