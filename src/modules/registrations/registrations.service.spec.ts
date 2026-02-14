@@ -4,7 +4,9 @@ import { RegistrationsService } from './registrations.service';
 import { Registration } from './entities/registration.entity';
 import { RegistrationDocument } from './entities/registration-document.entity';
 import { Tournament } from '../tournaments/entities/tournament.entity';
+import { TournamentAgeGroup } from '../tournaments/entities/tournament-age-group.entity';
 import { Club } from '../clubs/entities/club.entity';
+import { Team } from '../teams/entities/team.entity';
 import { CreateRegistrationDto } from './dto';
 import {
   NotFoundException,
@@ -43,11 +45,18 @@ describe('RegistrationsService', () => {
     id: 'registration-1',
     tournamentId: 'tournament-1',
     clubId: 'club-1',
+    teamId: 'team-1',
     status: RegistrationStatus.PENDING,
     paymentStatus: PaymentStatus.PENDING,
     registrationDate: new Date(),
     club: mockClub as Club,
     tournament: mockTournament as Tournament,
+  };
+
+  const mockTeam: Partial<Team> = {
+    id: 'team-1',
+    clubId: 'club-1',
+    name: 'U17 A',
   };
 
   const createMockQueryBuilder = () => ({
@@ -77,9 +86,20 @@ describe('RegistrationsService', () => {
     decrement: jest.fn(),
   };
 
+  const mockAgeGroupsRepo = {
+    findOne: jest.fn(),
+    find: jest.fn(),
+    increment: jest.fn(),
+    decrement: jest.fn(),
+  };
+
   const mockClubsRepo = {
     findOne: jest.fn(),
     find: jest.fn(),
+  };
+
+  const mockTeamsRepo = {
+    findOne: jest.fn(),
   };
 
   const mockDocumentsRepo = {
@@ -103,8 +123,16 @@ describe('RegistrationsService', () => {
           useValue: mockTournamentsRepo,
         },
         {
+          provide: getRepositoryToken(TournamentAgeGroup),
+          useValue: mockAgeGroupsRepo,
+        },
+        {
           provide: getRepositoryToken(Club),
           useValue: mockClubsRepo,
+        },
+        {
+          provide: getRepositoryToken(Team),
+          useValue: mockTeamsRepo,
         },
         {
           provide: getRepositoryToken(RegistrationDocument),
@@ -123,6 +151,7 @@ describe('RegistrationsService', () => {
   describe('create', () => {
     const createDto: CreateRegistrationDto = {
       clubId: 'club-1',
+      teamId: 'team-1',
       coachName: 'John Coach',
       coachPhone: '+40123456789',
     };
@@ -130,6 +159,7 @@ describe('RegistrationsService', () => {
     it('should create a registration successfully', async () => {
       mockTournamentsRepo.findOne.mockResolvedValue(mockTournament);
       mockClubsRepo.findOne.mockResolvedValue(mockClub);
+      mockTeamsRepo.findOne.mockResolvedValue(mockTeam);
       mockRegistrationsRepo.findOne.mockResolvedValue(null); // No existing registration
       mockRegistrationsRepo.create.mockReturnValue(mockRegistration);
       mockRegistrationsRepo.save.mockResolvedValue(mockRegistration);
@@ -164,7 +194,7 @@ describe('RegistrationsService', () => {
     it('should throw BadRequestException if registration deadline has passed', async () => {
       mockTournamentsRepo.findOne.mockResolvedValue({
         ...mockTournament,
-        registrationDeadline: new Date(Date.now() - 1000),
+        registrationDeadline: new Date(Date.now() - 48 * 60 * 60 * 1000),
       });
 
       await expect(
@@ -208,11 +238,35 @@ describe('RegistrationsService', () => {
     it('should throw ConflictException if club is already registered', async () => {
       mockTournamentsRepo.findOne.mockResolvedValue(mockTournament);
       mockClubsRepo.findOne.mockResolvedValue(mockClub);
+      mockTeamsRepo.findOne.mockResolvedValue(mockTeam);
       mockRegistrationsRepo.findOne.mockResolvedValue(mockRegistration);
 
       await expect(
         service.create('tournament-1', 'user-1', createDto),
       ).rejects.toThrow(ConflictException);
+    });
+
+    it('should throw NotFoundException if team is not found', async () => {
+      mockTournamentsRepo.findOne.mockResolvedValue(mockTournament);
+      mockClubsRepo.findOne.mockResolvedValue(mockClub);
+      mockTeamsRepo.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.create('tournament-1', 'user-1', createDto),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw BadRequestException if team does not belong to club', async () => {
+      mockTournamentsRepo.findOne.mockResolvedValue(mockTournament);
+      mockClubsRepo.findOne.mockResolvedValue(mockClub);
+      mockTeamsRepo.findOne.mockResolvedValue({
+        ...mockTeam,
+        clubId: 'other-club',
+      });
+
+      await expect(
+        service.create('tournament-1', 'user-1', createDto),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -281,7 +335,7 @@ describe('RegistrationsService', () => {
       expect(result).toHaveLength(1);
       expect(mockRegistrationsRepo.find).toHaveBeenCalledWith({
         where: { clubId: 'club-1' },
-        relations: ['tournament'],
+        relations: ['tournament', 'team'],
         order: { registrationDate: 'DESC' },
       });
     });

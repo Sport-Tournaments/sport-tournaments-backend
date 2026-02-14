@@ -18,6 +18,10 @@ export class CreateRegistrationDto {
   @IsUUID()
   clubId: string;
 
+  @ApiProperty({ description: 'Team ID to register under the club' })
+  @IsUUID()
+  teamId: string;
+
   @ApiPropertyOptional({ description: 'Age group ID for the tournament category' })
   @IsOptional()
   @IsUUID()
