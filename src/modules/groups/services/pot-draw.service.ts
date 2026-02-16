@@ -91,16 +91,25 @@ export class PotDrawService {
   }
 
   /**
-   * Get all pot assignments for a tournament
+   * Get all pot assignments for a tournament, optionally filtered by age group
    */
   async getPotAssignments(
     tournamentId: string,
+    ageGroupId?: string,
   ): Promise<Map<number, TournamentPot[]>> {
-    const pots = await this.potRepository.find({
-      where: { tournamentId },
-      relations: ['registration', 'registration.club'],
-      order: { potNumber: 'ASC', createdAt: 'ASC' },
-    });
+    const queryBuilder = this.potRepository
+      .createQueryBuilder('pot')
+      .leftJoinAndSelect('pot.registration', 'registration')
+      .leftJoinAndSelect('registration.club', 'club')
+      .where('pot.tournamentId = :tournamentId', { tournamentId });
+
+    if (ageGroupId) {
+      queryBuilder.andWhere('registration.ageGroupId = :ageGroupId', { ageGroupId });
+    }
+
+    queryBuilder.orderBy('pot.potNumber', 'ASC').addOrderBy('pot.createdAt', 'ASC');
+
+    const pots = await queryBuilder.getMany();
 
     const potMap = new Map<number, TournamentPot[]>();
     for (let i = 1; i <= 4; i++) {
@@ -128,10 +137,13 @@ export class PotDrawService {
       throw new BadRequestException('Draw has already been completed for this tournament');
     }
 
-    // Only count approved registrations for the draw
-    const approvedRegistrations = tournament.registrations.filter(
+    // Filter registrations by age group if specified
+    const allApprovedRegistrations = tournament.registrations.filter(
       (reg) => reg.status === RegistrationStatus.APPROVED,
     );
+    const approvedRegistrations = dto.ageGroupId
+      ? allApprovedRegistrations.filter((reg) => reg.ageGroupId === dto.ageGroupId)
+      : allApprovedRegistrations;
     const totalTeams = approvedRegistrations.length;
 
     // Validate input
@@ -145,8 +157,8 @@ export class PotDrawService {
       );
     }
 
-    // Get pot assignments
-    const potAssignments = await this.getPotAssignments(tournamentId);
+    // Get pot assignments (filtered by age group if specified)
+    const potAssignments = await this.getPotAssignments(tournamentId, dto.ageGroupId);
 
     // Validate all teams are assigned to pots
     let totalAssigned = 0;
@@ -242,26 +254,43 @@ export class PotDrawService {
   }
 
   /**
-   * Clear all pot assignments for a tournament
+   * Clear pot assignments for a tournament, optionally filtered by age group
    */
   async clearPotAssignments(
     tournamentId: string,
     userId?: string,
     userRole?: string,
+    ageGroupId?: string,
   ): Promise<void> {
     // Validate access
     await this.validateTournamentAccess(tournamentId, userId, userRole);
-    await this.potRepository.delete({ tournamentId });
+
+    if (ageGroupId) {
+      // Delete only pots for registrations in this age group
+      await this.potRepository
+        .createQueryBuilder()
+        .delete()
+        .from(TournamentPot)
+        .where('tournament_id = :tournamentId', { tournamentId })
+        .andWhere(
+          'registration_id IN (SELECT id FROM registrations WHERE tournament_id = :tournamentId AND age_group_id = :ageGroupId)',
+          { tournamentId, ageGroupId },
+        )
+        .execute();
+    } else {
+      await this.potRepository.delete({ tournamentId });
+    }
   }
 
   /**
-   * Validate pot distribution
+   * Validate pot distribution, optionally filtered by age group
    */
   async validatePotDistribution(
     tournamentId: string,
     expectedTeamsPerPot?: number,
+    ageGroupId?: string,
   ): Promise<{ valid: boolean; message: string; potCounts: Map<number, number> }> {
-    const potAssignments = await this.getPotAssignments(tournamentId);
+    const potAssignments = await this.getPotAssignments(tournamentId, ageGroupId);
     const potCounts = new Map<number, number>();
     let totalTeams = 0;
 

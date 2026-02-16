@@ -10,12 +10,13 @@ import { randomUUID } from 'crypto';
 import { Group } from './entities/group.entity';
 import { Tournament } from '../tournaments/entities/tournament.entity';
 import { Registration } from '../registrations/entities/registration.entity';
-import { ExecuteDrawDto, UpdateBracketDto, CreateGroupDto, ConfigureGroupsDto, UpdateGroupDto, GroupConfigurationResponseDto } from './dto';
+import { ExecuteDrawDto, UpdateBracketDto, CreateGroupDto, ConfigureGroupsDto, UpdateGroupDto, GroupConfigurationResponseDto, UpdateMatchAdvancementDto, UpdateMatchScoreDto } from './dto';
 import {
   TournamentStatus,
   RegistrationStatus,
   UserRole,
 } from '../../common/enums';
+import { BracketGeneratorService, BracketType, Match } from './services/bracket-generator.service';
 
 @Injectable()
 export class GroupsService {
@@ -26,6 +27,7 @@ export class GroupsService {
     private tournamentsRepository: Repository<Tournament>,
     @InjectRepository(Registration)
     private registrationsRepository: Repository<Registration>,
+    private bracketGeneratorService: BracketGeneratorService,
   ) {}
 
   async executeDraw(
@@ -588,6 +590,479 @@ export class GroupsService {
     }
 
     return this.groupsRepository.save(group);
+  }
+
+  // =====================================================
+  // Match Management & Advancement Methods (Issue #173)
+  // =====================================================
+
+  /**
+   * Helper to retrieve bracket data for a specific age group.
+   * Supports both per-age-group format { [ageGroupId]: bracketData }
+   * and legacy flat format (playoffRounds at top level).
+   */
+  private getBracketForAgeGroup(bracketData: any, ageGroupId?: string): any | null {
+    if (!bracketData) return null;
+
+    // New format: keyed by ageGroupId
+    if (ageGroupId && bracketData[ageGroupId]) {
+      return bracketData[ageGroupId];
+    }
+
+    // Legacy flat format: has playoffRounds or matches at top level
+    if (bracketData.playoffRounds || bracketData.matches || bracketData.type) {
+      return ageGroupId ? null : bracketData;
+    }
+
+    // No ageGroupId requested - return all brackets merged
+    if (!ageGroupId) {
+      // If it's a per-age-group map, merge all
+      const keys = Object.keys(bracketData);
+      if (keys.length > 0 && bracketData[keys[0]]?.playoffRounds) {
+        const allRounds: any[] = [];
+        const allMatches: any[] = [];
+        let bracketType: string | undefined;
+        for (const key of keys) {
+          const bd = bracketData[key];
+          if (bd.playoffRounds) allRounds.push(...bd.playoffRounds);
+          if (bd.matches) allMatches.push(...bd.matches);
+          if (bd.type) bracketType = bd.type;
+        }
+        return { playoffRounds: allRounds, matches: allMatches, type: bracketType };
+      }
+    }
+
+    return null;
+  }
+
+  async getMatches(tournamentId: string, ageGroupId?: string): Promise<{
+    matches: Match[];
+    bracketType?: string;
+    playoffRounds?: any[];
+    teams: { id: string; name: string; clubName?: string }[];
+  }> {
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id: tournamentId },
+    });
+
+    if (!tournament) {
+      throw new NotFoundException('Tournament not found');
+    }
+
+    // Get team details for display - filter by ageGroupId if provided
+    const regWhere: any = { tournamentId, status: RegistrationStatus.APPROVED };
+    if (ageGroupId) {
+      regWhere.ageGroupId = ageGroupId;
+    }
+
+    const registrations = await this.registrationsRepository.find({
+      where: regWhere,
+      relations: ['club'],
+    });
+
+    const teams = registrations.map((r) => ({
+      id: r.id,
+      name: r.club?.name || r.coachName || 'Unknown Team',
+      clubName: r.club?.name,
+    }));
+
+    if (!tournament.bracketData) {
+      return { matches: [], teams };
+    }
+
+    const ageBracket = this.getBracketForAgeGroup(tournament.bracketData, ageGroupId);
+    if (!ageBracket) {
+      return { matches: [], teams };
+    }
+
+    const allMatches: Match[] = [];
+
+    // Collect matches from playoff rounds
+    if (ageBracket.playoffRounds) {
+      for (const round of ageBracket.playoffRounds) {
+        if (round.matches) {
+          allMatches.push(...round.matches);
+        }
+      }
+    }
+
+    // Collect standalone matches
+    if (ageBracket.matches) {
+      allMatches.push(...ageBracket.matches);
+    }
+
+    return {
+      matches: allMatches,
+      bracketType: ageBracket.type,
+      playoffRounds: ageBracket.playoffRounds,
+      teams,
+    };
+  }
+
+  async setMatchAdvancement(
+    tournamentId: string,
+    matchId: string,
+    userId: string,
+    userRole: string,
+    dto: UpdateMatchAdvancementDto,
+    ageGroupId?: string,
+  ): Promise<{ match: Match; bracketUpdated: boolean }> {
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id: tournamentId },
+    });
+
+    if (!tournament) {
+      throw new NotFoundException('Tournament not found');
+    }
+
+    // Check permission
+    if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException(
+        'You are not allowed to manage matches for this tournament',
+      );
+    }
+
+    if (!tournament.bracketData) {
+      throw new BadRequestException('No bracket data found for this tournament');
+    }
+
+    const fullBracketData = tournament.bracketData as any;
+    const bracketData = this.getBracketForAgeGroup(fullBracketData, ageGroupId) || fullBracketData;
+    let targetMatch: Match | null = null;
+    let bracketUpdated = false;
+
+    // Find the match in playoff rounds
+    if (bracketData.playoffRounds) {
+      for (const round of bracketData.playoffRounds) {
+        if (round.matches) {
+          const match = round.matches.find((m: Match) => m.id === matchId);
+          if (match) {
+            targetMatch = match;
+            break;
+          }
+        }
+      }
+    }
+
+    // Find in standalone matches
+    if (!targetMatch && bracketData.matches) {
+      targetMatch = bracketData.matches.find((m: Match) => m.id === matchId);
+    }
+
+    if (!targetMatch) {
+      throw new NotFoundException(`Match ${matchId} not found`);
+    }
+
+    // Validate the advancing team is one of the match participants
+    if (
+      dto.advancingTeamId !== targetMatch.team1Id &&
+      dto.advancingTeamId !== targetMatch.team2Id
+    ) {
+      throw new BadRequestException(
+        'Advancing team must be one of the match participants',
+      );
+    }
+
+    // Set manual advancement
+    targetMatch.manualWinnerId = dto.advancingTeamId;
+    targetMatch.winnerId = dto.advancingTeamId;
+    targetMatch.isManualOverride = true;
+    targetMatch.status = 'COMPLETED';
+
+    // Set loser
+    targetMatch.loserId =
+      dto.advancingTeamId === targetMatch.team1Id
+        ? targetMatch.team2Id
+        : targetMatch.team1Id;
+
+    // Propagate to next match if exists
+    if (targetMatch.nextMatchId) {
+      bracketUpdated = this.propagateAdvancement(
+        bracketData,
+        targetMatch,
+        dto.advancingTeamId,
+      );
+    }
+
+    // Save bracket data (fullBracketData contains the mutation via object reference)
+    await this.tournamentsRepository.update(tournamentId, {
+      bracketData: fullBracketData,
+    });
+
+    return { match: targetMatch, bracketUpdated };
+  }
+
+  async updateMatchScore(
+    tournamentId: string,
+    matchId: string,
+    userId: string,
+    userRole: string,
+    dto: UpdateMatchScoreDto,
+    ageGroupId?: string,
+  ): Promise<{ match: Match; bracketUpdated: boolean }> {
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id: tournamentId },
+    });
+
+    if (!tournament) {
+      throw new NotFoundException('Tournament not found');
+    }
+
+    // Check permission
+    if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException(
+        'You are not allowed to manage matches for this tournament',
+      );
+    }
+
+    if (!tournament.bracketData) {
+      throw new BadRequestException('No bracket data found for this tournament');
+    }
+
+    const fullBracketData = tournament.bracketData as any;
+    const bracketData = this.getBracketForAgeGroup(fullBracketData, ageGroupId) || fullBracketData;
+    let targetMatch: Match | null = null;
+
+    // Find the match
+    if (bracketData.playoffRounds) {
+      for (const round of bracketData.playoffRounds) {
+        if (round.matches) {
+          const match = round.matches.find((m: Match) => m.id === matchId);
+          if (match) {
+            targetMatch = match;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!targetMatch && bracketData.matches) {
+      targetMatch = bracketData.matches.find((m: Match) => m.id === matchId);
+    }
+
+    if (!targetMatch) {
+      throw new NotFoundException(`Match ${matchId} not found`);
+    }
+
+    // Update scores
+    if (dto.team1Score !== undefined) targetMatch.team1Score = dto.team1Score;
+    if (dto.team2Score !== undefined) targetMatch.team2Score = dto.team2Score;
+    if (dto.status) targetMatch.status = dto.status as Match['status'];
+
+    let bracketUpdated = false;
+
+    // Handle manual advancement override
+    if (dto.advancingTeamId) {
+      targetMatch.manualWinnerId = dto.advancingTeamId;
+      targetMatch.winnerId = dto.advancingTeamId;
+      targetMatch.isManualOverride = true;
+      targetMatch.status = 'COMPLETED';
+      targetMatch.loserId =
+        dto.advancingTeamId === targetMatch.team1Id
+          ? targetMatch.team2Id
+          : targetMatch.team1Id;
+
+      if (targetMatch.nextMatchId) {
+        bracketUpdated = this.propagateAdvancement(
+          bracketData,
+          targetMatch,
+          dto.advancingTeamId,
+        );
+      }
+    } else if (
+      targetMatch.team1Score !== undefined &&
+      targetMatch.team2Score !== undefined &&
+      targetMatch.team1Score !== targetMatch.team2Score &&
+      !targetMatch.isManualOverride
+    ) {
+      // Auto-determine winner from score (only if not manually overridden)
+      const winnerId =
+        targetMatch.team1Score > targetMatch.team2Score
+          ? targetMatch.team1Id
+          : targetMatch.team2Id;
+
+      if (winnerId) {
+        targetMatch.winnerId = winnerId;
+        targetMatch.status = 'COMPLETED';
+        targetMatch.loserId =
+          winnerId === targetMatch.team1Id
+            ? targetMatch.team2Id
+            : targetMatch.team1Id;
+
+        if (targetMatch.nextMatchId) {
+          bracketUpdated = this.propagateAdvancement(
+            bracketData,
+            targetMatch,
+            winnerId,
+          );
+        }
+      }
+    }
+
+    // Save bracket data (fullBracketData contains the mutation via object reference)
+    await this.tournamentsRepository.update(tournamentId, {
+      bracketData: fullBracketData,
+    });
+
+    return { match: targetMatch, bracketUpdated };
+  }
+
+  async generateBracket(
+    tournamentId: string,
+    userId: string,
+    userRole: string,
+    ageGroupId?: string,
+  ): Promise<any> {
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id: tournamentId },
+    });
+
+    if (!tournament) {
+      throw new NotFoundException('Tournament not found');
+    }
+
+    // Check permission
+    if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException(
+        'You are not allowed to generate bracket for this tournament',
+      );
+    }
+
+    // Get approved registrations - filter by ageGroupId if provided
+    const regWhere: any = { tournamentId, status: RegistrationStatus.APPROVED };
+    if (ageGroupId) {
+      regWhere.ageGroupId = ageGroupId;
+    }
+
+    const registrations = await this.registrationsRepository.find({
+      where: regWhere,
+      relations: ['club'],
+    });
+
+    if (registrations.length < 2) {
+      throw new BadRequestException(
+        'At least 2 approved teams are required to generate a bracket',
+      );
+    }
+
+    // Determine bracket type from tournament config
+    const bracketType = (tournament as any).bracketType
+      || BracketType.SINGLE_ELIMINATION;
+
+    const bracketData = this.bracketGeneratorService.generateBracket(
+      bracketType as BracketType,
+      registrations.length,
+      {
+        groupCount: tournament.numberOfGroups,
+        thirdPlaceMatch: true,
+        seed: tournament.drawSeed || undefined,
+      },
+    );
+
+    // Assign teams to first round matches
+    if (bracketData.playoffRounds && bracketData.playoffRounds.length > 0) {
+      const firstRound = bracketData.playoffRounds[0];
+      const shuffledRegistrations = this.seededShuffle(
+        [...registrations],
+        bracketData.seed || 'default-seed',
+      );
+
+      firstRound.matches.forEach((match: Match, index: number) => {
+        const team1Index = index * 2;
+        const team2Index = index * 2 + 1;
+
+        if (shuffledRegistrations[team1Index]) {
+          match.team1Id = shuffledRegistrations[team1Index].id;
+          match.team1Name =
+            shuffledRegistrations[team1Index].club?.name ||
+            shuffledRegistrations[team1Index].coachName ||
+            'Team ' + (team1Index + 1);
+        }
+        if (shuffledRegistrations[team2Index]) {
+          match.team2Id = shuffledRegistrations[team2Index].id;
+          match.team2Name =
+            shuffledRegistrations[team2Index].club?.name ||
+            shuffledRegistrations[team2Index].coachName ||
+            'Team ' + (team2Index + 1);
+        }
+      });
+    }
+
+    // Save bracket data - store per age group if ageGroupId is provided
+    if (ageGroupId) {
+      const existingBracketData = (tournament.bracketData as any) || {};
+      // Migrate legacy flat format: if it has playoffRounds at top level, wrap it
+      if (existingBracketData.playoffRounds || existingBracketData.type) {
+        // Legacy data exists - overwrite with new per-age-group structure
+        const newBracketData = { [ageGroupId]: bracketData };
+        await this.tournamentsRepository.update(tournamentId, {
+          bracketData: newBracketData as any,
+        });
+      } else {
+        existingBracketData[ageGroupId] = bracketData;
+        await this.tournamentsRepository.update(tournamentId, {
+          bracketData: existingBracketData as any,
+        });
+      }
+    } else {
+      await this.tournamentsRepository.update(tournamentId, {
+        bracketData: bracketData as any,
+      });
+    }
+
+    return bracketData;
+  }
+
+  /**
+   * Propagate match winner to the next match in the bracket
+   */
+  private propagateAdvancement(
+    bracketData: any,
+    sourceMatch: Match,
+    advancingTeamId: string,
+  ): boolean {
+    if (!sourceMatch.nextMatchId) return false;
+
+    let nextMatch: Match | null = null;
+
+    // Find next match in playoff rounds
+    if (bracketData.playoffRounds) {
+      for (const round of bracketData.playoffRounds) {
+        if (round.matches) {
+          const match = round.matches.find(
+            (m: Match) => m.id === sourceMatch.nextMatchId,
+          );
+          if (match) {
+            nextMatch = match;
+            break;
+          }
+        }
+      }
+    }
+
+    // Find in standalone matches
+    if (!nextMatch && bracketData.matches) {
+      nextMatch = bracketData.matches.find(
+        (m: Match) => m.id === sourceMatch.nextMatchId,
+      );
+    }
+
+    if (!nextMatch) return false;
+
+    // Place advancing team in the appropriate slot
+    if (!nextMatch.team1Id) {
+      nextMatch.team1Id = advancingTeamId;
+      nextMatch.team1Name = sourceMatch.team1Id === advancingTeamId
+        ? sourceMatch.team1Name
+        : sourceMatch.team2Name;
+    } else if (!nextMatch.team2Id) {
+      nextMatch.team2Id = advancingTeamId;
+      nextMatch.team2Name = sourceMatch.team1Id === advancingTeamId
+        ? sourceMatch.team1Name
+        : sourceMatch.team2Name;
+    }
+
+    return true;
   }
 
   // Seeded shuffle using Fisher-Yates algorithm

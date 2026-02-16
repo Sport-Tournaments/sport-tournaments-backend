@@ -14,10 +14,14 @@ export interface Match {
   matchNumber: number;
   team1Id?: string;
   team2Id?: string;
+  team1Name?: string;
+  team2Name?: string;
   team1Score?: number;
   team2Score?: number;
   winnerId?: string;
   loserId?: string;
+  manualWinnerId?: string; // Manual override: organizer picks advancing team
+  isManualOverride?: boolean; // Flag indicating manual advancement override
   scheduledAt?: Date;
   locationId?: string;
   status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
