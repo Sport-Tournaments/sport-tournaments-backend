@@ -6,11 +6,14 @@ import {
   UpdateDateColumn,
   ManyToOne,
   OneToMany,
+  ManyToMany,
   Index,
   JoinColumn,
+  JoinTable,
 } from 'typeorm';
 import { Club } from '../../clubs/entities/club.entity';
 import { Registration } from '../../registrations/entities/registration.entity';
+import { Player } from '../../players/entities';
 
 @Entity('teams')
 @Index(['clubId', 'name'], { unique: true })
@@ -29,6 +32,15 @@ export class Team {
   @Column()
   name: string;
 
+  @Column({ name: 'age_category' })
+  ageCategory: string;
+
+  @Column({ type: 'int' })
+  birthyear: number;
+
+  @Column()
+  coach: string;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
@@ -37,4 +49,12 @@ export class Team {
 
   @OneToMany(() => Registration, (registration) => registration.team)
   registrations: Registration[];
+
+  @ManyToMany(() => Player, (player) => player.teams)
+  @JoinTable({
+    name: 'team_players',
+    joinColumn: { name: 'team_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'player_id', referencedColumnName: 'id' },
+  })
+  players: Player[];
 }

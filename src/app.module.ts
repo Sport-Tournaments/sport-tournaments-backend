@@ -22,6 +22,7 @@ import { InvitationsModule } from './modules/invitations/invitations.module';
 import { LocationsModule } from './modules/locations/locations.module';
 import { MailModule } from './modules/mail/mail.module';
 import { TeamsModule } from './modules/teams/teams.module';
+import { PlayersModule } from './modules/players/players.module';
 
 @Module({
   imports: [
@@ -68,6 +69,7 @@ import { TeamsModule } from './modules/teams/teams.module';
     InvitationsModule,
     LocationsModule,
     TeamsModule,
+    PlayersModule,
   ],
   controllers: [],
   providers: [],
