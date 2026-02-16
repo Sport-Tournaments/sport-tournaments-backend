@@ -1,4 +1,4 @@
-import { IsUUID, IsNumber, IsArray, ValidateNested, Min, Max } from 'class-validator';
+import { IsUUID, IsNumber, IsArray, ValidateNested, Min, Max, IsOptional } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class AssignTeamToPotDto {
@@ -23,6 +23,10 @@ export class ExecutePotDrawDto {
   @Min(1)
   @Max(32)
   numberOfGroups: number;
+
+  @IsOptional()
+  @IsUUID()
+  ageGroupId?: string;
 }
 
 export class PotAssignmentResponseDto {

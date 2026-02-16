@@ -6,6 +6,7 @@ import {
   Patch,
   Param,
   Delete,
+  Query,
   UseGuards,
   ParseUUIDPipe,
 } from '@nestjs/common';
@@ -17,7 +18,7 @@ import {
 } from '@nestjs/swagger';
 import { GroupsService } from './groups.service';
 import { PotDrawService } from './services/pot-draw.service';
-import { ExecuteDrawDto, UpdateBracketDto, CreateGroupDto, ConfigureGroupsDto, UpdateGroupDto, GroupConfigurationResponseDto } from './dto';
+import { ExecuteDrawDto, UpdateBracketDto, CreateGroupDto, ConfigureGroupsDto, UpdateGroupDto, GroupConfigurationResponseDto, UpdateMatchAdvancementDto, UpdateMatchScoreDto } from './dto';
 import { AssignTeamToPotDto, AssignPotsBulkDto, ExecutePotDrawDto } from './dto/pot.dto';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards';
 import { CurrentUser, Public } from '../../common/decorators';
@@ -148,6 +149,80 @@ export class GroupsController {
   }
 
   // =====================================================
+  // Match Management & Advancement endpoints
+  // =====================================================
+
+  @Get('matches')
+  @Public()
+  @ApiOperation({ summary: 'Get all matches for a tournament bracket' })
+  @ApiResponse({ status: 200, description: 'Matches retrieved' })
+  getMatches(
+    @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
+    @Query('ageGroupId') ageGroupId?: string,
+  ) {
+    return this.groupsService.getMatches(tournamentId, ageGroupId);
+  }
+
+  @Patch('matches/:matchId/advance')
+  @ApiOperation({ summary: 'Manually set the advancing team for a match' })
+  @ApiResponse({ status: 200, description: 'Match advancement updated' })
+  @ApiResponse({ status: 400, description: 'Invalid advancement' })
+  @ApiResponse({ status: 403, description: 'Not authorized' })
+  @ApiResponse({ status: 404, description: 'Match not found' })
+  setMatchAdvancement(
+    @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
+    @Param('matchId') matchId: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: UpdateMatchAdvancementDto,
+    @Query('ageGroupId') ageGroupId?: string,
+  ) {
+    return this.groupsService.setMatchAdvancement(
+      tournamentId,
+      matchId,
+      user.sub,
+      user.role,
+      dto,
+      ageGroupId,
+    );
+  }
+
+  @Patch('matches/:matchId/score')
+  @ApiOperation({ summary: 'Update match score and optionally set winner' })
+  @ApiResponse({ status: 200, description: 'Match score updated' })
+  @ApiResponse({ status: 400, description: 'Invalid score' })
+  @ApiResponse({ status: 403, description: 'Not authorized' })
+  @ApiResponse({ status: 404, description: 'Match not found' })
+  updateMatchScore(
+    @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
+    @Param('matchId') matchId: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: UpdateMatchScoreDto,
+    @Query('ageGroupId') ageGroupId?: string,
+  ) {
+    return this.groupsService.updateMatchScore(
+      tournamentId,
+      matchId,
+      user.sub,
+      user.role,
+      dto,
+      ageGroupId,
+    );
+  }
+
+  @Post('bracket/generate')
+  @ApiOperation({ summary: 'Generate bracket structure for the tournament' })
+  @ApiResponse({ status: 201, description: 'Bracket generated' })
+  @ApiResponse({ status: 400, description: 'Invalid tournament state' })
+  @ApiResponse({ status: 403, description: 'Not authorized' })
+  generateBracket(
+    @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
+    @CurrentUser() user: JwtPayload,
+    @Query('ageGroupId') ageGroupId?: string,
+  ) {
+    return this.groupsService.generateBracket(tournamentId, user.sub, user.role, ageGroupId);
+  }
+
+  // =====================================================
   // Pot-based draw endpoints
   // =====================================================
 
@@ -182,8 +257,9 @@ export class GroupsController {
   @ApiResponse({ status: 200, description: 'Pot assignments retrieved' })
   async getPotAssignments(
     @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
+    @Query('ageGroupId') ageGroupId?: string,
   ) {
-    const potMap = await this.potDrawService.getPotAssignments(tournamentId);
+    const potMap = await this.potDrawService.getPotAssignments(tournamentId, ageGroupId);
     
     // Convert map to array format for API response
     const result: any[] = [];
@@ -207,8 +283,15 @@ export class GroupsController {
   @ApiResponse({ status: 200, description: 'Validation complete' })
   async validatePotDistribution(
     @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
+    @Query('ageGroupId') ageGroupId?: string,
   ) {
-    return this.potDrawService.validatePotDistribution(tournamentId);
+    const result = await this.potDrawService.validatePotDistribution(tournamentId, undefined, ageGroupId);
+    // Convert Map to plain object for JSON serialization
+    const potCounts: Record<number, number> = {};
+    for (const [key, value] of result.potCounts.entries()) {
+      potCounts[key] = value;
+    }
+    return { ...result, potCounts };
   }
 
   @Post('pots/draw')
@@ -231,8 +314,9 @@ export class GroupsController {
   async clearPotAssignments(
     @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
     @CurrentUser() user: JwtPayload,
+    @Query('ageGroupId') ageGroupId?: string,
   ) {
-    await this.potDrawService.clearPotAssignments(tournamentId, user.sub, user.role);
+    await this.potDrawService.clearPotAssignments(tournamentId, user.sub, user.role, ageGroupId);
     return { message: 'Pot assignments cleared' };
   }
 }

@@ -62,3 +62,33 @@ export class CreateGroupDto {
   @IsNumber()
   groupOrder?: number;
 }
+
+export class UpdateMatchAdvancementDto {
+  @ApiProperty({ description: 'ID of the team (registration) that advances/wins' })
+  @IsUUID()
+  advancingTeamId: string;
+}
+
+export class UpdateMatchScoreDto {
+  @ApiPropertyOptional({ description: 'Score of team 1' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  team1Score?: number;
+
+  @ApiPropertyOptional({ description: 'Score of team 2' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  team2Score?: number;
+
+  @ApiPropertyOptional({ description: 'ID of the advancing/winning team (manual override)' })
+  @IsOptional()
+  @IsString()
+  advancingTeamId?: string;
+
+  @ApiPropertyOptional({ description: 'Match status' })
+  @IsOptional()
+  @IsString()
+  status?: string;
+}
