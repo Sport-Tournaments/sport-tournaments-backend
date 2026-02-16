@@ -4,13 +4,14 @@ import {
   IsNumber,
   IsEnum,
   IsArray,
+  IsBoolean,
   Min,
   Max,
   IsUUID,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { RegistrationStatus, PaymentStatus } from '../../../common/enums';
+import { RegistrationStatus, PaymentStatus, Currency } from '../../../common/enums';
 import { PaginationDto } from '../../../common/dto';
 
 export class CreateRegistrationDto {
@@ -170,6 +171,26 @@ export class BulkReviewDto {
   @ApiPropertyOptional({
     example: 'Bulk approval for verified teams.',
     description: 'Notes for all registrations being processed'
+  })
+  @IsOptional()
+  @IsString()
+  reviewNotes?: string;
+}
+
+export class MarkAsPaidDto {
+  @ApiPropertyOptional({
+    example: 150.00,
+    description: 'Amount paid (defaults to the registration price if omitted)',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  paidAmount?: number;
+
+  @ApiPropertyOptional({
+    example: 'Paid via bank transfer on 2026-02-16',
+    description: 'Notes about the payment',
   })
   @IsOptional()
   @IsString()

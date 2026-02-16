@@ -24,6 +24,7 @@ import {
   DocumentResponseDto,
   ConfirmFitnessDto,
   FitnessStatusDto,
+  MarkAsPaidDto,
 } from './dto';
 import { PaginationDto } from '../../common/dto';
 import { PaginatedResponse } from '../../common/interfaces';
@@ -33,6 +34,7 @@ import {
   UserRole,
   PaymentStatus,
 } from '../../common/enums';
+import { MailService } from '../mail/mail.service';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -53,6 +55,7 @@ export class RegistrationsService {
     private teamsRepository: Repository<Team>,
     @InjectRepository(RegistrationDocument)
     private documentsRepository: Repository<RegistrationDocument>,
+    private mailService: MailService,
   ) {
     // Ensure uploads directory exists
     if (!fs.existsSync(this.uploadsPath)) {
@@ -234,7 +237,7 @@ export class RegistrationsService {
     const effectiveParticipationFee =
       selectedAgeGroup?.participationFee ?? tournament.participationFee ?? 0;
 
-    // Create registration
+    // Create registration with Price info (Issue #88)
     const registration = this.registrationsRepository.create({
       ...createRegistrationDto,
       tournamentId,
@@ -243,6 +246,10 @@ export class RegistrationsService {
         Number(effectiveParticipationFee) > 0
           ? PaymentStatus.PENDING
           : PaymentStatus.COMPLETED,
+      priceAmount: Number(effectiveParticipationFee),
+      priceCurrency: tournament.currency,
+      paid: Number(effectiveParticipationFee) <= 0,
+      paidAmount: Number(effectiveParticipationFee) <= 0 ? 0 : undefined,
     });
 
     const savedRegistration =
@@ -413,7 +420,7 @@ export class RegistrationsService {
     userId: string,
     userRole: string,
     dto?: ApproveRegistrationDto,
-    options?: { markPaymentCompleted?: boolean },
+    options?: { markPaymentCompleted?: boolean; pendingPayment?: boolean },
   ): Promise<Registration> {
     const registration = await this.findByIdOrFail(id);
 
@@ -432,15 +439,26 @@ export class RegistrationsService {
       throw new BadRequestException('Can only approve pending registrations');
     }
 
-    registration.status = RegistrationStatus.APPROVED;
+    if (options?.markPaymentCompleted) {
+      // Approve (Paid) → fully approved, payment done
+      registration.status = RegistrationStatus.APPROVED;
+      registration.paymentStatus = PaymentStatus.COMPLETED;
+      registration.paid = true;
+      registration.paidAmount = Number(registration.priceAmount) || 0;
+    } else if (options?.pendingPayment) {
+      // Approve (Pending Payment) → approved but payment pending
+      registration.status = RegistrationStatus.PENDING_PAYMENT;
+      registration.paymentStatus = PaymentStatus.PENDING;
+      registration.paid = false;
+    } else {
+      // Default approve
+      registration.status = RegistrationStatus.APPROVED;
+    }
+
     registration.reviewedById = userId;
     registration.reviewedAt = new Date();
     if (dto?.reviewNotes) {
       registration.reviewNotes = dto.reviewNotes;
-    }
-
-    if (options?.markPaymentCompleted) {
-      registration.paymentStatus = PaymentStatus.COMPLETED;
     }
 
     return this.registrationsRepository.save(registration);
@@ -472,7 +490,74 @@ export class RegistrationsService {
     userRole: string,
     dto?: ApproveRegistrationDto,
   ): Promise<Registration> {
-    return this.approveInternal(id, userId, userRole, dto);
+    const result = await this.approveInternal(id, userId, userRole, dto, {
+      pendingPayment: true,
+    });
+
+    // Send payment pending email (Issue #88)
+    try {
+      const registration = await this.registrationsRepository.findOne({
+        where: { id: result.id },
+        relations: ['club', 'club.organizer', 'team', 'tournament'],
+      });
+      if (registration?.club?.organizer?.email) {
+        await this.mailService.sendPaymentPendingEmail(
+          registration.club.organizer.email,
+          registration.club.organizer.firstName || registration.club.organizer.email,
+          registration.tournament?.name || 'Tournament',
+          registration.team?.name || registration.club?.name || 'Team',
+          Number(registration.priceAmount) || 0,
+          registration.priceCurrency || 'EUR',
+          registration.id,
+        );
+      }
+    } catch (e) {
+      // Don't fail the approval if email fails
+    }
+
+    return result;
+  }
+
+  /**
+   * Mark a PENDING_PAYMENT registration as paid (Issue #88).
+   */
+  async markAsPaid(
+    id: string,
+    userId: string,
+    userRole: string,
+    dto?: MarkAsPaidDto,
+  ): Promise<Registration> {
+    const registration = await this.findByIdOrFail(id);
+
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id: registration.tournamentId },
+    });
+
+    if (tournament?.organizerId !== userId && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException(
+        'You are not allowed to update payment for this registration',
+      );
+    }
+
+    if (
+      registration.status !== RegistrationStatus.PENDING_PAYMENT &&
+      registration.status !== RegistrationStatus.APPROVED
+    ) {
+      throw new BadRequestException(
+        'Can only mark as paid for pending_payment or approved registrations',
+      );
+    }
+
+    registration.status = RegistrationStatus.APPROVED;
+    registration.paymentStatus = PaymentStatus.COMPLETED;
+    registration.paid = true;
+    registration.paidAmount =
+      dto?.paidAmount ?? Number(registration.priceAmount) ?? 0;
+    if (dto?.reviewNotes) {
+      registration.reviewNotes = dto.reviewNotes;
+    }
+
+    return this.registrationsRepository.save(registration);
   }
 
   async reject(
@@ -618,6 +703,7 @@ export class RegistrationsService {
   async getStatusStatistics(tournamentId: string): Promise<{
     total: number;
     pending: number;
+    pendingPayment: number;
     approved: number;
     rejected: number;
     withdrawn: number;
@@ -661,6 +747,7 @@ export class RegistrationsService {
     return {
       total,
       pending: statusMap[RegistrationStatus.PENDING] || 0,
+      pendingPayment: statusMap[RegistrationStatus.PENDING_PAYMENT] || 0,
       approved: statusMap[RegistrationStatus.APPROVED] || 0,
       rejected: statusMap[RegistrationStatus.REJECTED] || 0,
       withdrawn: statusMap[RegistrationStatus.WITHDRAWN] || 0,
@@ -678,6 +765,7 @@ export class RegistrationsService {
     overall: {
       total: number;
       pending: number;
+      pendingPayment: number;
       approved: number;
       rejected: number;
       withdrawn: number;

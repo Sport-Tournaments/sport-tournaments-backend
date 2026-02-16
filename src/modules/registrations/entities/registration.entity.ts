@@ -10,7 +10,7 @@ import {
   Index,
   JoinColumn,
 } from 'typeorm';
-import { RegistrationStatus, PaymentStatus } from '../../../common/enums';
+import { RegistrationStatus, PaymentStatus, Currency } from '../../../common/enums';
 import { Tournament } from '../../tournaments/entities/tournament.entity';
 import { TournamentAgeGroup } from '../../tournaments/entities/tournament-age-group.entity';
 import { Club } from '../../clubs/entities/club.entity';
@@ -137,6 +137,36 @@ export class Registration {
 
   @Column({ name: 'fitness_notes', type: 'text', nullable: true })
   fitnessNotes?: string;
+
+  // ----- Price / payment tracking (Issue #88) -----
+  @Column({
+    name: 'price_amount',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
+  priceAmount?: number;
+
+  @Column({
+    name: 'price_currency',
+    type: 'enum',
+    enum: Currency,
+    nullable: true,
+  })
+  priceCurrency?: Currency;
+
+  @Column({ name: 'paid', default: false })
+  paid: boolean;
+
+  @Column({
+    name: 'paid_amount',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
+  paidAmount?: number;
 
   @OneToOne(() => Payment, (payment) => payment.registration)
   payment: Payment;
