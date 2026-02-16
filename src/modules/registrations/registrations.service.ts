@@ -193,6 +193,24 @@ export class RegistrationsService {
       throw new BadRequestException('Selected team does not belong to the club');
     }
 
+    if (hasAgeGroups && selectedAgeGroup) {
+      if (selectedAgeGroup.birthYear && team.birthyear !== selectedAgeGroup.birthYear) {
+        throw new BadRequestException(
+          `Team birth year (${team.birthyear}) does not match selected age group (${selectedAgeGroup.birthYear})`,
+        );
+      }
+
+      if (
+        selectedAgeGroup.ageCategory &&
+        team.ageCategory &&
+        selectedAgeGroup.ageCategory !== team.ageCategory
+      ) {
+        throw new BadRequestException(
+          `Team category (${team.ageCategory}) does not match selected age group (${selectedAgeGroup.ageCategory})`,
+        );
+      }
+    }
+
     // Check if club is already registered (per age group when applicable)
     const existingRegistration = await this.registrationsRepository.findOne({
       where: {

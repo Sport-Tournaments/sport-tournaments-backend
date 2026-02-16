@@ -1,6 +1,13 @@
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
-import { faker } from '@faker-js/faker';
+// Tree-shaking safe: imports only the RO locale bundle
+import { faker } from '@faker-js/faker/locale/ro';
+
+export { faker };
+
+// ── Seed date boundaries ──────────────────────────────────
+export const SEED_DATE_FROM = new Date('2025-10-01');
+export const SEED_DATE_TO = new Date('2026-10-01');
 
 /**
  * Generate a UUID v4
@@ -67,17 +74,32 @@ export function generateRomanianPhone(): string {
 }
 
 /**
- * Get a random date in the past
+ * Random date inside the seed window (Oct 2025 → Oct 2026)
  */
-export function getRandomPastDate(years: number = 2): Date {
-  return faker.date.past({ years });
+export function seedDate(): Date {
+  return faker.date.between({ from: SEED_DATE_FROM, to: SEED_DATE_TO });
 }
 
 /**
- * Get a random date in the future
+ * Random date inside the first half of the seed window (Oct 2025 → Apr 2026)
+ * Useful for "past" data relative to the window midpoint
  */
-export function getRandomFutureDate(years: number = 1): Date {
-  return faker.date.future({ years });
+export function seedDatePast(): Date {
+  return faker.date.between({
+    from: SEED_DATE_FROM,
+    to: new Date('2026-04-01'),
+  });
+}
+
+/**
+ * Random date inside the second half of the seed window (Apr 2026 → Oct 2026)
+ * Useful for "future" data relative to the window midpoint
+ */
+export function seedDateFuture(): Date {
+  return faker.date.between({
+    from: new Date('2026-04-01'),
+    to: SEED_DATE_TO,
+  });
 }
 
 /**
@@ -88,18 +110,34 @@ export function getRandomDateBetween(start: Date, end: Date): Date {
 }
 
 /**
- * Get a date range (start + end date for tournaments)
+ * Get a tournament date range inside the seed window.
+ * @param status - determines whether dates are in the past or future half
  */
-export function getTournamentDateRange(isUpcoming: boolean = true): {
-  startDate: Date;
-  endDate: Date;
-} {
+export function getTournamentDateRange(
+  status: 'past' | 'upcoming' | 'ongoing',
+): { startDate: Date; endDate: Date } {
   let startDate: Date;
 
-  if (isUpcoming) {
-    startDate = faker.date.future({ years: 1 });
-  } else {
-    startDate = faker.date.past({ years: 1 });
+  switch (status) {
+    case 'past':
+      startDate = faker.date.between({
+        from: SEED_DATE_FROM,
+        to: new Date('2026-01-15'),
+      });
+      break;
+    case 'ongoing':
+      startDate = faker.date.between({
+        from: new Date('2026-02-10'),
+        to: new Date('2026-02-16'),
+      });
+      break;
+    case 'upcoming':
+    default:
+      startDate = faker.date.between({
+        from: new Date('2026-03-01'),
+        to: new Date('2026-09-15'),
+      });
+      break;
   }
 
   const endDate = new Date(startDate);
@@ -135,11 +173,11 @@ export function weightedRandom<T>(
 }
 
 /**
- * Generate a realistic tournament fee
+ * Generate a realistic tournament fee (RON)
  */
 export function generateTournamentFee(): number {
   return faker.helpers.arrayElement([
-    50, 75, 100, 125, 150, 200, 250, 300, 350, 400, 500,
+    200, 300, 400, 500, 600, 750, 1000, 1200, 1500, 2000,
   ]);
 }
 
@@ -156,6 +194,13 @@ export function generateTeamColors(): {
     secondary: faker.color.rgb({ format: 'hex' }),
     accent: faker.color.rgb({ format: 'hex' }),
   };
+}
+
+/**
+ * Format a Date to YYYY-MM-DD string (for date-only columns)
+ */
+export function toDateString(d: Date): string {
+  return d.toISOString().slice(0, 10);
 }
 
 /**
