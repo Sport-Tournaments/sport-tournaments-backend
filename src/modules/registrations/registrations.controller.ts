@@ -30,6 +30,7 @@ import {
   BulkReviewDto,
   UploadDocumentDto,
   ConfirmFitnessDto,
+  MarkAsPaidDto,
 } from './dto';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards';
 import { Roles, CurrentUser, Public } from '../../common/decorators';
@@ -206,6 +207,17 @@ export class RegistrationsController {
     @Body() dto: RejectRegistrationDto,
   ) {
     return this.registrationsService.reject(id, user.sub, user.role, dto);
+  }
+
+  @Post('registrations/:id/mark-as-paid')
+  @ApiOperation({ summary: 'Mark registration as paid' })
+  @ApiResponse({ status: 200, description: 'Registration marked as paid' })
+  markAsPaid(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: MarkAsPaidDto,
+  ) {
+    return this.registrationsService.markAsPaid(id, user.sub, user.role, dto);
   }
 
   @Post('tournaments/:tournamentId/registrations/bulk-approve')

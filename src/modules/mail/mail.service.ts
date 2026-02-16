@@ -162,6 +162,70 @@ Football Tournament Platform
     return this.sendEmail(email, subject, htmlContent, textContent);
   }
 
+  /**
+   * Send payment pending email when registration is approved with pending payment (Issue #88).
+   */
+  async sendPaymentPendingEmail(
+    email: string,
+    userName: string,
+    tournamentName: string,
+    teamName: string,
+    amount: number,
+    currency: string,
+    registrationId: string,
+  ): Promise<boolean> {
+    const dashboardUrl = `${this.frontendUrl}/dashboard/registrations/${registrationId}`;
+    const subject = `Payment Required – ${tournamentName}`;
+
+    const formattedAmount = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency || 'EUR',
+    }).format(amount);
+
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1E40AF;">Payment Required for Tournament Registration</h2>
+        <p>Hello ${userName},</p>
+        <p>Your registration for <strong>${tournamentName}</strong> (team: <strong>${teamName}</strong>) has been approved and is now awaiting payment.</p>
+        <div style="background: #FEF3C7; border-left: 4px solid #F59E0B; padding: 16px; border-radius: 4px; margin: 20px 0;">
+          <p style="margin: 0; font-size: 18px; font-weight: bold; color: #92400E;">
+            Amount Due: ${formattedAmount}
+          </p>
+        </div>
+        <p>Please complete the payment to finalize your registration.</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${dashboardUrl}"
+             style="background-color: #1E40AF; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">
+            View Registration
+          </a>
+        </div>
+        <p style="color: #666;">If you have any questions, please contact the tournament organizer.</p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+        <p style="color: #888; font-size: 12px;">Football Tournament Platform</p>
+      </div>
+    `;
+
+    const textContent = `
+Payment Required for Tournament Registration
+
+Hello ${userName},
+
+Your registration for ${tournamentName} (team: ${teamName}) has been approved and is now awaiting payment.
+
+Amount Due: ${formattedAmount}
+
+Please complete the payment to finalize your registration.
+View your registration: ${dashboardUrl}
+
+If you have any questions, please contact the tournament organizer.
+
+---
+Football Tournament Platform
+    `.trim();
+
+    return this.sendEmail(email, subject, htmlContent, textContent);
+  }
+
   private async sendEmail(
     to: string,
     subject: string,
