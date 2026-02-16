@@ -1,9 +1,9 @@
 import { DataSource } from 'typeorm';
-import { faker } from '@faker-js/faker';
 import {
+  faker,
   generateUUID,
   generateRomanianPhone,
-  getRandomPastDate,
+  seedDatePast,
 } from '../utils/helpers';
 import { ROMANIAN_CITIES, FOOTBALL_CLUB_SUFFIXES } from '../data/locations';
 
@@ -15,10 +15,10 @@ export interface SeededClub {
 }
 
 /**
- * Seed clubs table with realistic data
- * - 3 clubs per organizer (20 organizers × 3 = 60 clubs)
- * - 1-2 clubs per participant (30 participants = ~45 clubs)
- * Total: ~105 clubs
+ * Seed clubs – all located in Romania.
+ * - 3 clubs per organizer (15 × 3 = 45)
+ * - 1–2 clubs per participant (30 × ~1.5 = ~45)
+ * Total ≈ 90 clubs
  */
 export async function seedClubs(
   dataSource: DataSource,
@@ -28,96 +28,64 @@ export async function seedClubs(
   const clubRepository = dataSource.getRepository('Club');
   const seededClubs: SeededClub[] = [];
 
-  // Each organizer gets 3 clubs
+  const RO_CLUB_WORDS = [
+    'Viitorul', 'Rapid', 'Gloria', 'Progresul', 'Olimpia',
+    'Steaua', 'Universitatea', 'Petrolul', 'Astra', 'Poli',
+    'Dinamo', 'Metalul', 'Minerul', 'Energia', 'Victoria',
+    'Flamura', 'Sportul', 'Voința', 'Unirea', 'CSM',
+  ];
+
+  function roClubName(city: string): string {
+    const word = faker.helpers.arrayElement(RO_CLUB_WORDS);
+    const suffix = faker.helpers.arrayElement(FOOTBALL_CLUB_SUFFIXES);
+    return `${word} ${city} ${suffix}`;
+  }
+
+  async function insertClub(ownerId: string): Promise<SeededClub> {
+    const city = faker.helpers.arrayElement(ROMANIAN_CITIES);
+    const id = generateUUID();
+    const name = roClubName(city.name) + ` ${faker.string.alpha({ length: 2, casing: 'upper' })}`;
+    const latOffset = faker.number.float({ min: -0.05, max: 0.05 });
+    const lngOffset = faker.number.float({ min: -0.05, max: 0.05 });
+
+    await clubRepository.insert({
+      id,
+      name,
+      organizer: { id: ownerId },
+      country: 'Romania',
+      city: city.name,
+      latitude: city.lat + latOffset,
+      longitude: city.lng + lngOffset,
+      description: faker.lorem.paragraphs(2),
+      logo: faker.image.url(),
+      primaryColor: faker.color.rgb({ format: 'hex' }),
+      secondaryColor: faker.color.rgb({ format: 'hex' }),
+      foundedYear: faker.number.int({ min: 1920, max: 2024 }),
+      isVerified: faker.datatype.boolean({ probability: 0.7 }),
+      isPremium: faker.datatype.boolean({ probability: 0.2 }),
+      website: faker.datatype.boolean({ probability: 0.5 })
+        ? `https://www.${name.toLowerCase().replace(/\s/g, '-')}.ro`
+        : undefined,
+      contactEmail: faker.internet.email({ firstName: city.name.toLowerCase() }),
+      contactPhone: generateRomanianPhone(),
+      createdAt: seedDatePast(),
+    });
+
+    return { id, name, ownerId, city: city.name };
+  }
+
+  // 3 clubs per organizer
   for (const organizerId of organizerIds) {
     for (let i = 0; i < 3; i++) {
-      const city = faker.helpers.arrayElement(ROMANIAN_CITIES);
-      const suffix = faker.helpers.arrayElement(FOOTBALL_CLUB_SUFFIXES);
-      const baseName = faker.location.city();
-      const id = generateUUID();
-      const name = `${baseName} ${suffix} ${faker.string.alpha({ length: 2, casing: 'upper' })}`;
-
-      // Add some variance to coordinates (within ~10km)
-      const latOffset = faker.number.float({ min: -0.05, max: 0.05 });
-      const lngOffset = faker.number.float({ min: -0.05, max: 0.05 });
-
-      await clubRepository.insert({
-        id,
-        name,
-        organizer: { id: organizerId },
-        country: city.country,
-        city: city.name,
-        latitude: city.lat + latOffset,
-        longitude: city.lng + lngOffset,
-        description: faker.lorem.paragraphs(2),
-        logo: faker.image.url(),
-        foundedYear: faker.number.int({ min: 1950, max: 2023 }),
-        isVerified: faker.datatype.boolean({ probability: 0.7 }),
-        isPremium: faker.datatype.boolean({ probability: 0.3 }),
-        website: faker.datatype.boolean({ probability: 0.6 })
-          ? `https://www.${baseName.toLowerCase().replace(/\s/g, '')}-fc.com`
-          : undefined,
-        contactEmail: faker.internet.email({
-          firstName: baseName.toLowerCase(),
-        }),
-        contactPhone: generateRomanianPhone(),
-        createdAt: getRandomPastDate(1.5),
-      });
-
-      seededClubs.push({
-        id,
-        name,
-        ownerId: organizerId,
-        city: city.name,
-      });
+      seededClubs.push(await insertClub(organizerId));
     }
   }
 
-  // Each participant gets 1-2 clubs
+  // 1-2 clubs per participant
   for (const participantId of participantIds) {
-    const clubCount = faker.number.int({ min: 1, max: 2 });
-
-    for (let i = 0; i < clubCount; i++) {
-      const city = faker.helpers.arrayElement(ROMANIAN_CITIES);
-      const suffix = faker.helpers.arrayElement(FOOTBALL_CLUB_SUFFIXES);
-      const baseName = faker.location.city();
-      const id = generateUUID();
-      const name = `${baseName} ${suffix} ${faker.string.alpha({ length: 3, casing: 'upper' })}`;
-
-      const latOffset = faker.number.float({ min: -0.05, max: 0.05 });
-      const lngOffset = faker.number.float({ min: -0.05, max: 0.05 });
-
-      await clubRepository.insert({
-        id,
-        name,
-        organizer: { id: participantId },
-        country: city.country,
-        city: city.name,
-        latitude: city.lat + latOffset,
-        longitude: city.lng + lngOffset,
-        description: faker.lorem.paragraph(),
-        logo: faker.datatype.boolean({ probability: 0.5 })
-          ? faker.image.url()
-          : undefined,
-        foundedYear: faker.number.int({ min: 1980, max: 2023 }),
-        isVerified: faker.datatype.boolean({ probability: 0.4 }),
-        isPremium: faker.datatype.boolean({ probability: 0.1 }),
-        website: faker.datatype.boolean({ probability: 0.3 })
-          ? `https://www.${baseName.toLowerCase().replace(/\s/g, '')}.com`
-          : undefined,
-        contactEmail: faker.internet.email({
-          firstName: baseName.toLowerCase(),
-        }),
-        contactPhone: generateRomanianPhone(),
-        createdAt: getRandomPastDate(1),
-      });
-
-      seededClubs.push({
-        id,
-        name,
-        ownerId: participantId,
-        city: city.name,
-      });
+    const count = faker.number.int({ min: 1, max: 2 });
+    for (let i = 0; i < count; i++) {
+      seededClubs.push(await insertClub(participantId));
     }
   }
 

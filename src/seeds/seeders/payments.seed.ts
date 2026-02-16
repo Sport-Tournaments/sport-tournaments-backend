@@ -1,11 +1,12 @@
 import { DataSource } from 'typeorm';
-import { faker } from '@faker-js/faker';
 import {
+  faker,
   generateUUID,
   generateStripePaymentIntentId,
   generateStripeChargeId,
   generateStripeRefundId,
   generateStripeCustomerId,
+  seedDate,
 } from '../utils/helpers';
 import { PaymentStatus, Currency } from '../../common/enums';
 
@@ -29,37 +30,25 @@ export async function seedPayments(
   }[],
 ): Promise<SeededPayment[]> {
   const paymentRepository = dataSource.getRepository('Payment');
-
   const seededPayments: SeededPayment[] = [];
 
-  // Create payments for registrations that have payment activity
   const registrationsWithPayments = registrations.filter(
-    (r) => r.paymentStatus !== 'PENDING' || Math.random() > 0.3, // 70% chance even pending have payment attempts
+    (r) => r.paymentStatus !== 'PENDING' || Math.random() > 0.3,
   );
 
   for (const registration of registrationsWithPayments) {
     const paymentId = generateUUID();
 
-    // Map registration payment status to payment status
     let paymentStatus: PaymentStatus;
     switch (registration.paymentStatus) {
-      case 'COMPLETED':
-        paymentStatus = PaymentStatus.COMPLETED;
-        break;
-      case 'FAILED':
-        paymentStatus = PaymentStatus.FAILED;
-        break;
-      case 'REFUNDED':
-        paymentStatus = PaymentStatus.REFUNDED;
-        break;
-      default:
-        // For pending, randomly choose pending or failed
-        paymentStatus =
-          Math.random() > 0.7 ? PaymentStatus.FAILED : PaymentStatus.PENDING;
+      case 'COMPLETED': paymentStatus = PaymentStatus.COMPLETED; break;
+      case 'FAILED': paymentStatus = PaymentStatus.FAILED; break;
+      case 'REFUNDED': paymentStatus = PaymentStatus.REFUNDED; break;
+      default: paymentStatus = Math.random() > 0.7 ? PaymentStatus.FAILED : PaymentStatus.PENDING;
     }
 
-    const amount = registration.fee || faker.number.int({ min: 100, max: 500 });
-    const currency = Currency.EUR;
+    const amount = registration.fee || faker.number.int({ min: 200, max: 2000 });
+    const currency = Currency.RON;
 
     const paymentData: Record<string, unknown> = {
       id: paymentId,
@@ -76,41 +65,29 @@ export async function seedPayments(
         clubId: registration.clubId,
         registrationId: registration.id,
       },
-      createdAt: faker.date.recent({ days: 60 }),
+      createdAt: seedDate(),
       updatedAt: new Date(),
     };
 
-    // Add charge ID and transaction date for completed payments
-    if (
-      paymentStatus === PaymentStatus.COMPLETED ||
-      paymentStatus === PaymentStatus.REFUNDED
-    ) {
+    if (paymentStatus === PaymentStatus.COMPLETED || paymentStatus === PaymentStatus.REFUNDED) {
       paymentData.stripeChargeId = generateStripeChargeId();
-      paymentData.transactionDate = faker.date.recent({ days: 30 });
-      paymentData.stripeFee = Number((amount * 0.029 + 0.3).toFixed(2)); // Stripe standard fee
+      paymentData.transactionDate = seedDate();
+      paymentData.stripeFee = Number((amount * 0.029 + 0.3).toFixed(2));
     }
 
-    // Add refund info for refunded payments
     if (paymentStatus === PaymentStatus.REFUNDED) {
       paymentData.refundId = generateStripeRefundId();
       paymentData.refundAmount = amount;
       paymentData.refundReason = faker.helpers.arrayElement([
-        'Tournament cancelled',
-        'Club withdrew',
-        'Duplicate payment',
-        'Customer request',
+        'Turneu anulat',
+        'Clubul s-a retras',
+        'Plată duplicat',
+        'Cerere client',
       ]);
     }
 
     await paymentRepository.insert(paymentData);
-
-    seededPayments.push({
-      id: paymentId,
-      registrationId: registration.id,
-      userId: registration.userId,
-      amount,
-      status: paymentStatus,
-    });
+    seededPayments.push({ id: paymentId, registrationId: registration.id, userId: registration.userId, amount, status: paymentStatus });
   }
 
   console.log(`✅ Seeded ${seededPayments.length} payments`);
