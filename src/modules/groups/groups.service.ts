@@ -775,13 +775,23 @@ export class GroupsService {
         ? targetMatch.team2Id
         : targetMatch.team1Id;
 
-    // Propagate to next match if exists
+    // Propagate winner to next match if exists
     if (targetMatch.nextMatchId) {
       bracketUpdated = this.propagateAdvancement(
         bracketData,
         targetMatch,
         dto.advancingTeamId,
       );
+    }
+
+    // Propagate loser to third place match if exists
+    if (targetMatch.loserNextMatchId && targetMatch.loserId) {
+      this.propagateLoser(
+        bracketData,
+        targetMatch,
+        targetMatch.loserId,
+      );
+      bracketUpdated = true;
     }
 
     // Save bracket data (fullBracketData contains the mutation via object reference)
@@ -869,6 +879,16 @@ export class GroupsService {
           dto.advancingTeamId,
         );
       }
+
+      // Propagate loser to third place match if exists
+      if (targetMatch.loserNextMatchId && targetMatch.loserId) {
+        this.propagateLoser(
+          bracketData,
+          targetMatch,
+          targetMatch.loserId,
+        );
+        bracketUpdated = true;
+      }
     } else if (
       targetMatch.team1Score !== undefined &&
       targetMatch.team2Score !== undefined &&
@@ -895,6 +915,16 @@ export class GroupsService {
             targetMatch,
             winnerId,
           );
+        }
+
+        // Propagate loser to third place match if exists
+        if (targetMatch.loserNextMatchId && targetMatch.loserId) {
+          this.propagateLoser(
+            bracketData,
+            targetMatch,
+            targetMatch.loserId,
+          );
+          bracketUpdated = true;
         }
       }
     }
@@ -1060,6 +1090,59 @@ export class GroupsService {
       nextMatch.team2Name = sourceMatch.team1Id === advancingTeamId
         ? sourceMatch.team1Name
         : sourceMatch.team2Name;
+    }
+
+    return true;
+  }
+
+  /**
+   * Propagate the loser of a match to the loserNextMatchId (e.g., third place match)
+   */
+  private propagateLoser(
+    bracketData: any,
+    sourceMatch: Match,
+    loserTeamId: string,
+  ): boolean {
+    if (!sourceMatch.loserNextMatchId) return false;
+
+    let loserMatch: Match | null = null;
+
+    // Find loser's next match in playoff rounds
+    if (bracketData.playoffRounds) {
+      for (const round of bracketData.playoffRounds) {
+        if (round.matches) {
+          const match = round.matches.find(
+            (m: Match) => m.id === sourceMatch.loserNextMatchId,
+          );
+          if (match) {
+            loserMatch = match;
+            break;
+          }
+        }
+      }
+    }
+
+    // Find in standalone matches
+    if (!loserMatch && bracketData.matches) {
+      loserMatch = bracketData.matches.find(
+        (m: Match) => m.id === sourceMatch.loserNextMatchId,
+      );
+    }
+
+    if (!loserMatch) return false;
+
+    const loserName =
+      sourceMatch.team1Id === loserTeamId
+        ? sourceMatch.team1Name
+        : sourceMatch.team2Name;
+
+    // Place losing team in the appropriate slot
+    if (!loserMatch.team1Id) {
+      loserMatch.team1Id = loserTeamId;
+      loserMatch.team1Name = loserName;
+    } else if (!loserMatch.team2Id) {
+      loserMatch.team2Id = loserTeamId;
+      loserMatch.team2Name = loserName;
     }
 
     return true;

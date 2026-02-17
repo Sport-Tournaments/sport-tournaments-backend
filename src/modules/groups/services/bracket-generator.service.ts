@@ -362,17 +362,34 @@ export class BracketGeneratorService {
    * Link matches for single elimination (winner advances)
    */
   private linkSingleEliminationMatches(playoffRounds: PlayoffRound[]): void {
+    // Find the third place round if it exists
+    const thirdPlaceRound = playoffRounds.find(
+      (r) => r.roundName === 'Third Place',
+    );
+    const thirdPlaceMatchId = thirdPlaceRound?.matches?.[0]?.id;
+
+    // Find the semi-finals round (the round right before the Final)
+    const finalRound = playoffRounds.find((r) => r.roundName === 'Final');
+
     for (let i = 0; i < playoffRounds.length - 1; i++) {
       const currentRound = playoffRounds[i];
       const nextRound = playoffRounds[i + 1];
 
-      // Skip third place match round if it exists
+      // Skip third place match round for winner linking
       if (nextRound.roundName === 'Third Place') continue;
 
       currentRound.matches.forEach((match, index) => {
         const nextMatchIndex = Math.floor(index / 2);
         if (nextRound.matches[nextMatchIndex]) {
           match.nextMatchId = nextRound.matches[nextMatchIndex].id;
+        }
+
+        // Link semi-final losers to third place match
+        if (
+          thirdPlaceMatchId &&
+          nextRound.roundName === 'Final'
+        ) {
+          match.loserNextMatchId = thirdPlaceMatchId;
         }
       });
     }
