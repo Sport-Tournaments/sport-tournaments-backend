@@ -32,13 +32,13 @@ export class Team {
   @Column()
   name: string;
 
-  @Column({ name: 'age_category' })
+  @Column({ name: 'age_category', nullable: true })
   ageCategory: string;
 
-  @Column({ type: 'int' })
+  @Column({ type: 'int', nullable: true })
   birthyear: number;
 
-  @Column()
+  @Column({ nullable: true })
   coach: string;
 
   @CreateDateColumn({ name: 'created_at' })
