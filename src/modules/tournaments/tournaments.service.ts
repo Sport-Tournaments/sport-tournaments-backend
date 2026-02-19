@@ -96,6 +96,19 @@ export class TournamentsService {
     return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
   }
 
+  private async syncPastTournamentsAsCompleted(): Promise<void> {
+    await this.tournamentsRepository
+      .createQueryBuilder()
+      .update(Tournament)
+      .set({ status: TournamentStatus.COMPLETED })
+      .where('status IN (:...activeStatuses)', {
+        activeStatuses: [TournamentStatus.PUBLISHED, TournamentStatus.ONGOING],
+      })
+      .andWhere('end_date IS NOT NULL')
+      .andWhere('end_date < CURRENT_DATE')
+      .execute();
+  }
+
   async create(
     organizerId: string,
     createTournamentDto: CreateTournamentDto,
@@ -173,6 +186,8 @@ export class TournamentsService {
     pagination: PaginationDto,
     filters?: TournamentFilterDto,
   ): Promise<PaginatedResponse<Tournament>> {
+    await this.syncPastTournamentsAsCompleted();
+
     const { page = 1, pageSize = 20 } = pagination;
     const skip = (page - 1) * pageSize;
 
@@ -372,6 +387,8 @@ export class TournamentsService {
   }
 
   async findById(id: string): Promise<Tournament | null> {
+    await this.syncPastTournamentsAsCompleted();
+
     return this.tournamentsRepository.findOne({
       where: { id },
       relations: ['organizer', 'registrations', 'groups', 'ageGroups'],
@@ -389,6 +406,8 @@ export class TournamentsService {
   }
 
   async findBySlug(slug: string): Promise<Tournament | null> {
+    await this.syncPastTournamentsAsCompleted();
+
     return this.tournamentsRepository.findOne({
       where: { urlSlug: slug },
       relations: ['organizer', 'registrations', 'groups', 'ageGroups'],
@@ -406,6 +425,8 @@ export class TournamentsService {
   }
 
   async findByOrganizer(organizerId: string): Promise<Tournament[]> {
+    await this.syncPastTournamentsAsCompleted();
+
     const tournaments = await this.tournamentsRepository.find({
       where: { organizerId },
       relations: ['ageGroups'],
@@ -733,6 +754,10 @@ export class TournamentsService {
     tournamentsByCountry: Record<string, number>;
     upcomingTournaments: number;
   }> {
+    await this.syncPastTournamentsAsCompleted();
+
+    const today = this.normalizeDateOnly(new Date()) || new Date();
+
     const totalTournaments = await this.tournamentsRepository.count();
     const publishedTournaments = await this.tournamentsRepository.count({
       where: { status: TournamentStatus.PUBLISHED },
@@ -747,7 +772,7 @@ export class TournamentsService {
     const upcomingTournaments = await this.tournamentsRepository.count({
       where: {
         status: TournamentStatus.PUBLISHED,
-        startDate: MoreThanOrEqual(new Date()),
+        startDate: MoreThanOrEqual(today),
       },
     });
 
@@ -800,12 +825,16 @@ export class TournamentsService {
   }
 
   async getFeaturedTournaments(limit: number = 6): Promise<Tournament[]> {
+    await this.syncPastTournamentsAsCompleted();
+
+    const today = this.normalizeDateOnly(new Date()) || new Date();
+
     return this.tournamentsRepository.find({
       where: {
         isPublished: true,
         isFeatured: true,
         status: TournamentStatus.PUBLISHED,
-        startDate: MoreThanOrEqual(new Date()),
+        startDate: MoreThanOrEqual(today),
       },
       relations: ['organizer'],
       order: { startDate: 'ASC' },
@@ -814,11 +843,15 @@ export class TournamentsService {
   }
 
   async getUpcomingTournaments(limit: number = 10): Promise<Tournament[]> {
+    await this.syncPastTournamentsAsCompleted();
+
+    const today = this.normalizeDateOnly(new Date()) || new Date();
+
     return this.tournamentsRepository.find({
       where: {
         isPublished: true,
         status: TournamentStatus.PUBLISHED,
-        startDate: MoreThanOrEqual(new Date()),
+        startDate: MoreThanOrEqual(today),
       },
       relations: ['organizer'],
       order: { startDate: 'ASC' },
