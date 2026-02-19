@@ -13,6 +13,7 @@ import {
   ValidateNested,
   Min,
   Max,
+  IsIn,
   IsObject,
   Matches,
 } from 'class-validator';
@@ -188,6 +189,26 @@ export class CreateAgeGroupDto {
   @IsNumber()
   @Min(2)
   teamsPerGroup?: number;
+
+  @ApiPropertyOptional({
+    enum: ['ONE_HALF', 'TWO_HALVES'],
+    example: 'TWO_HALVES',
+    description: 'Whether matches are played in one half or two halves',
+  })
+  @IsOptional()
+  @IsIn(['ONE_HALF', 'TWO_HALVES'])
+  matchPeriodType?: 'ONE_HALF' | 'TWO_HALVES';
+
+  @ApiPropertyOptional({
+    example: 15,
+    description: 'Duration in minutes of one half (or the only half when matchPeriodType is ONE_HALF)',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(120)
+  halfDurationMinutes?: number;
 }
 
 export class UpdateAgeGroupDto {
@@ -294,6 +315,26 @@ export class UpdateAgeGroupDto {
   @IsNumber()
   @Min(2)
   teamsPerGroup?: number;
+
+  @ApiPropertyOptional({
+    enum: ['ONE_HALF', 'TWO_HALVES'],
+    example: 'TWO_HALVES',
+    description: 'Whether matches are played in one half or two halves',
+  })
+  @IsOptional()
+  @IsIn(['ONE_HALF', 'TWO_HALVES'])
+  matchPeriodType?: 'ONE_HALF' | 'TWO_HALVES';
+
+  @ApiPropertyOptional({
+    example: 15,
+    description: 'Duration in minutes of one half (or the only half when matchPeriodType is ONE_HALF)',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(120)
+  halfDurationMinutes?: number;
 }
 
 export class UpdateAgeGroupsDto {

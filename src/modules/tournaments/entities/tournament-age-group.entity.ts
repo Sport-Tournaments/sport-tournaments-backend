@@ -135,6 +135,12 @@ export class TournamentAgeGroup {
   @Column({ name: 'teams_per_group', default: 4 })
   teamsPerGroup: number;
 
+  @Column({ name: 'match_period_type', nullable: true })
+  matchPeriodType?: 'ONE_HALF' | 'TWO_HALVES';
+
+  @Column({ name: 'half_duration_minutes', nullable: true })
+  halfDurationMinutes?: number;
+
   // Draw completed flag for this age group
   @Column({ name: 'draw_completed', default: false })
   drawCompleted: boolean;
