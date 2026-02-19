@@ -159,7 +159,6 @@ export class TournamentsService {
           minTeams,
           maxTeams,
           guaranteedMatches,
-          numberOfMatches,
           participationFee,
           ...rest
         } = ag as any;
@@ -172,7 +171,6 @@ export class TournamentsService {
           minTeams: undefined,
           maxTeams: undefined,
           guaranteedMatches: undefined,
-          numberOfMatches: undefined,
           participationFee: participationFee ?? undefined,
         };
       });
@@ -534,7 +532,7 @@ export class TournamentsService {
     tournamentId: string,
     userId: string,
     userRole: string,
-    ageGroups: { id?: string; birthYear: number; displayLabel?: string; ageCategory?: string; level?: string; format?: string; gameSystem?: string; teamCount?: number; minTeams?: number; startDate?: string; endDate?: string; locationId?: string; locationAddress?: string; participationFee?: number; groupsCount?: number; teamsPerGroup?: number }[],
+    ageGroups: { id?: string; birthYear: number; displayLabel?: string; ageCategory?: string; level?: string; format?: string; gameSystem?: string; teamCount?: number; minTeams?: number; numberOfMatches?: number; matchPeriodType?: 'ONE_HALF' | 'TWO_HALVES'; halfDurationMinutes?: number; startDate?: string; endDate?: string; locationId?: string; locationAddress?: string; participationFee?: number; groupsCount?: number; teamsPerGroup?: number }[],
   ): Promise<TournamentAgeGroup[]> {
     const tournament = await this.findByIdOrFail(tournamentId);
 
@@ -577,7 +575,6 @@ export class TournamentsService {
         minTeams,
         maxTeams,
         guaranteedMatches,
-        numberOfMatches,
         participationFee,
         ...rest
       } = ag as any;
@@ -591,7 +588,6 @@ export class TournamentsService {
           existing.minTeams = null as any;
           existing.maxTeams = null as any;
           existing.guaranteedMatches = null as any;
-          existing.numberOfMatches = null as any;
           if (participationFee !== undefined) {
             existing.participationFee = participationFee as any;
           }
@@ -607,7 +603,6 @@ export class TournamentsService {
           minTeams: undefined,
           maxTeams: undefined,
           guaranteedMatches: undefined,
-          numberOfMatches: undefined,
           participationFee: participationFee ?? undefined,
         };
         result.push(await this.ageGroupsRepository.save(newAgeGroup));
