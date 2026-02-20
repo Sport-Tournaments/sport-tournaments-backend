@@ -122,6 +122,7 @@ export class TeamsService {
       ageCategory: dto.ageCategory,
       birthyear: dto.birthyear,
       coach: dto.coach,
+      coachPhone: dto.coachPhone,
     });
 
     if (dto.playerIds) {
@@ -171,6 +172,10 @@ export class TeamsService {
 
     if (dto.coach !== undefined) {
       team.coach = dto.coach;
+    }
+
+    if (dto.coachPhone !== undefined) {
+      team.coachPhone = dto.coachPhone;
     }
 
     if (dto.playerIds !== undefined) {

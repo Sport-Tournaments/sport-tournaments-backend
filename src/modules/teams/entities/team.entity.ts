@@ -41,6 +41,9 @@ export class Team {
   @Column({ nullable: true })
   coach: string;
 
+  @Column({ name: 'coach_phone', nullable: true })
+  coachPhone: string;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

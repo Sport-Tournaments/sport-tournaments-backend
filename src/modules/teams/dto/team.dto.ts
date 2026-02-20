@@ -43,6 +43,12 @@ export class CreateTeamDto {
   @MaxLength(120)
   coach: string;
 
+  @ApiPropertyOptional({ example: '+1 234 567 8900', description: 'Coach phone number' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  coachPhone?: string;
+
   @ApiPropertyOptional({
     type: [String],
     description: 'Optional player IDs to assign to the team',
@@ -87,6 +93,12 @@ export class UpdateTeamDto {
   @MinLength(2)
   @MaxLength(120)
   coach?: string;
+
+  @ApiPropertyOptional({ example: '+1 234 567 8900', description: 'Coach phone number' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  coachPhone?: string;
 
   @ApiPropertyOptional({
     type: [String],
