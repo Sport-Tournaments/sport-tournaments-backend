@@ -152,6 +152,10 @@ export class TournamentAgeGroup {
   @Column({ name: 'draw_seed', nullable: true })
   drawSeed?: string;
 
+  // Optional notes/comments for this age category (organizer use)
+  @Column({ name: 'notes', type: 'text', nullable: true })
+  notes?: string;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }
