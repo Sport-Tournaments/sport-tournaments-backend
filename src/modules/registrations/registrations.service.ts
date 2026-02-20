@@ -284,7 +284,9 @@ export class RegistrationsService {
     const queryBuilder = this.registrationsRepository
       .createQueryBuilder('registration')
       .leftJoinAndSelect('registration.club', 'club')
+      .leftJoinAndSelect('club.organizer', 'clubOrganizer')
       .leftJoinAndSelect('registration.team', 'team')
+      .leftJoinAndSelect('team.players', 'teamPlayers')
       .leftJoinAndSelect('registration.tournament', 'tournament')
       .leftJoinAndSelect('registration.ageGroup', 'ageGroup')
       .where('registration.tournamentId = :tournamentId', { tournamentId });
@@ -327,7 +329,7 @@ export class RegistrationsService {
   async findById(id: string): Promise<Registration | null> {
     return this.registrationsRepository.findOne({
       where: { id },
-      relations: ['club', 'team', 'tournament', 'payment', 'ageGroup'],
+      relations: ['club', 'club.organizer', 'team', 'team.players', 'tournament', 'payment', 'ageGroup'],
     });
   }
 
@@ -344,7 +346,7 @@ export class RegistrationsService {
   async findByClub(clubId: string): Promise<Registration[]> {
     return this.registrationsRepository.find({
       where: { clubId },
-      relations: ['tournament', 'team'],
+      relations: ['club', 'club.organizer', 'tournament', 'team', 'team.players'],
       order: { registrationDate: 'DESC' },
     });
   }
@@ -363,7 +365,9 @@ export class RegistrationsService {
     return this.registrationsRepository
       .createQueryBuilder('registration')
       .leftJoinAndSelect('registration.club', 'club')
+      .leftJoinAndSelect('club.organizer', 'clubOrganizer')
       .leftJoinAndSelect('registration.team', 'team')
+      .leftJoinAndSelect('team.players', 'teamPlayers')
       .leftJoinAndSelect('registration.tournament', 'tournament')
       .leftJoinAndSelect('registration.ageGroup', 'ageGroup')
       .where('registration.clubId IN (:...clubIds)', { clubIds })
@@ -1312,7 +1316,9 @@ export class RegistrationsService {
     const queryBuilder = this.registrationsRepository
       .createQueryBuilder('registration')
       .leftJoinAndSelect('registration.club', 'club')
+      .leftJoinAndSelect('club.organizer', 'clubOrganizer')
       .leftJoinAndSelect('registration.team', 'team')
+      .leftJoinAndSelect('team.players', 'teamPlayers')
       .leftJoinAndSelect('registration.tournament', 'tournament')
       .leftJoinAndSelect('registration.ageGroup', 'ageGroup')
       .leftJoinAndSelect('registration.payment', 'payment')
@@ -1355,7 +1361,9 @@ export class RegistrationsService {
     return this.registrationsRepository
       .createQueryBuilder('registration')
       .leftJoinAndSelect('registration.club', 'club')
+      .leftJoinAndSelect('club.organizer', 'clubOrganizer')
       .leftJoinAndSelect('registration.team', 'team')
+      .leftJoinAndSelect('team.players', 'teamPlayers')
       .leftJoinAndSelect('registration.tournament', 'tournament')
       .leftJoinAndSelect('registration.ageGroup', 'ageGroup')
       .leftJoinAndSelect('registration.payment', 'payment')
