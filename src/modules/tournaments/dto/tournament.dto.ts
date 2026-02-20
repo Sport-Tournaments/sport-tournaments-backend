@@ -217,6 +217,15 @@ export class CreateAgeGroupDto {
   @Min(1)
   @Max(120)
   halfDurationMinutes?: number;
+
+  @ApiPropertyOptional({
+    example: 'Special rules: no sliding tackles',
+    description: 'Optional notes or comments for this age category',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  notes?: string;
 }
 
 export class UpdateAgeGroupDto {
@@ -351,6 +360,15 @@ export class UpdateAgeGroupDto {
   @Min(1)
   @Max(120)
   halfDurationMinutes?: number;
+
+  @ApiPropertyOptional({
+    example: 'Special rules: no sliding tackles',
+    description: 'Optional notes or comments for this age category',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  notes?: string;
 }
 
 export class UpdateAgeGroupsDto {
@@ -1152,4 +1170,3 @@ export class RegenerateInvitationCodeDto {
   @Max(365)
   expiresInDays?: number;
 }
-
