@@ -183,6 +183,14 @@ export class CreateAgeGroupDto {
   @Min(1)
   groupsCount?: number;
 
+  @ApiPropertyOptional({ example: 2, description: 'Number of playing fields (simultaneous games) for this age category' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(50)
+  fieldsCount?: number;
+
   @ApiPropertyOptional({ example: 4, description: 'Teams per group' })
   @IsOptional()
   @Type(() => Number)
@@ -308,6 +316,14 @@ export class UpdateAgeGroupDto {
   @IsNumber()
   @Min(1)
   groupsCount?: number;
+
+  @ApiPropertyOptional({ example: 2, description: 'Number of playing fields (simultaneous games) for this age category' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(50)
+  fieldsCount?: number;
 
   @ApiPropertyOptional({ example: 4, description: 'Teams per group' })
   @IsOptional()
@@ -663,6 +679,14 @@ export class CreateTournamentDto {
   @IsBoolean()
   thirdPlaceMatch?: boolean;
 
+  @ApiPropertyOptional({ example: 4, description: 'Total number of playing fields/grounds available for the tournament' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(100)
+  numberOfFields?: number;
+
   // Regulations
   @ApiPropertyOptional({
     enum: ['UPLOADED', 'GENERATED'],
@@ -904,6 +928,14 @@ export class UpdateTournamentDto {
   @IsOptional()
   @IsBoolean()
   thirdPlaceMatch?: boolean;
+
+  @ApiPropertyOptional({ example: 4, description: 'Total number of playing fields/grounds available for the tournament' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(100)
+  numberOfFields?: number;
 
   // Regulations
   @ApiPropertyOptional({
