@@ -132,6 +132,10 @@ export class TournamentAgeGroup {
   @Column({ name: 'groups_count', nullable: true })
   groupsCount?: number;
 
+  // Number of playing fields (simultaneous games)
+  @Column({ name: 'fields_count', nullable: true })
+  fieldsCount?: number;
+
   @Column({ name: 'teams_per_group', default: 4 })
   teamsPerGroup: number;
 

@@ -245,6 +245,10 @@ export class Tournament {
   @Column({ nullable: true })
   country?: string;
 
+  // Total number of playing fields/grounds available for the tournament
+  @Column({ name: 'number_of_fields', nullable: true })
+  numberOfFields?: number;
+
   // Group Configuration (Issue #41)
   @Column({ name: 'number_of_groups', nullable: true })
   numberOfGroups?: number;
