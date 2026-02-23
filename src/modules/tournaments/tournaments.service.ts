@@ -19,7 +19,7 @@ import {
 } from './dto';
 import { PaginationDto } from '../../common/dto';
 import { PaginatedResponse } from '../../common/interfaces';
-import { TournamentStatus, UserRole } from '../../common/enums';
+import { TournamentStatus, UserRole, RegistrationStatus } from '../../common/enums';
 import { FilesService } from '../files/files.service';
 
 @Injectable()
@@ -400,7 +400,8 @@ export class TournamentsService {
       throw new NotFoundException(`Tournament with ID ${id} not found`);
     }
 
-    return this.normalizeDraftStatus(tournament);
+    const normalized = await this.normalizeDraftStatus(tournament);
+    return this.enrichTournamentData(normalized);
   }
 
   async findBySlug(slug: string): Promise<Tournament | null> {
@@ -419,7 +420,8 @@ export class TournamentsService {
       throw new NotFoundException(`Tournament with slug ${slug} not found`);
     }
 
-    return this.normalizeDraftStatus(tournament);
+    const normalized = await this.normalizeDraftStatus(tournament);
+    return this.enrichTournamentData(normalized);
   }
 
   async findByOrganizer(organizerId: string): Promise<Tournament[]> {
@@ -443,6 +445,21 @@ export class TournamentsService {
     tournament.isPublished = true;
 
     return this.tournamentsRepository.save(tournament);
+  }
+
+  private enrichTournamentData(tournament: Tournament): Tournament {
+    const confirmedTeams =
+      tournament.registrations?.filter(
+        (r) => r.status === RegistrationStatus.APPROVED,
+      ).length ?? 0;
+
+    const effectiveStartDate =
+      tournament.ageGroups
+        ?.map((ag) => ag.startDate)
+        .filter(Boolean)
+        .sort()[0] ?? tournament.startDate;
+
+    return Object.assign(tournament, { confirmedTeams, effectiveStartDate });
   }
 
   async update(
