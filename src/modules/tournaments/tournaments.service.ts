@@ -457,7 +457,7 @@ export class TournamentsService {
       tournament.ageGroups
         ?.map((ag) => ag.startDate)
         .filter(Boolean)
-        .sort()[0] ?? tournament.startDate;
+        .sort()[0] ?? null;
 
     return Object.assign(tournament, { confirmedTeams, effectiveStartDate });
   }
