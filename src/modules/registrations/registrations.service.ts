@@ -196,21 +196,13 @@ export class RegistrationsService {
       throw new BadRequestException('Selected team does not belong to the club');
     }
 
+    // BE-03: allow cross-age-category registrations — flag instead of blocking
+    let ageCategoryMismatch = false;
     if (hasAgeGroups && selectedAgeGroup) {
-      if (selectedAgeGroup.birthYear && team.birthyear !== selectedAgeGroup.birthYear) {
-        throw new BadRequestException(
-          `Team birth year (${team.birthyear}) does not match selected age group (${selectedAgeGroup.birthYear})`,
-        );
-      }
-
-      if (
-        selectedAgeGroup.ageCategory &&
-        team.ageCategory &&
-        selectedAgeGroup.ageCategory !== team.ageCategory
-      ) {
-        throw new BadRequestException(
-          `Team category (${team.ageCategory}) does not match selected age group (${selectedAgeGroup.ageCategory})`,
-        );
+      const birthYearMismatch = !!(selectedAgeGroup.birthYear && team.birthyear !== selectedAgeGroup.birthYear);
+      const categoryMismatch = !!(selectedAgeGroup.ageCategory && team.ageCategory && selectedAgeGroup.ageCategory !== team.ageCategory);
+      if (birthYearMismatch || categoryMismatch) {
+        ageCategoryMismatch = true;
       }
     }
 
@@ -242,6 +234,7 @@ export class RegistrationsService {
       ...createRegistrationDto,
       tournamentId,
       status: RegistrationStatus.PENDING,
+      ageCategoryMismatch, // BE-03
       paymentStatus:
         Number(effectiveParticipationFee) > 0
           ? PaymentStatus.PENDING

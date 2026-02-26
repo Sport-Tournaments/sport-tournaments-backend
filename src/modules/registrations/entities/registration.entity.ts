@@ -81,6 +81,10 @@ export class Registration {
   @Column({ name: 'emergency_contact', nullable: true })
   emergencyContact: string;
 
+  // BE-03: flag set when team age category/birth year doesn't match the selected age group
+  @Column({ name: 'age_category_mismatch', default: false })
+  ageCategoryMismatch: boolean;
+
   @Column({ type: 'text', nullable: true })
   notes: string;
 
