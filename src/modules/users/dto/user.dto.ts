@@ -49,6 +49,11 @@ export class CreateUserDto {
 }
 
 export class UpdateUserDto {
+  @ApiPropertyOptional({ example: 'john@example.com' })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
   @ApiPropertyOptional({ example: 'John' })
   @IsOptional()
   @IsString()
@@ -67,6 +72,17 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   phone?: string;
+
+  @ApiPropertyOptional({ example: 'Tell us about yourself...' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  bio?: string;
+
+  @ApiPropertyOptional({ example: 'Bucharest' })
+  @IsOptional()
+  @IsString()
+  city?: string;
 
   @ApiPropertyOptional({ example: 'Romania' })
   @IsOptional()
