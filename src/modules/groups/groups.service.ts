@@ -620,8 +620,10 @@ export class GroupsService {
     }
 
     // Legacy flat format: has playoffRounds or matches at top level
+    // Return flat data even when ageGroupId is requested – the flat format
+    // pre-dates per-age-group keying and is the only bracket available.
     if (bracketData.playoffRounds || bracketData.matches || bracketData.type) {
-      return ageGroupId ? null : bracketData;
+      return bracketData;
     }
 
     // No ageGroupId requested - return all brackets merged
