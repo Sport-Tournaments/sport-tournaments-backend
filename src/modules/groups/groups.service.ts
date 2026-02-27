@@ -9,12 +9,14 @@ import { Repository } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { Group } from './entities/group.entity';
 import { Tournament } from '../tournaments/entities/tournament.entity';
+import { TournamentAgeGroup } from '../tournaments/entities/tournament-age-group.entity';
 import { Registration } from '../registrations/entities/registration.entity';
 import { ExecuteDrawDto, UpdateBracketDto, CreateGroupDto, ConfigureGroupsDto, UpdateGroupDto, GroupConfigurationResponseDto, UpdateMatchAdvancementDto, UpdateMatchScoreDto } from './dto';
 import {
   TournamentStatus,
   RegistrationStatus,
   UserRole,
+  TournamentFormat,
 } from '../../common/enums';
 import { BracketGeneratorService, BracketType, Match } from './services/bracket-generator.service';
 
@@ -25,6 +27,8 @@ export class GroupsService {
     private groupsRepository: Repository<Group>,
     @InjectRepository(Tournament)
     private tournamentsRepository: Repository<Tournament>,
+    @InjectRepository(TournamentAgeGroup)
+    private ageGroupRepository: Repository<TournamentAgeGroup>,
     @InjectRepository(Registration)
     private registrationsRepository: Repository<Registration>,
     private bracketGeneratorService: BracketGeneratorService,
@@ -140,6 +144,12 @@ export class GroupsService {
       drawCompleted: true,
       drawSeed: seed,
     });
+
+    // BE-08 — auto-calculate numberOfMatches for affected age groups
+    const ageGroupIds = [...new Set(registrations.map((r) => r.ageGroupId).filter(Boolean))];
+    for (const agId of ageGroupIds) {
+      await this.autoCalcNumberOfMatches(tournamentId, agId!, savedGroups.filter(g => g.teams.some(t => registrations.find(r => r.id === t)?.ageGroupId === agId)));
+    }
 
     return savedGroups;
   }
@@ -610,8 +620,10 @@ export class GroupsService {
     }
 
     // Legacy flat format: has playoffRounds or matches at top level
+    // Return flat data even when ageGroupId is requested – the flat format
+    // pre-dates per-age-group keying and is the only bracket available.
     if (bracketData.playoffRounds || bracketData.matches || bracketData.type) {
-      return ageGroupId ? null : bracketData;
+      return bracketData;
     }
 
     // No ageGroupId requested - return all brackets merged
@@ -630,6 +642,33 @@ export class GroupsService {
         }
         return { playoffRounds: allRounds, matches: allMatches, type: bracketType };
       }
+    }
+
+    return null;
+  }
+
+  /**
+   * Searches bracketData (playoffRounds[].matches and top-level matches) for a
+   * match with the given matchId. Returns the match object reference so callers
+   * can mutate it in-place.
+   */
+  private findMatchInBracket(bracketData: any, matchId: string): any | null {
+    if (!bracketData) return null;
+
+    // Search inside playoffRounds
+    if (Array.isArray(bracketData.playoffRounds)) {
+      for (const round of bracketData.playoffRounds) {
+        if (Array.isArray(round.matches)) {
+          const match = round.matches.find((m: any) => m.id === matchId);
+          if (match) return match;
+        }
+      }
+    }
+
+    // Search top-level matches array
+    if (Array.isArray(bracketData.matches)) {
+      const match = bracketData.matches.find((m: any) => m.id === matchId);
+      if (match) return match;
     }
 
     return null;
@@ -937,6 +976,52 @@ export class GroupsService {
     return { match: targetMatch, bracketUpdated };
   }
 
+  /**
+   * BE-07 — Schedule a match: sets scheduledAt and optional courtNumber.
+   * Only the tournament organizer (or admin) may call this.
+   */
+  async scheduleMatch(
+    tournamentId: string,
+    matchId: string,
+    userId: string,
+    userRole: string,
+    dto: { scheduledAt: string; courtNumber?: number },
+    ageGroupId?: string,
+  ): Promise<any> {
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id: tournamentId },
+    });
+
+    if (!tournament) {
+      throw new NotFoundException('Tournament not found');
+    }
+
+    if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException(
+        'Only the tournament organizer can schedule matches',
+      );
+    }
+
+    const fullBracketData: any = tournament.bracketData || {};
+    const bracketData = this.getBracketForAgeGroup(fullBracketData, ageGroupId) || fullBracketData;
+
+    const targetMatch = this.findMatchInBracket(bracketData, matchId);
+    if (!targetMatch) {
+      throw new NotFoundException(`Match ${matchId} not found in bracket`);
+    }
+
+    targetMatch.scheduledAt = new Date(dto.scheduledAt) as any;
+    if (dto.courtNumber !== undefined) {
+      (targetMatch as any).courtNumber = dto.courtNumber;
+    }
+
+    await this.tournamentsRepository.update(tournamentId, {
+      bracketData: fullBracketData,
+    });
+
+    return targetMatch;
+  }
+
   async generateBracket(
     tournamentId: string,
     userId: string,
@@ -945,6 +1030,7 @@ export class GroupsService {
   ): Promise<any> {
     const tournament = await this.tournamentsRepository.findOne({
       where: { id: tournamentId },
+      relations: ['ageGroups'],
     });
 
     if (!tournament) {
@@ -975,17 +1061,24 @@ export class GroupsService {
       );
     }
 
-    // Determine bracket type from tournament config
-    const bracketType = (tournament as any).bracketType
-      || BracketType.SINGLE_ELIMINATION;
+    // BE-10: Determine bracket type from the age group's persisted format column.
+    // The previous cast `(tournament as any).bracketType` was always undefined
+    // because Tournament has no such property.
+    const ageGroup = ageGroupId
+      ? (tournament.ageGroups ?? []).find((ag) => ag.id === ageGroupId)
+      : null;
+    const bracketType: BracketType =
+      ((ageGroup?.format as unknown as BracketType) ??
+        BracketType.SINGLE_ELIMINATION);
 
     const bracketData = this.bracketGeneratorService.generateBracket(
-      bracketType as BracketType,
+      bracketType,
       registrations.length,
       {
-        groupCount: tournament.numberOfGroups,
+        groupCount: ageGroup?.groupsCount ?? tournament.numberOfGroups,
         thirdPlaceMatch: true,
         seed: tournament.drawSeed || undefined,
+        leagueLegs: 2, // default; BE-11: will use ageGroup.leagueLegs once column is added
       },
     );
 
@@ -1170,5 +1263,50 @@ export class GroupsService {
       hash = hash & hash;
     }
     return Math.abs(hash);
+  }
+
+  /**
+   * BE-08 — Auto-calculate numberOfMatches for a TournamentAgeGroup after the
+   * group draw has been executed.
+   *
+   * Formula for GROUPS_PLUS_KNOCKOUT:
+   *   groupMatches = numGroups × C(teamsPerGroup, 2)          (round-robin within each group)
+   *   knockoutMatches = qualifyingTeams – 1                   (single-elim tree; each match eliminates one team)
+   *   total = groupMatches + knockoutMatches + 1              (+ 1 for 3rd-place match)
+   */
+  private async autoCalcNumberOfMatches(
+    tournamentId: string,
+    ageGroupId: string,
+    groups: Group[],
+  ): Promise<void> {
+    try {
+      const ageGroup = await this.ageGroupRepository.findOne({
+        where: { id: ageGroupId, tournamentId },
+      });
+      if (!ageGroup) return;
+
+      const numGroups = groups.length;
+      if (numGroups === 0) return;
+
+      const teamsPerGroup = Math.ceil(
+        groups.reduce((s, g) => s + g.teams.length, 0) / numGroups,
+      );
+
+      // C(n, 2) = n*(n-1)/2
+      const groupMatches = numGroups * ((teamsPerGroup * (teamsPerGroup - 1)) / 2);
+
+      // Default 2 advancing per group (can be overridden in future via ageGroup.advancingPerGroup)
+      const advancingPerGroup = 2;
+      const qualifyingTeams = numGroups * advancingPerGroup;
+
+      const knockoutMatches = qualifyingTeams - 1;
+      const total = groupMatches + knockoutMatches + 1; // +1 third-place match
+
+      await this.ageGroupRepository.update(ageGroupId, {
+        numberOfMatches: total,
+      });
+    } catch {
+      // Non-critical — silently skip if calculation fails
+    }
   }
 }

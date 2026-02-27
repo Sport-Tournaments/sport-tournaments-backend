@@ -5,8 +5,9 @@ import { TournamentPot } from '../entities/tournament-pot.entity';
 import { Group } from '../entities/group.entity';
 import { Tournament } from '../../tournaments/entities/tournament.entity';
 import { Registration } from '../../registrations/entities/registration.entity';
+import { TournamentAgeGroup } from '../../tournaments/entities/tournament-age-group.entity';
 import { AssignTeamToPotDto, AssignPotsBulkDto, ExecutePotDrawDto } from '../dto/pot.dto';
-import { UserRole, RegistrationStatus } from '../../../common/enums';
+import { UserRole, RegistrationStatus, TournamentFormat } from '../../../common/enums';
 
 @Injectable()
 export class PotDrawService {
@@ -19,6 +20,8 @@ export class PotDrawService {
     private readonly registrationRepository: Repository<Registration>,
     @InjectRepository(Group)
     private readonly groupRepository: Repository<Group>,
+    @InjectRepository(TournamentAgeGroup)
+    private readonly ageGroupRepository: Repository<TournamentAgeGroup>,
   ) {}
 
   /**
@@ -131,6 +134,31 @@ export class PotDrawService {
   ): Promise<Group[]> {
     // Validate tournament exists and check authorization
     const tournament = await this.validateTournamentAccess(tournamentId, userId, userRole, true);
+
+    // BE-12 — Gate by age-group format
+    if (dto.ageGroupId) {
+      const ageGroup = await this.ageGroupRepository.findOne({
+        where: { id: dto.ageGroupId, tournamentId },
+      });
+      if (ageGroup?.format) {
+        switch (ageGroup.format) {
+          case TournamentFormat.ROUND_ROBIN:
+            throw new BadRequestException(
+              'Pot draw is not applicable for ROUND_ROBIN format. Teams are assigned directly.',
+            );
+          case TournamentFormat.GROUPS_PLUS_KNOCKOUT:
+            // Group-seeding pot draw — continue with existing logic below
+            break;
+          case TournamentFormat.SINGLE_ELIMINATION:
+          case TournamentFormat.DOUBLE_ELIMINATION:
+          case TournamentFormat.LEAGUE:
+            // For SE/DE/LEAGUE the draw creates a seeding order, not group assignments.
+            // The existing simple pot draw is repurposed here as a seeding draw.
+            // Full seeding-order draw (FE-14) is a future enhancement.
+            break;
+        }
+      }
+    }
 
     // Check if draw already completed
     if (tournament.drawCompleted) {
