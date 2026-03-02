@@ -42,7 +42,7 @@ type FormatType =
 
 const ACCOUNTS = [
   {
-    id: '11000000-0000-0000-0000-000000000001',
+    id: '11000000-0000-4000-8000-000000000001',
     email: 'test.admin@sport.ro',
     password: 'Admin123!',
     role: 'ADMIN',
@@ -51,7 +51,7 @@ const ACCOUNTS = [
     organizationName: 'Sport Tournaments Platform',
   },
   {
-    id: '11000000-0000-0000-0000-000000000002',
+    id: '11000000-0000-4000-8000-000000000002',
     email: 'test.organizer1@sport.ro',
     password: 'Test123!',
     role: 'ORGANIZER',
@@ -60,7 +60,7 @@ const ACCOUNTS = [
     organizationName: 'Academie Fotbal România',
   },
   {
-    id: '11000000-0000-0000-0000-000000000003',
+    id: '11000000-0000-4000-8000-000000000003',
     email: 'test.organizer2@sport.ro',
     password: 'Test123!',
     role: 'ORGANIZER',
@@ -69,7 +69,7 @@ const ACCOUNTS = [
     organizationName: 'Federatia Judet Cluj',
   },
   {
-    id: '11000000-0000-0000-0000-000000000004',
+    id: '11000000-0000-4000-8000-000000000004',
     email: 'test.participant1@sport.ro',
     password: 'Test123!',
     role: 'PARTICIPANT',
@@ -78,7 +78,7 @@ const ACCOUNTS = [
     organizationName: null,
   },
   {
-    id: '11000000-0000-0000-0000-000000000005',
+    id: '11000000-0000-4000-8000-000000000005',
     email: 'test.participant2@sport.ro',
     password: 'Test123!',
     role: 'PARTICIPANT',
@@ -94,27 +94,27 @@ const ACCOUNTS = [
 
 const CLUBS = [
   // participant1 clubs
-  { id: '22000000-0000-0000-0000-000000000001', name: 'FC Bayern Junior',          country: 'Germany',        city: 'Munich',     primary: '#DC052D', secondary: '#FFFFFF' },
-  { id: '22000000-0000-0000-0000-000000000002', name: 'FC Barcelona Youth',         country: 'Spain',          city: 'Barcelona',  primary: '#A50044', secondary: '#004D98' },
-  { id: '22000000-0000-0000-0000-000000000003', name: 'Manchester City Academy',    country: 'United Kingdom', city: 'Manchester', primary: '#6CABDD', secondary: '#FFFFFF' },
-  { id: '22000000-0000-0000-0000-000000000004', name: 'Juventus Next Gen',          country: 'Italy',          city: 'Turin',      primary: '#000000', secondary: '#FFFFFF' },
-  { id: '22000000-0000-0000-0000-000000000005', name: 'Ajax Youth',                 country: 'Netherlands',    city: 'Amsterdam',  primary: '#CF0032', secondary: '#FFFFFF' },
-  { id: '22000000-0000-0000-0000-000000000006', name: 'Benfica Juniors',            country: 'Portugal',       city: 'Lisbon',     primary: '#FF0000', secondary: '#FFFFFF' },
-  { id: '22000000-0000-0000-0000-000000000007', name: 'PSG Academy',               country: 'France',         city: 'Paris',      primary: '#004170', secondary: '#DA291C' },
-  { id: '22000000-0000-0000-0000-000000000008', name: 'Borussia Dortmund Youth',   country: 'Germany',        city: 'Dortmund',   primary: '#FDE100', secondary: '#000000' },
-  { id: '22000000-0000-0000-0000-000000000009', name: 'Celtic FC Youth',           country: 'United Kingdom', city: 'Glasgow',    primary: '#007A33', secondary: '#FFFFFF' },
-  { id: '22000000-0000-0000-0000-000000000010', name: 'FC Porto Academy',          country: 'Portugal',       city: 'Porto',      primary: '#003399', secondary: '#FFFFFF' },
+  { id: '22000000-0000-4000-8000-000000000001', name: 'FC Bayern Junior',          country: 'Germany',        city: 'Munich',     primary: '#DC052D', secondary: '#FFFFFF' },
+  { id: '22000000-0000-4000-8000-000000000002', name: 'FC Barcelona Youth',         country: 'Spain',          city: 'Barcelona',  primary: '#A50044', secondary: '#004D98' },
+  { id: '22000000-0000-4000-8000-000000000003', name: 'Manchester City Academy',    country: 'United Kingdom', city: 'Manchester', primary: '#6CABDD', secondary: '#FFFFFF' },
+  { id: '22000000-0000-4000-8000-000000000004', name: 'Juventus Next Gen',          country: 'Italy',          city: 'Turin',      primary: '#000000', secondary: '#FFFFFF' },
+  { id: '22000000-0000-4000-8000-000000000005', name: 'Ajax Youth',                 country: 'Netherlands',    city: 'Amsterdam',  primary: '#CF0032', secondary: '#FFFFFF' },
+  { id: '22000000-0000-4000-8000-000000000006', name: 'Benfica Juniors',            country: 'Portugal',       city: 'Lisbon',     primary: '#FF0000', secondary: '#FFFFFF' },
+  { id: '22000000-0000-4000-8000-000000000007', name: 'PSG Academy',               country: 'France',         city: 'Paris',      primary: '#004170', secondary: '#DA291C' },
+  { id: '22000000-0000-4000-8000-000000000008', name: 'Borussia Dortmund Youth',   country: 'Germany',        city: 'Dortmund',   primary: '#FDE100', secondary: '#000000' },
+  { id: '22000000-0000-4000-8000-000000000009', name: 'Celtic FC Youth',           country: 'United Kingdom', city: 'Glasgow',    primary: '#007A33', secondary: '#FFFFFF' },
+  { id: '22000000-0000-4000-8000-000000000010', name: 'FC Porto Academy',          country: 'Portugal',       city: 'Porto',      primary: '#003399', secondary: '#FFFFFF' },
   // participant2 clubs
-  { id: '22000000-0000-0000-0000-000000000011', name: 'Red Bull Salzburg Youth',   country: 'Austria',        city: 'Salzburg',   primary: '#E4003E', secondary: '#FFFFFF' },
-  { id: '22000000-0000-0000-0000-000000000012', name: 'Shakhtar Youth',            country: 'Ukraine',        city: 'Donetsk',    primary: '#FF6600', secondary: '#000000' },
-  { id: '22000000-0000-0000-0000-000000000013', name: 'Olympiacos Academy',        country: 'Greece',         city: 'Athens',     primary: '#CC0000', secondary: '#FFFFFF' },
-  { id: '22000000-0000-0000-0000-000000000014', name: 'Club Brugge Youth',         country: 'Belgium',        city: 'Bruges',     primary: '#0055A5', secondary: '#000000' },
-  { id: '22000000-0000-0000-0000-000000000015', name: 'Galatasaray Juniors',       country: 'Turkey',         city: 'Istanbul',   primary: '#FFC72C', secondary: '#AA151B' },
-  { id: '22000000-0000-0000-0000-000000000016', name: 'Sporting CP Youth',         country: 'Portugal',       city: 'Lisbon',     primary: '#008847', secondary: '#FFFFFF' },
-  { id: '22000000-0000-0000-0000-000000000017', name: 'AS Roma Primavera',         country: 'Italy',          city: 'Rome',       primary: '#8E1F2F', secondary: '#F4A900' },
-  { id: '22000000-0000-0000-0000-000000000018', name: 'Feyenoord Academy',         country: 'Netherlands',    city: 'Rotterdam',  primary: '#FF0000', secondary: '#FFFFFF' },
-  { id: '22000000-0000-0000-0000-000000000019', name: 'Dynamo Kyiv Youth',         country: 'Ukraine',        city: 'Kyiv',       primary: '#004C97', secondary: '#FFFFFF' },
-  { id: '22000000-0000-0000-0000-000000000020', name: 'Steaua București Junior',   country: 'Romania',        city: 'Bucharest',  primary: '#003DA5', secondary: '#CC0000' },
+  { id: '22000000-0000-4000-8000-000000000011', name: 'Red Bull Salzburg Youth',   country: 'Austria',        city: 'Salzburg',   primary: '#E4003E', secondary: '#FFFFFF' },
+  { id: '22000000-0000-4000-8000-000000000012', name: 'Shakhtar Youth',            country: 'Ukraine',        city: 'Donetsk',    primary: '#FF6600', secondary: '#000000' },
+  { id: '22000000-0000-4000-8000-000000000013', name: 'Olympiacos Academy',        country: 'Greece',         city: 'Athens',     primary: '#CC0000', secondary: '#FFFFFF' },
+  { id: '22000000-0000-4000-8000-000000000014', name: 'Club Brugge Youth',         country: 'Belgium',        city: 'Bruges',     primary: '#0055A5', secondary: '#000000' },
+  { id: '22000000-0000-4000-8000-000000000015', name: 'Galatasaray Juniors',       country: 'Turkey',         city: 'Istanbul',   primary: '#FFC72C', secondary: '#AA151B' },
+  { id: '22000000-0000-4000-8000-000000000016', name: 'Sporting CP Youth',         country: 'Portugal',       city: 'Lisbon',     primary: '#008847', secondary: '#FFFFFF' },
+  { id: '22000000-0000-4000-8000-000000000017', name: 'AS Roma Primavera',         country: 'Italy',          city: 'Rome',       primary: '#8E1F2F', secondary: '#F4A900' },
+  { id: '22000000-0000-4000-8000-000000000018', name: 'Feyenoord Academy',         country: 'Netherlands',    city: 'Rotterdam',  primary: '#FF0000', secondary: '#FFFFFF' },
+  { id: '22000000-0000-4000-8000-000000000019', name: 'Dynamo Kyiv Youth',         country: 'Ukraine',        city: 'Kyiv',       primary: '#004C97', secondary: '#FFFFFF' },
+  { id: '22000000-0000-4000-8000-000000000020', name: 'Steaua București Junior',   country: 'Romania',        city: 'Bucharest',  primary: '#003DA5', secondary: '#CC0000' },
 ] as const;
 
 // ─── Tournaments (5 formats) ───────────────────────────────────────────────────
@@ -132,8 +132,8 @@ const TOURNAMENTS: {
 }[] = [
   // ── Single Elimination (4) ──────────────────────────────────────────────────
   {
-    id: '33000000-0000-0000-0000-000000000001',
-    ageGroupId: '44000000-0000-0000-0000-000000000001',
+    id: '33000000-0000-4000-8000-000000000001',
+    ageGroupId: '44000000-0000-4000-8000-000000000001',
     name: 'SE Premier Cup 2026',
     format: 'SINGLE_ELIMINATION',
     teamCount: 16,
@@ -143,8 +143,8 @@ const TOURNAMENTS: {
     description: 'Single Elimination Premier – 16 teams, main bracket.',
   },
   {
-    id: '33000000-0000-0000-0000-000000000002',
-    ageGroupId: '44000000-0000-0000-0000-000000000002',
+    id: '33000000-0000-4000-8000-000000000002',
+    ageGroupId: '44000000-0000-4000-8000-000000000002',
     name: 'SE Gold Cup 2026',
     format: 'SINGLE_ELIMINATION',
     teamCount: 16,
@@ -154,8 +154,8 @@ const TOURNAMENTS: {
     description: 'Single Elimination Gold – 16 teams, straight knockout.',
   },
   {
-    id: '33000000-0000-0000-0000-000000000003',
-    ageGroupId: '44000000-0000-0000-0000-000000000003',
+    id: '33000000-0000-4000-8000-000000000003',
+    ageGroupId: '44000000-0000-4000-8000-000000000003',
     name: 'SE Silver Cup 2026',
     format: 'SINGLE_ELIMINATION',
     teamCount: 8,
@@ -165,8 +165,8 @@ const TOURNAMENTS: {
     description: 'Single Elimination Silver – 8 teams, quarterfinals onwards.',
   },
   {
-    id: '33000000-0000-0000-0000-000000000004',
-    ageGroupId: '44000000-0000-0000-0000-000000000004',
+    id: '33000000-0000-4000-8000-000000000004',
+    ageGroupId: '44000000-0000-4000-8000-000000000004',
     name: 'SE Bronze Cup 2026',
     format: 'SINGLE_ELIMINATION',
     teamCount: 8,
@@ -178,8 +178,8 @@ const TOURNAMENTS: {
 
   // ── Double Elimination (4) ──────────────────────────────────────────────────
   {
-    id: '33000000-0000-0000-0000-000000000005',
-    ageGroupId: '44000000-0000-0000-0000-000000000005',
+    id: '33000000-0000-4000-8000-000000000005',
+    ageGroupId: '44000000-0000-4000-8000-000000000005',
     name: 'DE Premier Cup 2026',
     format: 'DOUBLE_ELIMINATION',
     teamCount: 16,
@@ -189,8 +189,8 @@ const TOURNAMENTS: {
     description: 'Double Elimination Premier – 16 teams, winners & losers bracket.',
   },
   {
-    id: '33000000-0000-0000-0000-000000000006',
-    ageGroupId: '44000000-0000-0000-0000-000000000006',
+    id: '33000000-0000-4000-8000-000000000006',
+    ageGroupId: '44000000-0000-4000-8000-000000000006',
     name: 'DE Gold Cup 2026',
     format: 'DOUBLE_ELIMINATION',
     teamCount: 16,
@@ -200,8 +200,8 @@ const TOURNAMENTS: {
     description: 'Double Elimination Gold – 16 teams, second-chance bracket.',
   },
   {
-    id: '33000000-0000-0000-0000-000000000007',
-    ageGroupId: '44000000-0000-0000-0000-000000000007',
+    id: '33000000-0000-4000-8000-000000000007',
+    ageGroupId: '44000000-0000-4000-8000-000000000007',
     name: 'DE Silver Cup 2026',
     format: 'DOUBLE_ELIMINATION',
     teamCount: 8,
@@ -211,8 +211,8 @@ const TOURNAMENTS: {
     description: 'Double Elimination Silver – 8 teams, compact DE bracket.',
   },
   {
-    id: '33000000-0000-0000-0000-000000000008',
-    ageGroupId: '44000000-0000-0000-0000-000000000008',
+    id: '33000000-0000-4000-8000-000000000008',
+    ageGroupId: '44000000-0000-4000-8000-000000000008',
     name: 'DE Bronze Cup 2026',
     format: 'DOUBLE_ELIMINATION',
     teamCount: 8,
@@ -224,8 +224,8 @@ const TOURNAMENTS: {
 
   // ── Round Robin (4) ─────────────────────────────────────────────────────────
   {
-    id: '33000000-0000-0000-0000-000000000009',
-    ageGroupId: '44000000-0000-0000-0000-000000000009',
+    id: '33000000-0000-4000-8000-000000000009',
+    ageGroupId: '44000000-0000-4000-8000-000000000009',
     name: 'RR Premier Cup 2026',
     format: 'ROUND_ROBIN',
     teamCount: 8,
@@ -235,8 +235,8 @@ const TOURNAMENTS: {
     description: 'Round Robin Premier – 8 teams, all-play-all, ranked by points.',
   },
   {
-    id: '33000000-0000-0000-0000-000000000010',
-    ageGroupId: '44000000-0000-0000-0000-000000000010',
+    id: '33000000-0000-4000-8000-000000000010',
+    ageGroupId: '44000000-0000-4000-8000-000000000010',
     name: 'RR Gold Cup 2026',
     format: 'ROUND_ROBIN',
     teamCount: 8,
@@ -246,8 +246,8 @@ const TOURNAMENTS: {
     description: 'Round Robin Gold – 8 teams, full standings competition.',
   },
   {
-    id: '33000000-0000-0000-0000-000000000011',
-    ageGroupId: '44000000-0000-0000-0000-000000000011',
+    id: '33000000-0000-4000-8000-000000000011',
+    ageGroupId: '44000000-0000-4000-8000-000000000011',
     name: 'RR Silver Cup 2026',
     format: 'ROUND_ROBIN',
     teamCount: 6,
@@ -257,8 +257,8 @@ const TOURNAMENTS: {
     description: 'Round Robin Silver – 6 teams, balanced mini-league.',
   },
   {
-    id: '33000000-0000-0000-0000-000000000012',
-    ageGroupId: '44000000-0000-0000-0000-000000000012',
+    id: '33000000-0000-4000-8000-000000000012',
+    ageGroupId: '44000000-0000-4000-8000-000000000012',
     name: 'RR Bronze Cup 2026',
     format: 'ROUND_ROBIN',
     teamCount: 6,
@@ -270,8 +270,8 @@ const TOURNAMENTS: {
 
   // ── Groups + Knockout (4) ───────────────────────────────────────────────────
   {
-    id: '33000000-0000-0000-0000-000000000013',
-    ageGroupId: '44000000-0000-0000-0000-000000000013',
+    id: '33000000-0000-4000-8000-000000000013',
+    ageGroupId: '44000000-0000-4000-8000-000000000013',
     name: 'GK Premier Cup 2026',
     format: 'GROUPS_PLUS_KNOCKOUT',
     teamCount: 16,
@@ -281,8 +281,8 @@ const TOURNAMENTS: {
     description: 'Groups + KO Premier – 16 teams, 4 groups of 4, top 2 advance.',
   },
   {
-    id: '33000000-0000-0000-0000-000000000014',
-    ageGroupId: '44000000-0000-0000-0000-000000000014',
+    id: '33000000-0000-4000-8000-000000000014',
+    ageGroupId: '44000000-0000-4000-8000-000000000014',
     name: 'GK Gold Cup 2026',
     format: 'GROUPS_PLUS_KNOCKOUT',
     teamCount: 16,
@@ -292,8 +292,8 @@ const TOURNAMENTS: {
     description: 'Groups + KO Gold – 16 teams, 4 groups, knockout stage.',
   },
   {
-    id: '33000000-0000-0000-0000-000000000015',
-    ageGroupId: '44000000-0000-0000-0000-000000000015',
+    id: '33000000-0000-4000-8000-000000000015',
+    ageGroupId: '44000000-0000-4000-8000-000000000015',
     name: 'GK Silver Cup 2026',
     format: 'GROUPS_PLUS_KNOCKOUT',
     teamCount: 8,
@@ -303,8 +303,8 @@ const TOURNAMENTS: {
     description: 'Groups + KO Silver – 8 teams, 2 groups of 4, top 2 per group to semis.',
   },
   {
-    id: '33000000-0000-0000-0000-000000000016',
-    ageGroupId: '44000000-0000-0000-0000-000000000016',
+    id: '33000000-0000-4000-8000-000000000016',
+    ageGroupId: '44000000-0000-4000-8000-000000000016',
     name: 'GK Bronze Cup 2026',
     format: 'GROUPS_PLUS_KNOCKOUT',
     teamCount: 8,
@@ -316,8 +316,8 @@ const TOURNAMENTS: {
 
   // ── League (4) ──────────────────────────────────────────────────────────────
   {
-    id: '33000000-0000-0000-0000-000000000017',
-    ageGroupId: '44000000-0000-0000-0000-000000000017',
+    id: '33000000-0000-4000-8000-000000000017',
+    ageGroupId: '44000000-0000-4000-8000-000000000017',
     name: 'League Premier Cup 2026',
     format: 'LEAGUE',
     teamCount: 12,
@@ -327,8 +327,8 @@ const TOURNAMENTS: {
     description: 'League Premier – 12 teams, home & away, full season.',
   },
   {
-    id: '33000000-0000-0000-0000-000000000018',
-    ageGroupId: '44000000-0000-0000-0000-000000000018',
+    id: '33000000-0000-4000-8000-000000000018',
+    ageGroupId: '44000000-0000-4000-8000-000000000018',
     name: 'League Gold Cup 2026',
     format: 'LEAGUE',
     teamCount: 12,
@@ -338,8 +338,8 @@ const TOURNAMENTS: {
     description: 'League Gold – 12 teams, season-long standings competition.',
   },
   {
-    id: '33000000-0000-0000-0000-000000000019',
-    ageGroupId: '44000000-0000-0000-0000-000000000019',
+    id: '33000000-0000-4000-8000-000000000019',
+    ageGroupId: '44000000-0000-4000-8000-000000000019',
     name: 'League Silver Cup 2026',
     format: 'LEAGUE',
     teamCount: 8,
@@ -349,8 +349,8 @@ const TOURNAMENTS: {
     description: 'League Silver – 8 teams, compact table format.',
   },
   {
-    id: '33000000-0000-0000-0000-000000000020',
-    ageGroupId: '44000000-0000-0000-0000-000000000020',
+    id: '33000000-0000-4000-8000-000000000020',
+    ageGroupId: '44000000-0000-4000-8000-000000000020',
     name: 'League Bronze Cup 2026',
     format: 'LEAGUE',
     teamCount: 8,
