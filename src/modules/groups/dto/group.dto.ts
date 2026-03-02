@@ -5,6 +5,7 @@ import {
   IsArray,
   Min,
   IsUUID,
+  IsISO8601,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
@@ -91,4 +92,21 @@ export class UpdateMatchScoreDto {
   @IsOptional()
   @IsString()
   status?: string;
+}
+
+/** BE-07 — Schedule a match (set date/time and optional court number) */
+export class ScheduleMatchDto {
+  @ApiProperty({
+    example: '2026-07-15T09:00:00Z',
+    description: 'ISO 8601 datetime when the match is scheduled to start',
+  })
+  @IsISO8601()
+  scheduledAt: string;
+
+  @ApiPropertyOptional({ example: 3, description: 'Court / field number' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  courtNumber?: number;
 }

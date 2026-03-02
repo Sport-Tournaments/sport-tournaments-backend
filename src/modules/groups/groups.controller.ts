@@ -18,7 +18,7 @@ import {
 } from '@nestjs/swagger';
 import { GroupsService } from './groups.service';
 import { PotDrawService } from './services/pot-draw.service';
-import { ExecuteDrawDto, UpdateBracketDto, CreateGroupDto, ConfigureGroupsDto, UpdateGroupDto, GroupConfigurationResponseDto, UpdateMatchAdvancementDto, UpdateMatchScoreDto } from './dto';
+import { ExecuteDrawDto, UpdateBracketDto, CreateGroupDto, ConfigureGroupsDto, UpdateGroupDto, GroupConfigurationResponseDto, UpdateMatchAdvancementDto, UpdateMatchScoreDto, ScheduleMatchDto } from './dto';
 import { AssignTeamToPotDto, AssignPotsBulkDto, ExecutePotDrawDto } from './dto/pot.dto';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards';
 import { CurrentUser, Public } from '../../common/decorators';
@@ -200,6 +200,28 @@ export class GroupsController {
     @Query('ageGroupId') ageGroupId?: string,
   ) {
     return this.groupsService.updateMatchScore(
+      tournamentId,
+      matchId,
+      user.sub,
+      user.role,
+      dto,
+      ageGroupId,
+    );
+  }
+
+  @Patch('matches/:matchId/schedule')
+  @ApiOperation({ summary: 'Schedule a match — set date/time and court number (BE-07)' })
+  @ApiResponse({ status: 200, description: 'Match scheduled' })
+  @ApiResponse({ status: 403, description: 'Not authorized (organizer only)' })
+  @ApiResponse({ status: 404, description: 'Match not found' })
+  scheduleMatch(
+    @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
+    @Param('matchId') matchId: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: ScheduleMatchDto,
+    @Query('ageGroupId') ageGroupId?: string,
+  ) {
+    return this.groupsService.scheduleMatch(
       tournamentId,
       matchId,
       user.sub,
