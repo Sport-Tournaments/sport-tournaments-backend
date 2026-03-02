@@ -1082,30 +1082,76 @@ export class GroupsService {
       },
     );
 
-    // Assign teams to first round matches
+    // Assign teams to first round matches, seeded from groups when available
     if (bracketData.playoffRounds && bracketData.playoffRounds.length > 0) {
       const firstRound = bracketData.playoffRounds[0];
-      const shuffledRegistrations = this.seededShuffle(
-        [...registrations],
-        bracketData.seed || 'default-seed',
+      const totalTeams = registrations.length;
+
+      // Build a registration lookup map
+      const regMap = new Map(registrations.map((r) => [r.id, r]));
+
+      // Fetch groups for this tournament and filter to those that contain
+      // registrations in scope (i.e. for this age group)
+      const allGroups = await this.groupsRepository.find({
+        where: { tournamentId },
+        order: { groupLetter: 'ASC' },
+      });
+      const regIds = new Set(registrations.map((r) => r.id));
+      const scopedGroups = allGroups.filter((g) =>
+        g.teams.some((teamId) => regIds.has(teamId)),
       );
 
-      firstRound.matches.forEach((match: Match, index: number) => {
-        const team1Index = index * 2;
-        const team2Index = index * 2 + 1;
+      let seededRegistrations: Registration[];
 
-        if (shuffledRegistrations[team1Index]) {
-          match.team1Id = shuffledRegistrations[team1Index].id;
+      if (scopedGroups.length > 0) {
+        // Build group-seeded order:
+        //   position 0 of every group first, then position 1, etc.
+        //   e.g. 4 groups → [A0, B0, C0, D0, A1, B1, C1, D1]
+        // This lets standard bracket seeding (seed[i] vs seed[n-1-i]) create
+        // cross-group QF match-ups that prevent same-group teams from meeting
+        // before the semi-finals.
+        const maxTeamsPerGroup = Math.max(...scopedGroups.map((g) => g.teams.length)) || 1;
+        seededRegistrations = [];
+        for (let pos = 0; pos < maxTeamsPerGroup; pos++) {
+          for (const group of scopedGroups) {
+            const teamId = group.teams[pos];
+            if (teamId) {
+              const reg = regMap.get(teamId);
+              if (reg) seededRegistrations.push(reg);
+            }
+          }
+        }
+        // Append any registrations that were not in any group (safety fallback)
+        const seededIds = new Set(seededRegistrations.map((r) => r.id));
+        for (const reg of registrations) {
+          if (!seededIds.has(reg.id)) seededRegistrations.push(reg);
+        }
+      } else {
+        // No groups — fall back to seeded shuffle (existing behaviour)
+        seededRegistrations = this.seededShuffle(
+          [...registrations],
+          bracketData.seed || 'default-seed',
+        );
+      }
+
+      // Standard bracket seeding: match i pairs seed[i] vs seed[n-1-i]
+      // For n=8: QF1=A1vsD2, QF2=B1vsC2, QF3=C1vsB2, QF4=D1vsA2
+      firstRound.matches.forEach((match: Match, index: number) => {
+        const team1Index = index;
+        const team2Index = totalTeams - 1 - index;
+
+        if (seededRegistrations[team1Index]) {
+          match.team1Id = seededRegistrations[team1Index].id;
           match.team1Name =
-            shuffledRegistrations[team1Index].club?.name ||
-            shuffledRegistrations[team1Index].coachName ||
+            seededRegistrations[team1Index].club?.name ||
+            seededRegistrations[team1Index].coachName ||
             'Team ' + (team1Index + 1);
         }
-        if (shuffledRegistrations[team2Index]) {
-          match.team2Id = shuffledRegistrations[team2Index].id;
+        if (seededRegistrations[team2Index] && team2Index !== team1Index) {
+          match.team2Id = seededRegistrations[team2Index].id;
           match.team2Name =
-            shuffledRegistrations[team2Index].club?.name ||
-            shuffledRegistrations[team2Index].coachName ||
+            seededRegistrations[team2Index].club?.name ||
+            seededRegistrations[team2Index].coachName ||
             'Team ' + (team2Index + 1);
         }
       });
