@@ -7,7 +7,7 @@ export class AssignTeamToPotDto {
 
   @IsNumber()
   @Min(1)
-  @Max(4)
+  @Max(32)
   potNumber: number;
 }
 

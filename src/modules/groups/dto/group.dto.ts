@@ -109,4 +109,9 @@ export class ScheduleMatchDto {
   @IsNumber()
   @Min(1)
   courtNumber?: number;
+
+  @ApiPropertyOptional({ example: 'Pitch 1', description: 'Football field name' })
+  @IsOptional()
+  @IsString()
+  fieldName?: string;
 }
