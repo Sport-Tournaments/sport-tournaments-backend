@@ -25,18 +25,20 @@ export interface Match {
   isManualOverride?: boolean; // Flag indicating manual advancement override
   scheduledAt?: Date;
   courtNumber?: number; // BE-07: court/field assignment
+  fieldName?: string; // football field name
   locationId?: string;
   status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
   nextMatchId?: string;
   loserNextMatchId?: string; // For double elimination
   autoAdvance?: boolean; // BYE match — top-seeded team advances automatically (BE-SE-01)
+  groupLetter?: string; // group phase tag (GROUPS_PLUS_KNOCKOUT / GROUPS_ONLY)
 }
 
 export interface PlayoffRound {
   roundNumber: number;
   roundName: string;
   matches: Match[];
-  bracket?: 'winners' | 'losers' | 'grand_final'; // DE bracket column (BE-DE-01)
+  bracket?: 'winners' | 'losers' | 'grand_final' | 'third_place'; // bracket column tag
 }
 
 export interface BracketData {
@@ -199,6 +201,7 @@ export class BracketGeneratorService {
             status: 'PENDING',
           },
         ],
+        bracket: 'third_place',
       };
       playoffRounds.push(thirdPlaceRound);
     }
@@ -334,6 +337,48 @@ export class BracketGeneratorService {
         const targetIdx = Math.floor(i / factor);
         if (lrRound.matches[targetIdx]) {
           match.loserNextMatchId = lrRound.matches[targetIdx].id;
+        }
+      });
+    }
+
+    // ── Wire nextMatchId for winner advancement within each bracket ─────────
+    // Winners bracket: each round feeds the next (halving each time)
+    const winnersRounds = playoffRounds.filter((r) => r.bracket === 'winners');
+    const losersRounds  = playoffRounds.filter((r) => r.bracket === 'losers');
+    const grandFinalRound = playoffRounds.find((r) => r.bracket === 'grand_final');
+
+    // Within WR: match[i] → match[⌊i/2⌋] in next WR round; WR final → Grand Final
+    for (let i = 0; i < winnersRounds.length; i++) {
+      const cur  = winnersRounds[i];
+      const next = winnersRounds[i + 1] ?? null;
+      const gfTarget = i === winnersRounds.length - 1 ? grandFinalRound : null;
+      cur.matches.forEach((match, mi) => {
+        if (next) {
+          const targetIdx = Math.floor(mi / 2);
+          if (next.matches[targetIdx]) {
+            match.nextMatchId = next.matches[targetIdx].id;
+          }
+        } else if (gfTarget?.matches[0]) {
+          match.nextMatchId = gfTarget.matches[0].id;
+        }
+      });
+    }
+
+    // Within LR: same count → 1:1; fewer → halving; LR final → Grand Final
+    for (let i = 0; i < losersRounds.length; i++) {
+      const cur  = losersRounds[i];
+      const next = losersRounds[i + 1] ?? null;
+      const gfTarget = i === losersRounds.length - 1 ? grandFinalRound : null;
+      cur.matches.forEach((match, mi) => {
+        if (next) {
+          const targetIdx = next.matches.length < cur.matches.length
+            ? Math.floor(mi / 2)
+            : mi;
+          if (next.matches[targetIdx]) {
+            match.nextMatchId = next.matches[targetIdx].id;
+          }
+        } else if (gfTarget?.matches[0]) {
+          match.nextMatchId = gfTarget.matches[0].id;
         }
       });
     }

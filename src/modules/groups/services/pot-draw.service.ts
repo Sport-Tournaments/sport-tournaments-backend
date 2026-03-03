@@ -114,8 +114,15 @@ export class PotDrawService {
 
     const pots = await queryBuilder.getMany();
 
+    // Dynamically determine max pot number from actual assignments
     const potMap = new Map<number, TournamentPot[]>();
-    for (let i = 1; i <= 4; i++) {
+    let maxPot = 0;
+    for (const p of pots) {
+      if (p.potNumber > maxPot) maxPot = p.potNumber;
+    }
+    // Always include at least pot 1
+    if (maxPot < 1) maxPot = 1;
+    for (let i = 1; i <= maxPot; i++) {
       potMap.set(i, pots.filter((p) => p.potNumber === i));
     }
 
@@ -185,6 +192,11 @@ export class PotDrawService {
       );
     }
 
+    const baseTeamsPerGroup = Math.floor(totalTeams / dto.numberOfGroups);
+    const remainder = totalTeams % dto.numberOfGroups;
+    const numFullPots = baseTeamsPerGroup;              // full pots, each with numberOfGroups teams
+    const expectedTeamsPerFullPot = dto.numberOfGroups; // teams_per_pot = num_groups
+
     // Get pot assignments (filtered by age group if specified)
     const potAssignments = await this.getPotAssignments(tournamentId, dto.ageGroupId);
 
@@ -200,6 +212,35 @@ export class PotDrawService {
       );
     }
 
+    // Validate pot structure:
+    //   - Pots 1..numFullPots: each with exactly numberOfGroups teams
+    //   - If remainder > 0: pot numFullPots+1 with exactly `remainder` teams
+    for (let i = 1; i <= numFullPots; i++) {
+      const potTeams = potAssignments.get(i) || [];
+      if (potTeams.length !== expectedTeamsPerFullPot) {
+        throw new BadRequestException(
+          `Pot ${i} has ${potTeams.length} teams, but must have exactly ${expectedTeamsPerFullPot} ` +
+          `(= number of groups). Each full pot must contain exactly as many teams as there are groups.`,
+        );
+      }
+    }
+
+    if (remainder > 0) {
+      const remainderPotNum = numFullPots + 1;
+      const remainderTeams = potAssignments.get(remainderPotNum) || [];
+      if (remainderTeams.length !== remainder) {
+        throw new BadRequestException(
+          `Remainder pot (Pot ${remainderPotNum}) has ${remainderTeams.length} teams, ` +
+          `but must have exactly ${remainder} teams (the remainder of ${totalTeams} ÷ ${dto.numberOfGroups}).`,
+        );
+      }
+    }
+
+    const nonEmptyPots: number[] = [];
+    for (const [potNum, teams] of potAssignments.entries()) {
+      if (teams.length > 0) nonEmptyPots.push(potNum);
+    }
+
     // Initialize groups with their letters
     const groupLetters = this.getGroupLetters(dto.numberOfGroups);
     const groups: { letter: string; teams: string[] }[] = groupLetters.map(
@@ -209,56 +250,39 @@ export class PotDrawService {
       }),
     );
 
-    // Execute pot-based distribution with snake draft pattern
+    // Sort pot numbers so we process Pot 1 first, Pot 2 second, etc.
+    nonEmptyPots.sort((a, b) => a - b);
+
     // Shuffle within each pot for randomness
     const shuffledPots = new Map<number, TournamentPot[]>();
-    for (let potNum = 1; potNum <= 4; potNum++) {
+    for (const potNum of nonEmptyPots) {
       const potTeams = potAssignments.get(potNum) || [];
-      if (potTeams.length > 0) {
-        shuffledPots.set(
-          potNum,
-          this.seededShuffle([...potTeams], tournamentId + potNum),
-        );
+      shuffledPots.set(
+        potNum,
+        this.seededShuffle([...potTeams], tournamentId + potNum),
+      );
+    }
+
+    // Distribution:
+    //   Full pots (1..numFullPots): each group receives exactly 1 team per pot.
+    //   Remainder pot (numFullPots+1, if exists): its teams go to randomly
+    //   chosen groups, so `remainder` groups get one extra team.
+    for (let potNum = 1; potNum <= numFullPots; potNum++) {
+      const potTeams = shuffledPots.get(potNum)!;
+      for (let g = 0; g < dto.numberOfGroups; g++) {
+        groups[g].teams.push(potTeams[g].registrationId);
       }
     }
 
-    // Distribute teams using snake draft pattern
-    // This ensures balanced distribution even with uneven pot sizes
-    let groupIdx = 0;
-    let direction = 1; // 1 for forward, -1 for backward (snake pattern)
-    let teamIndex = new Map<number, number>(); // Track which team in each pot
-    
-    // Initialize team indices
-    for (const potNum of [1, 2, 3, 4]) {
-      teamIndex.set(potNum, 0);
-    }
-
-    // Continue until all teams are assigned
-    let assignedTeams = 0;
-    while (assignedTeams < totalTeams) {
-      // Try to assign one team from each pot to the current group
-      for (const potNum of [1, 2, 3, 4]) {
-        const potTeams = shuffledPots.get(potNum);
-        const idx = teamIndex.get(potNum);
-        
-        if (potTeams && idx !== undefined && idx < potTeams.length && groupIdx < dto.numberOfGroups) {
-          const team = potTeams[idx];
-          groups[groupIdx].teams.push(team.registrationId);
-          teamIndex.set(potNum, idx + 1);
-          assignedTeams++;
-          
-          // Move to next group
-          groupIdx += direction;
-          
-          // Handle snake pattern (reverse direction at ends)
-          if (groupIdx >= dto.numberOfGroups) {
-            groupIdx = dto.numberOfGroups - 1;
-            direction = -1;
-          } else if (groupIdx < 0) {
-            groupIdx = 0;
-            direction = 1;
-          }
-        }
+    // Distribute remainder pot teams to randomly selected groups
+    if (remainder > 0) {
+      const remainderPotNum = numFullPots + 1;
+      const remainderTeams = shuffledPots.get(remainderPotNum)!;
+      // Randomly pick which groups get the extra team
+      const groupIndices = Array.from({ length: dto.numberOfGroups }, (_, i) => i);
+      const shuffledGroupIndices = this.seededShuffle(groupIndices, tournamentId + 'remainder');
+      for (let i = 0; i < remainder; i++) {
+        groups[shuffledGroupIndices[i]].teams.push(remainderTeams[i].registrationId);
       }
     }
 

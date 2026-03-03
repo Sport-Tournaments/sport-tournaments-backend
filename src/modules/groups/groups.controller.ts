@@ -283,12 +283,13 @@ export class GroupsController {
   ) {
     const potMap = await this.potDrawService.getPotAssignments(tournamentId, ageGroupId);
     
-    // Convert map to array format for API response
+    // Convert map to array format for API response (dynamic pot count)
     const result: any[] = [];
-    for (let i = 1; i <= 4; i++) {
-      const teams = potMap.get(i) || [];
+    const potNumbers = Array.from(potMap.keys()).sort((a, b) => a - b);
+    for (const potNum of potNumbers) {
+      const teams = potMap.get(potNum) || [];
       result.push({
-        potNumber: i,
+        potNumber: potNum,
         count: teams.length,
         teams: teams.map((t) => ({
           registrationId: t.registrationId,

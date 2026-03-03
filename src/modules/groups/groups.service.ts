@@ -18,7 +18,7 @@ import {
   UserRole,
   TournamentFormat,
 } from '../../common/enums';
-import { BracketGeneratorService, BracketType, Match } from './services/bracket-generator.service';
+import { BracketGeneratorService, BracketType, GroupStanding, Match } from './services/bracket-generator.service';
 
 @Injectable()
 export class GroupsService {
@@ -716,8 +716,13 @@ export class GroupsService {
 
     const allMatches: Match[] = [];
 
-    // Collect matches from playoff rounds
-    if (ageBracket.playoffRounds) {
+    const isGroupFormat =
+      ageBracket.type === BracketType.GROUPS_PLUS_KNOCKOUT ||
+      ageBracket.type === BracketType.GROUPS_ONLY;
+
+    // For group formats, only standalone matches (group phase) go into allMatches.
+    // Knockout playoff rounds are returned separately and rendered via the bracket chart.
+    if (!isGroupFormat && ageBracket.playoffRounds) {
       for (const round of ageBracket.playoffRounds) {
         if (round.matches) {
           allMatches.push(...round.matches);
@@ -968,6 +973,64 @@ export class GroupsService {
       }
     }
 
+    // Auto-seed knockout bracket when ALL group-phase matches are completed
+    if (
+      targetMatch.groupLetter &&
+      targetMatch.status === 'COMPLETED' &&
+      bracketData.matches &&
+      bracketData.playoffRounds?.length > 0
+    ) {
+      const groupPhaseMatches = (bracketData.matches as Match[]);
+      const allGroupDone = groupPhaseMatches.length > 0 &&
+        groupPhaseMatches.every((m) => m.status === 'COMPLETED');
+
+      if (allGroupDone) {
+        // Fetch groups for this tournament
+        const groups = await this.groupsRepository.find({
+          where: { tournamentId },
+          order: { groupLetter: 'ASC' },
+        });
+
+        // Build a name map from group match data
+        const nameMap = new Map<string, string>();
+        for (const m of groupPhaseMatches) {
+          if (m.team1Id && m.team1Name) nameMap.set(m.team1Id, m.team1Name);
+          if (m.team2Id && m.team2Name) nameMap.set(m.team2Id, m.team2Name);
+        }
+
+        // Calculate standings per group
+        const perGroupStandings = new Map<string, GroupStanding[]>();
+        for (const group of groups) {
+          const gMatches = groupPhaseMatches.filter(
+            (m) => m.groupLetter === group.groupLetter,
+          );
+          const standings = this.bracketGeneratorService.calculateGroupStandings(
+            group.teams,
+            gMatches,
+          );
+          perGroupStandings.set(group.groupLetter, standings);
+        }
+
+        // Seed advancing teams into knockout bracket
+        const advancingPerGroup =
+          (bracketData as any).advancingTeamsPerGroup ?? 2;
+        this.bracketGeneratorService.seedTeamsIntoBracket(
+          perGroupStandings,
+          advancingPerGroup,
+          bracketData,
+        );
+
+        // Fill in team names on first-round knockout matches
+        const firstRound = bracketData.playoffRounds[0];
+        for (const m of firstRound.matches) {
+          if (m.team1Id) m.team1Name = nameMap.get(m.team1Id) || m.team1Name || '';
+          if (m.team2Id) m.team2Name = nameMap.get(m.team2Id) || m.team2Name || '';
+        }
+
+        bracketUpdated = true;
+      }
+    }
+
     // Save bracket data (fullBracketData contains the mutation via object reference)
     await this.tournamentsRepository.update(tournamentId, {
       bracketData: fullBracketData,
@@ -985,7 +1048,7 @@ export class GroupsService {
     matchId: string,
     userId: string,
     userRole: string,
-    dto: { scheduledAt: string; courtNumber?: number },
+    dto: { scheduledAt: string; courtNumber?: number; fieldName?: string },
     ageGroupId?: string,
   ): Promise<any> {
     const tournament = await this.tournamentsRepository.findOne({
@@ -1013,6 +1076,9 @@ export class GroupsService {
     targetMatch.scheduledAt = new Date(dto.scheduledAt) as any;
     if (dto.courtNumber !== undefined) {
       (targetMatch as any).courtNumber = dto.courtNumber;
+    }
+    if (dto.fieldName !== undefined) {
+      (targetMatch as any).fieldName = dto.fieldName;
     }
 
     await this.tournamentsRepository.update(tournamentId, {
@@ -1155,6 +1221,74 @@ export class GroupsService {
             'Team ' + (team2Index + 1);
         }
       });
+    }
+
+    // Generate group phase round-robin matches for GROUPS_PLUS_KNOCKOUT / GROUPS_ONLY
+    if (
+      bracketType === BracketType.GROUPS_PLUS_KNOCKOUT ||
+      bracketType === BracketType.GROUPS_ONLY
+    ) {
+      const groupsForRR = await this.groupsRepository.find({
+        where: { tournamentId },
+        order: { groupLetter: 'ASC' },
+      });
+      const rrRegIds = new Set(registrations.map((r) => r.id));
+      const rrRegMap = new Map(
+        registrations.map((r) => [r.id, r]),
+      );
+
+      const groupPhaseMatches: Match[] = [];
+      let rrCounter = 1;
+
+      for (const group of groupsForRR) {
+        const teams = group.teams.filter((id) => rrRegIds.has(id));
+        const n = teams.length;
+        if (n < 2) continue;
+        const nSlots = n % 2 === 0 ? n : n + 1; // add ghost slot for odd count
+
+        // Circle method: fix team 0, rotate 1..nSlots-1
+        // In round r, build permuted list ℓ:
+        //   ℓ[0] = 0 (fixed), ℓ[j] = (r + j - 1) % (nSlots - 1) + 1, j=1..nSlots-1
+        // Pair: ℓ[i] vs ℓ[nSlots-1-i] for i=0..nSlots/2-1
+        const numRounds = nSlots - 1;
+        for (let r = 0; r < numRounds; r++) {
+          const round = r + 1;
+          let matchInRound = 0;
+          const perm: number[] = [0];
+          for (let j = 1; j < nSlots; j++) {
+            perm.push(((r + j - 1) % (nSlots - 1)) + 1);
+          }
+
+          for (let i = 0; i < nSlots / 2; i++) {
+            const idx1 = perm[i];
+            const idx2 = perm[nSlots - 1 - i];
+            // Skip ghost slots (index >= n means BYE for odd team count)
+            if (idx1 >= n || idx2 >= n) continue;
+            matchInRound++;
+            const t1Id = teams[idx1];
+            const t2Id = teams[idx2];
+            groupPhaseMatches.push({
+              id: `grp_${group.groupLetter}_${rrCounter++}`,
+              round,
+              matchNumber: matchInRound,
+              status: 'PENDING',
+              groupLetter: group.groupLetter,
+              team1Id: t1Id,
+              team2Id: t2Id,
+              team1Name:
+                rrRegMap.get(t1Id)?.club?.name ||
+                rrRegMap.get(t1Id)?.coachName ||
+                '',
+              team2Name:
+                rrRegMap.get(t2Id)?.club?.name ||
+                rrRegMap.get(t2Id)?.coachName ||
+                '',
+            });
+          }
+        }
+      }
+
+      (bracketData as any).matches = groupPhaseMatches;
     }
 
     // Save bracket data - store per age group if ageGroupId is provided
