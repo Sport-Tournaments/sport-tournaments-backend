@@ -342,4 +342,26 @@ export class GroupsController {
     await this.potDrawService.clearPotAssignments(tournamentId, user.sub, user.role, ageGroupId);
     return { message: 'Pot assignments cleared' };
   }
+
+  @Patch('groups/:groupId/tiebreak')
+  @ApiOperation({ summary: 'Set manual tiebreak order for a group (organizer only)' })
+  @ApiResponse({ status: 200, description: 'Tiebreak order saved; bracket re-seeded when all group matches are done' })
+  @ApiResponse({ status: 403, description: 'Not authorized' })
+  @ApiResponse({ status: 404, description: 'Group not found' })
+  setGroupTiebreak(
+    @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
+    @Param('groupId') groupId: string,
+    @Body() dto: { order: string[] },
+    @CurrentUser() user: JwtPayload,
+    @Query('ageGroupId') ageGroupId?: string,
+  ) {
+    return this.groupsService.setGroupTiebreak(
+      tournamentId,
+      groupId,
+      dto.order,
+      user.sub,
+      user.role,
+      ageGroupId,
+    );
+  }
 }

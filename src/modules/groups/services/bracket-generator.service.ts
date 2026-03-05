@@ -637,11 +637,14 @@ export class BracketGeneratorService {
   }
 
   /**
-   * Calculate group standings from match results
+   * Calculate group standings from match results.
+   * @param tieBreakOrder optional ordered list of teamIds — when two teams are
+   *   perfectly equal on pts/GD/GF the one appearing earlier in this array wins.
    */
   calculateGroupStandings(
     groupTeamIds: string[],
     matches: Match[],
+    tieBreakOrder?: string[] | null,
   ): GroupStanding[] {
     const standings: Map<string, GroupStanding> = new Map();
 
@@ -700,7 +703,7 @@ export class BracketGeneratorService {
         team2.goalDifference = team2.goalsFor - team2.goalsAgainst;
       });
 
-    // Sort standings
+    // Sort standings: Pts → GD → GF → tieBreakOrder → draw position
     const sortedStandings = Array.from(standings.values()).sort((a, b) => {
       // Points
       if (b.points !== a.points) return b.points - a.points;
@@ -709,7 +712,15 @@ export class BracketGeneratorService {
         return b.goalDifference - a.goalDifference;
       // Goals for
       if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
-      // Default
+      // Manual tiebreak order set by organizer
+      if (tieBreakOrder && tieBreakOrder.length > 0) {
+        const ia = tieBreakOrder.indexOf(a.teamId);
+        const ib = tieBreakOrder.indexOf(b.teamId);
+        if (ia !== -1 && ib !== -1) return ia - ib;
+        if (ia !== -1) return -1;
+        if (ib !== -1) return 1;
+      }
+      // Default: preserve original draw order (stable)
       return 0;
     });
 
@@ -722,13 +733,14 @@ export class BracketGeneratorService {
   }
 
   /**
-   * Seed advancing teams into the knockout bracket using cross-group interleaving (PM-02).
+   * Seed advancing teams into the knockout bracket using adjacent-group pairing.
    *
-   * Standard 4-group pattern (works for any even number of groups):
-   *   QF1: 1A v 2B     QF2: 1C v 2D
-   *   QF3: 2A v 1B     QF4: 2C v 1D
+   * Groups are paired in order: (A,B), (C,D), (E,F), ...
+   * Within each pair, same-position teams face each other:
+   *   Match 1: 1A vs 1B   Match 2: 1C vs 1D   (winners of each pair)
+   *   Match 3: 2A vs 2B   Match 4: 2C vs 2D   (runners-up, only if advancingPerGroup >= 2)
    *
-   * This ensures group winners avoid each other until at least the semi-finals.
+   * Total first-round matches = (numGroups / 2) * advancingPerGroup.
    * Falls back to position-based seeding when the group count is odd or < 2.
    */
   seedTeamsIntoBracket(
@@ -739,33 +751,36 @@ export class BracketGeneratorService {
     const groupKeys = Array.from(groupStandings.keys());
     const numGroups = groupKeys.length;
 
-    // Separate winners (pos 1) and runners-up (pos 2) per group
-    const winners: { teamId: string; groupId: string }[] = [];
-    const runnersUp: { teamId: string; groupId: string }[] = [];
+    // Collect advancing teams grouped by their standing position (1-based)
+    const byPosition = new Map<number, { teamId: string; groupId: string }[]>();
 
     groupKeys.forEach((groupId) => {
       const standings = groupStandings.get(groupId) ?? [];
       standings.slice(0, advancingPerGroup).forEach((s) => {
-        if (s.position === 1) winners.push({ teamId: s.teamId, groupId });
-        else runnersUp.push({ teamId: s.teamId, groupId });
+        if (!byPosition.has(s.position)) byPosition.set(s.position, []);
+        byPosition.get(s.position)!.push({ teamId: s.teamId, groupId });
       });
     });
 
-    // Build ordered list of match seeds using cross-group interleaving
+    // Build match seeds: for each position level (1st, 2nd, ...) pair adjacent groups
     const matchSeeds: Array<[string | undefined, string | undefined]> = [];
 
     if (numGroups >= 2 && numGroups % 2 === 0) {
-      // First half: winners[even-idx] vs runnersUp[odd-idx] → 1A v 2B, 1C v 2D ...
-      for (let i = 0; i + 1 < numGroups; i += 2) {
-        matchSeeds.push([winners[i]?.teamId, runnersUp[i + 1]?.teamId]);
-      }
-      // Second half: runnersUp[even-idx] vs winners[odd-idx] → 2A v 1B, 2C v 1D ...
-      for (let i = 0; i + 1 < numGroups; i += 2) {
-        matchSeeds.push([runnersUp[i]?.teamId, winners[i + 1]?.teamId]);
+      // For each position, pair groups (0,1), (2,3), (4,5) ...
+      // 1st pass → 1A vs 1B, 1C vs 1D ...
+      // 2nd pass → 2A vs 2B, 2C vs 2D ... (when advancingPerGroup >= 2)
+      for (let pos = 1; pos <= advancingPerGroup; pos++) {
+        const teamsAtPos = byPosition.get(pos) ?? [];
+        for (let i = 0; i + 1 < teamsAtPos.length; i += 2) {
+          matchSeeds.push([teamsAtPos[i]?.teamId, teamsAtPos[i + 1]?.teamId]);
+        }
       }
     } else {
-      // Fallback: sort all advancing teams by position, seed best vs worst
-      const all = [...winners, ...runnersUp];
+      // Fallback for odd group counts: seed best vs worst across all advancing teams
+      const all: { teamId: string; groupId: string }[] = [];
+      for (let pos = 1; pos <= advancingPerGroup; pos++) {
+        all.push(...(byPosition.get(pos) ?? []));
+      }
       for (let i = 0; i < Math.floor(all.length / 2); i++) {
         matchSeeds.push([all[i]?.teamId, all[all.length - 1 - i]?.teamId]);
       }

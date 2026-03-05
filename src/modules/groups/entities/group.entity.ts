@@ -33,6 +33,15 @@ export class Group {
   @Column({ name: 'group_order', default: 0 })
   groupOrder: number;
 
+  /**
+   * Manual tiebreak order: an ordered list of teamIds.
+   * When two or more teams are exactly tied (pts, GD, GF), position is
+   * resolved by the index of the teamId in this array (lower index = higher rank).
+   * Set by the organizer via the tiebreak endpoint after all group matches complete.
+   */
+  @Column({ name: 'tie_break_order', type: 'json', nullable: true })
+  tieBreakOrder: string[] | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }
