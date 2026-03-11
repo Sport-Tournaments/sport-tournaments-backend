@@ -19,6 +19,12 @@ export interface Match {
   team2Name?: string;
   team1Score?: number;
   team2Score?: number;
+  // Two-legged tie fields (leg 1 = at team1 home, leg 2 = at team2 home)
+  // null means the leg score was explicitly cleared
+  leg1Team1Score?: number | null;
+  leg1Team2Score?: number | null;
+  leg2Team1Score?: number | null;
+  leg2Team2Score?: number | null;
   winnerId?: string;
   loserId?: string;
   manualWinnerId?: string; // Manual override: organizer picks advancing team
