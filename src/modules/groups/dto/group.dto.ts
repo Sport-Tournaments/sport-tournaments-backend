@@ -6,6 +6,7 @@ import {
   Min,
   IsUUID,
   IsISO8601,
+  ValidateIf,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
@@ -82,6 +83,34 @@ export class UpdateMatchScoreDto {
   @Type(() => Number)
   @IsNumber()
   team2Score?: number;
+
+  @ApiPropertyOptional({ description: 'Leg 1 score of team 1 (at team 1 home)', nullable: true })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @Type(() => Number)
+  @IsNumber()
+  leg1Team1Score?: number | null;
+
+  @ApiPropertyOptional({ description: 'Leg 1 score of team 2 (at team 1 home)', nullable: true })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @Type(() => Number)
+  @IsNumber()
+  leg1Team2Score?: number | null;
+
+  @ApiPropertyOptional({ description: 'Leg 2 score of team 1 (at team 2 home)', nullable: true })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @Type(() => Number)
+  @IsNumber()
+  leg2Team1Score?: number | null;
+
+  @ApiPropertyOptional({ description: 'Leg 2 score of team 2 (at team 2 home)', nullable: true })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @Type(() => Number)
+  @IsNumber()
+  leg2Team2Score?: number | null;
 
   @ApiPropertyOptional({ description: 'ID of the advancing/winning team (manual override)' })
   @IsOptional()

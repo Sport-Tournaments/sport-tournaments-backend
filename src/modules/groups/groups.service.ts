@@ -810,6 +810,7 @@ export class GroupsService {
     }
 
     // Set manual advancement
+    const oldWinnerId = targetMatch.winnerId; // capture before overwriting for replacement
     targetMatch.manualWinnerId = dto.advancingTeamId;
     targetMatch.winnerId = dto.advancingTeamId;
     targetMatch.isManualOverride = true;
@@ -827,6 +828,7 @@ export class GroupsService {
         bracketData,
         targetMatch,
         dto.advancingTeamId,
+        oldWinnerId,
       );
     }
 
@@ -900,15 +902,40 @@ export class GroupsService {
       throw new NotFoundException(`Match ${matchId} not found`);
     }
 
-    // Update scores
-    if (dto.team1Score !== undefined) targetMatch.team1Score = dto.team1Score;
-    if (dto.team2Score !== undefined) targetMatch.team2Score = dto.team2Score;
+    // Update leg scores (two-legged ties: leg1 = at team1 home, leg2 = at team2 home)
+    // null = explicitly clear the field (e.g. undo a mistakenly-entered leg)
+    if (dto.leg1Team1Score !== undefined) targetMatch.leg1Team1Score = dto.leg1Team1Score ?? undefined;
+    if (dto.leg1Team2Score !== undefined) targetMatch.leg1Team2Score = dto.leg1Team2Score ?? undefined;
+    if (dto.leg2Team1Score !== undefined) targetMatch.leg2Team1Score = dto.leg2Team1Score ?? undefined;
+    if (dto.leg2Team2Score !== undefined) targetMatch.leg2Team2Score = dto.leg2Team2Score ?? undefined;
+
+    // Compute aggregate when all four leg scores are present (non-null); else use legacy single scores
+    const hasAllLegs =
+      targetMatch.leg1Team1Score != null && targetMatch.leg1Team2Score != null &&
+      targetMatch.leg2Team1Score != null && targetMatch.leg2Team2Score != null;
+    const hasAnyLeg =
+      targetMatch.leg1Team1Score != null || targetMatch.leg2Team1Score != null;
+    if (hasAllLegs) {
+      // Both legs played – compute aggregate
+      targetMatch.team1Score = targetMatch.leg1Team1Score! + targetMatch.leg2Team1Score!;
+      targetMatch.team2Score = targetMatch.leg1Team2Score! + targetMatch.leg2Team2Score!;
+    } else if (hasAnyLeg) {
+      // Only one leg played – clear aggregate to prevent premature auto-advancement
+      targetMatch.team1Score = undefined;
+      targetMatch.team2Score = undefined;
+    } else {
+      // No legs at all – legacy single-match direct score update
+      if (dto.team1Score !== undefined) targetMatch.team1Score = dto.team1Score;
+      if (dto.team2Score !== undefined) targetMatch.team2Score = dto.team2Score;
+    }
+
     if (dto.status) targetMatch.status = dto.status as Match['status'];
 
     let bracketUpdated = false;
 
     // Handle manual advancement override
     if (dto.advancingTeamId) {
+      const oldWinnerId = targetMatch.winnerId; // capture before overwriting for replacement
       targetMatch.manualWinnerId = dto.advancingTeamId;
       targetMatch.winnerId = dto.advancingTeamId;
       targetMatch.isManualOverride = true;
@@ -923,6 +950,7 @@ export class GroupsService {
           bracketData,
           targetMatch,
           dto.advancingTeamId,
+          oldWinnerId,
         );
       }
 
@@ -948,6 +976,7 @@ export class GroupsService {
           : targetMatch.team2Id;
 
       if (winnerId) {
+        const oldWinnerId = targetMatch.winnerId; // capture before overwriting for replacement
         targetMatch.winnerId = winnerId;
         targetMatch.status = 'COMPLETED';
         targetMatch.loserId =
@@ -960,6 +989,7 @@ export class GroupsService {
             bracketData,
             targetMatch,
             winnerId,
+            oldWinnerId,
           );
         }
 
@@ -1345,12 +1375,15 @@ export class GroupsService {
   }
 
   /**
-   * Propagate match winner to the next match in the bracket
+   * Propagate match winner to the next match in the bracket.
+   * If oldWinnerId is provided and already occupies a slot in the next match,
+   * that slot is replaced rather than a new slot filled (handles score edits).
    */
   private propagateAdvancement(
     bracketData: any,
     sourceMatch: Match,
     advancingTeamId: string,
+    oldWinnerId?: string,
   ): boolean {
     if (!sourceMatch.nextMatchId) return false;
 
@@ -1380,17 +1413,30 @@ export class GroupsService {
 
     if (!nextMatch) return false;
 
-    // Place advancing team in the appropriate slot
+    const advancingName = sourceMatch.team1Id === advancingTeamId
+      ? sourceMatch.team1Name
+      : sourceMatch.team2Name;
+
+    // If the old winner already occupies a slot, replace it (score-edit case)
+    if (oldWinnerId) {
+      if (nextMatch.team1Id === oldWinnerId) {
+        nextMatch.team1Id = advancingTeamId;
+        nextMatch.team1Name = advancingName;
+        return true;
+      } else if (nextMatch.team2Id === oldWinnerId) {
+        nextMatch.team2Id = advancingTeamId;
+        nextMatch.team2Name = advancingName;
+        return true;
+      }
+    }
+
+    // No previous winner in the next match — fill the first empty slot
     if (!nextMatch.team1Id) {
       nextMatch.team1Id = advancingTeamId;
-      nextMatch.team1Name = sourceMatch.team1Id === advancingTeamId
-        ? sourceMatch.team1Name
-        : sourceMatch.team2Name;
+      nextMatch.team1Name = advancingName;
     } else if (!nextMatch.team2Id) {
       nextMatch.team2Id = advancingTeamId;
-      nextMatch.team2Name = sourceMatch.team1Id === advancingTeamId
-        ? sourceMatch.team1Name
-        : sourceMatch.team2Name;
+      nextMatch.team2Name = advancingName;
     }
 
     return true;
