@@ -28,10 +28,10 @@ const AGE_BIRTH_MAP: { cat: AgeCategory; year: number; system: string }[] = [
   { cat: AgeCategory.U11, year: 2015, system: '7+1' },
   { cat: AgeCategory.U12, year: 2014, system: '9+1' },
   { cat: AgeCategory.U13, year: 2013, system: '9+1' },
-  { cat: AgeCategory.U14, year: 2012, system: '11+1' },
-  { cat: AgeCategory.U15, year: 2011, system: '11+1' },
-  { cat: AgeCategory.U16, year: 2010, system: '11+1' },
-  { cat: AgeCategory.U17, year: 2009, system: '11+1' },
+  { cat: AgeCategory.U14, year: 2012, system: '10+1' },
+  { cat: AgeCategory.U15, year: 2011, system: '10+1' },
+  { cat: AgeCategory.U16, year: 2010, system: '10+1' },
+  { cat: AgeCategory.U17, year: 2009, system: '10+1' },
 ];
 
 const FORMATS = Object.values(TournamentFormat);

@@ -18,8 +18,7 @@ export type GameSystem =
   | '7+1'
   | '8+1'
   | '9+1'
-  | '10+1'
-  | '11+1';
+  | '10+1';
 
 @Entity('tournament_age_groups')
 @Index(['tournamentId', 'birthYear'], { unique: true })
@@ -68,7 +67,7 @@ export class TournamentAgeGroup {
   @Column({ name: 'display_label', nullable: true })
   displayLabel?: string;
 
-  // Game system format (e.g., "7+1", "8+1", "11+1")
+  // Game system format (e.g., "7+1", "8+1", "10+1")
   @Column({ name: 'game_system' })
   gameSystem: string;
 
