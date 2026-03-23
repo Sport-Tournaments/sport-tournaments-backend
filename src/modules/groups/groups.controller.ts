@@ -55,8 +55,11 @@ export class GroupsController {
   @Public()
   @ApiOperation({ summary: 'Get all groups and team assignments' })
   @ApiResponse({ status: 200, description: 'Groups retrieved' })
-  getGroups(@Param('tournamentId', ParseUUIDPipe) tournamentId: string) {
-    return this.groupsService.getGroups(tournamentId);
+  getGroups(
+    @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
+    @Query('ageGroupId') ageGroupId?: string,
+  ) {
+    return this.groupsService.getGroups(tournamentId, ageGroupId);
   }
 
   @Get('bracket')
@@ -105,8 +108,9 @@ export class GroupsController {
   resetDraw(
     @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
     @CurrentUser() user: JwtPayload,
+    @Query('ageGroupId') ageGroupId?: string,
   ) {
-    return this.groupsService.resetDraw(tournamentId, user.sub, user.role);
+    return this.groupsService.resetDraw(tournamentId, user.sub, user.role, ageGroupId);
   }
 
   // =====================================================
@@ -130,8 +134,11 @@ export class GroupsController {
   @ApiOperation({ summary: 'Get current group configuration' })
   @ApiResponse({ status: 200, description: 'Configuration retrieved', type: GroupConfigurationResponseDto })
   @ApiResponse({ status: 404, description: 'No configuration found' })
-  getGroupConfiguration(@Param('tournamentId', ParseUUIDPipe) tournamentId: string) {
-    return this.groupsService.getGroupConfiguration(tournamentId);
+  getGroupConfiguration(
+    @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
+    @Query('ageGroupId') ageGroupId?: string,
+  ) {
+    return this.groupsService.getGroupConfiguration(tournamentId, ageGroupId);
   }
 
   @Patch('groups/:groupId')

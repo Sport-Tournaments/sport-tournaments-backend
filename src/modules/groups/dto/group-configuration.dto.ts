@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsArray,
   IsInt,
@@ -6,6 +6,7 @@ import {
   ValidateNested,
   IsOptional,
   ArrayMinSize,
+  IsUUID,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -51,6 +52,11 @@ export class ConfigureGroupsDto {
   @ValidateNested({ each: true })
   @Type(() => GroupTeamCount)
   teamsPerGroup: GroupTeamCount[];
+
+  @ApiPropertyOptional({ description: 'Scope configuration to a specific age group' })
+  @IsOptional()
+  @IsUUID()
+  ageGroupId?: string;
 }
 
 export class UpdateGroupDto {

@@ -56,8 +56,20 @@ export class GroupsService {
       );
     }
 
-    // Check if draw already completed
-    if (tournament.drawCompleted) {
+    // Check if draw already completed — per age group if ageGroupId given, otherwise tournament-level
+    if (executeDrawDto.ageGroupId) {
+      const ageGroup = await this.ageGroupRepository.findOne({
+        where: { id: executeDrawDto.ageGroupId, tournamentId },
+      });
+      if (!ageGroup) {
+        throw new NotFoundException(`Age group ${executeDrawDto.ageGroupId} not found`);
+      }
+      if (ageGroup.drawCompleted) {
+        throw new BadRequestException(
+          'Draw has already been completed for this age group',
+        );
+      }
+    } else if (tournament.drawCompleted) {
       throw new BadRequestException(
         'Draw has already been completed for this tournament',
       );
@@ -73,12 +85,16 @@ export class GroupsService {
       );
     }
 
-    // Get approved registrations
+    // Get approved registrations — scoped to age group if specified
+    const regWhere: any = {
+      tournamentId,
+      status: RegistrationStatus.APPROVED,
+    };
+    if (executeDrawDto.ageGroupId) {
+      regWhere.ageGroupId = executeDrawDto.ageGroupId;
+    }
     const registrations = await this.registrationsRepository.find({
-      where: {
-        tournamentId,
-        status: RegistrationStatus.APPROVED,
-      },
+      where: regWhere,
       relations: ['club'],
     });
 
@@ -108,12 +124,17 @@ export class GroupsService {
     const groups: Group[] = [];
     const groupLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
-    // Delete existing groups
-    await this.groupsRepository.delete({ tournamentId });
+    // Delete existing groups — scoped to age group if specified
+    const deleteWhere: any = { tournamentId };
+    if (executeDrawDto.ageGroupId) {
+      deleteWhere.ageGroupId = executeDrawDto.ageGroupId;
+    }
+    await this.groupsRepository.delete(deleteWhere);
 
     for (let i = 0; i < numberOfGroups; i++) {
       const group = this.groupsRepository.create({
         tournamentId,
+        ageGroupId: executeDrawDto.ageGroupId,
         groupLetter: groupLetters[i],
         teams: [],
         groupOrder: i + 1,
@@ -139,11 +160,18 @@ export class GroupsService {
       }
     }
 
-    // Mark draw as completed
-    await this.tournamentsRepository.update(tournamentId, {
-      drawCompleted: true,
-      drawSeed: seed,
-    });
+    // Mark draw as completed — per age group or tournament level
+    if (executeDrawDto.ageGroupId) {
+      await this.ageGroupRepository.update(executeDrawDto.ageGroupId, {
+        drawCompleted: true,
+        drawSeed: seed,
+      });
+    } else {
+      await this.tournamentsRepository.update(tournamentId, {
+        drawCompleted: true,
+        drawSeed: seed,
+      });
+    }
 
     // BE-08 — auto-calculate numberOfMatches for affected age groups
     const ageGroupIds = [...new Set(registrations.map((r) => r.ageGroupId).filter(Boolean))];
@@ -154,9 +182,11 @@ export class GroupsService {
     return savedGroups;
   }
 
-  async getGroups(tournamentId: string): Promise<Group[]> {
+  async getGroups(tournamentId: string, ageGroupId?: string): Promise<Group[]> {
+    const where: any = { tournamentId };
+    if (ageGroupId) where.ageGroupId = ageGroupId;
     const groups = await this.groupsRepository.find({
-      where: { tournamentId },
+      where,
       order: { groupOrder: 'ASC' },
     });
 
@@ -281,6 +311,7 @@ export class GroupsService {
     tournamentId: string,
     userId: string,
     userRole: string,
+    ageGroupId?: string,
   ): Promise<void> {
     const tournament = await this.tournamentsRepository.findOne({
       where: { id: tournamentId },
@@ -297,19 +328,30 @@ export class GroupsService {
       );
     }
 
-    // Delete all groups
-    await this.groupsRepository.delete({ tournamentId });
-
-    // Clear group assignments from registrations
-    await this.registrationsRepository.update(
-      { tournamentId },
-      { groupAssignment: undefined as unknown as string },
-    );
-
-    // Reset draw status
-    tournament.drawCompleted = false;
-    tournament.drawSeed = undefined;
-    await this.tournamentsRepository.save(tournament);
+    if (ageGroupId) {
+      // Scoped reset: only delete groups for this age group
+      await this.groupsRepository.delete({ tournamentId, ageGroupId });
+      // Clear group assignments only for registrations in this age group
+      await this.registrationsRepository.update(
+        { tournamentId, ageGroupId } as any,
+        { groupAssignment: undefined as unknown as string },
+      );
+      // Reset only this age group's drawCompleted flag
+      await this.ageGroupRepository.update(ageGroupId, {
+        drawCompleted: false,
+        drawSeed: undefined,
+      });
+    } else {
+      // Full tournament reset
+      await this.groupsRepository.delete({ tournamentId });
+      await this.registrationsRepository.update(
+        { tournamentId },
+        { groupAssignment: undefined as unknown as string },
+      );
+      tournament.drawCompleted = false;
+      tournament.drawSeed = undefined;
+      await this.tournamentsRepository.save(tournament);
+    }
   }
 
   async createGroup(
@@ -378,12 +420,11 @@ export class GroupsService {
       );
     }
 
-    // Get approved registrations count
+    // Get approved registrations count — scoped to age group if specified
+    const regCountWhere: any = { tournamentId, status: RegistrationStatus.APPROVED };
+    if (dto.ageGroupId) regCountWhere.ageGroupId = dto.ageGroupId;
     const registeredTeamsCount = await this.registrationsRepository.count({
-      where: {
-        tournamentId,
-        status: RegistrationStatus.APPROVED,
-      },
+      where: regCountWhere,
     });
 
     // Validation
@@ -446,6 +487,7 @@ export class GroupsService {
       const newGroups = dto.teamsPerGroup.map((config, index) =>
         this.groupsRepository.create({
           tournamentId,
+          ageGroupId: dto.ageGroupId,
           groupLetter: config.groupLetter,
           teams: [],
           groupOrder: index,
@@ -469,6 +511,7 @@ export class GroupsService {
 
   async getGroupConfiguration(
     tournamentId: string,
+    ageGroupId?: string,
   ): Promise<GroupConfigurationResponseDto> {
     const tournament = await this.tournamentsRepository.findOne({
       where: { id: tournamentId },
@@ -482,12 +525,11 @@ export class GroupsService {
       throw new NotFoundException('No group configuration found for this tournament');
     }
 
-    // Get approved registrations count
+    // Get approved registrations count — scoped to age group if specified
+    const regCountWhere: any = { tournamentId, status: RegistrationStatus.APPROVED };
+    if (ageGroupId) regCountWhere.ageGroupId = ageGroupId;
     const registeredTeamsCount = await this.registrationsRepository.count({
-      where: {
-        tournamentId,
-        status: RegistrationStatus.APPROVED,
-      },
+      where: regCountWhere,
     });
 
     // Calculate total teams allocated
@@ -1168,6 +1210,16 @@ export class GroupsService {
       );
     }
 
+    // BE#148 — draw-completion gate: bracket can only be generated after the draw is done
+    if (ageGroupId) {
+      const ageGroupForGate = (tournament.ageGroups ?? []).find((ag) => ag.id === ageGroupId);
+      if (ageGroupForGate && !ageGroupForGate.drawCompleted) {
+        throw new BadRequestException(
+          'Draw must be completed for this age group before generating a bracket',
+        );
+      }
+    }
+
     // Get approved registrations - filter by ageGroupId if provided
     const regWhere: any = { tournamentId, status: RegistrationStatus.APPROVED };
     if (ageGroupId) {
@@ -1215,16 +1267,13 @@ export class GroupsService {
       // Build a registration lookup map
       const regMap = new Map(registrations.map((r) => [r.id, r]));
 
-      // Fetch groups for this tournament and filter to those that contain
-      // registrations in scope (i.e. for this age group)
-      const allGroups = await this.groupsRepository.find({
-        where: { tournamentId },
+      // Fetch groups scoped to this age group using the ageGroupId column (BE#146)
+      const groupsWhere: any = { tournamentId };
+      if (ageGroupId) groupsWhere.ageGroupId = ageGroupId;
+      const scopedGroups = await this.groupsRepository.find({
+        where: groupsWhere,
         order: { groupLetter: 'ASC' },
       });
-      const regIds = new Set(registrations.map((r) => r.id));
-      const scopedGroups = allGroups.filter((g) =>
-        g.teams.some((teamId) => regIds.has(teamId)),
-      );
 
       let seededRegistrations: Registration[];
 
@@ -1616,8 +1665,10 @@ export class GroupsService {
     if (!allGroupDone) return { success: true, bracketUpdated };
 
     // All group matches are done — re-seed with updated tiebreak
+    const groupsWhere: any = { tournamentId };
+    if (ageGroupId) groupsWhere.ageGroupId = ageGroupId;
     const groups = await this.groupsRepository.find({
-      where: { tournamentId },
+      where: groupsWhere,
       order: { groupLetter: 'ASC' },
     });
 
