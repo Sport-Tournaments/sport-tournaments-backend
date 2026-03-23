@@ -1200,6 +1200,7 @@ export class GroupsService {
       registrations.length,
       {
         groupCount: ageGroup?.groupsCount ?? tournament.numberOfGroups,
+        advancingPerGroup: ageGroup?.qualifyingTeamsPerGroup ?? 2,
         thirdPlaceMatch: true,
         seed: tournament.drawSeed || undefined,
         leagueLegs: 2, // default; BE-11: will use ageGroup.leagueLegs once column is added
@@ -1549,8 +1550,7 @@ export class GroupsService {
       // C(n, 2) = n*(n-1)/2
       const groupMatches = numGroups * ((teamsPerGroup * (teamsPerGroup - 1)) / 2);
 
-      // Default 2 advancing per group (can be overridden in future via ageGroup.advancingPerGroup)
-      const advancingPerGroup = 2;
+      const advancingPerGroup = ageGroup.qualifyingTeamsPerGroup ?? 2;
       const qualifyingTeams = numGroups * advancingPerGroup;
 
       const knockoutMatches = qualifyingTeams - 1;

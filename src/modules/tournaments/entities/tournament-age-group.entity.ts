@@ -138,6 +138,9 @@ export class TournamentAgeGroup {
   @Column({ name: 'teams_per_group', default: 4 })
   teamsPerGroup: number;
 
+  @Column({ name: 'qualifying_teams_per_group', nullable: true })
+  qualifyingTeamsPerGroup?: number;
+
   @Column({ name: 'match_period_type', nullable: true })
   matchPeriodType?: 'ONE_HALF' | 'TWO_HALVES';
 
