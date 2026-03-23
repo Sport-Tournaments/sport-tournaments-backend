@@ -291,6 +291,7 @@ export class PotDrawService {
     for (const group of groups) {
       const groupEntity = this.groupRepository.create({
         tournamentId,
+        ageGroupId: dto.ageGroupId,
         groupLetter: group.letter,
         teams: group.teams,
       });

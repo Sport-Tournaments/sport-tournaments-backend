@@ -26,6 +26,11 @@ export class ExecuteDrawDto {
   @IsOptional()
   @IsString()
   seed?: string;
+
+  @ApiPropertyOptional({ description: 'Age group ID to scope the draw' })
+  @IsOptional()
+  @IsUUID()
+  ageGroupId?: string;
 }
 
 export class ManualGroupAssignmentDto {

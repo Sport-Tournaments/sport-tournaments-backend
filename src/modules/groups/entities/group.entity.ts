@@ -18,6 +18,11 @@ export class Group {
   @Column({ name: 'tournament_id' })
   tournamentId: string;
 
+  /** Scopes this group to a specific age group within the tournament. */
+  @Index()
+  @Column({ name: 'age_group_id', nullable: true })
+  ageGroupId?: string;
+
   @ManyToOne(() => Tournament, (tournament) => tournament.groups, {
     onDelete: 'CASCADE',
   })
