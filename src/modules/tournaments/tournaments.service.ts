@@ -160,6 +160,7 @@ export class TournamentsService {
           maxTeams,
           guaranteedMatches,
           participationFee,
+          qualifyingTeamsPerGroup,
           ...rest
         } = ag as any;
 
@@ -172,6 +173,7 @@ export class TournamentsService {
           maxTeams: undefined,
           guaranteedMatches: undefined,
           participationFee: participationFee ?? undefined,
+          qualifyingTeamsPerGroup: qualifyingTeamsPerGroup ?? undefined,
         };
       });
       await this.ageGroupsRepository.save(ageGroupEntities);
@@ -549,7 +551,7 @@ export class TournamentsService {
     tournamentId: string,
     userId: string,
     userRole: string,
-    ageGroups: { id?: string; birthYear: number; displayLabel?: string; ageCategory?: string; level?: string; format?: string; gameSystem?: string; teamCount?: number; minTeams?: number; numberOfMatches?: number; matchPeriodType?: 'ONE_HALF' | 'TWO_HALVES'; halfDurationMinutes?: number; startDate?: string; endDate?: string; locationId?: string; locationAddress?: string; participationFee?: number; groupsCount?: number; fieldsCount?: number; teamsPerGroup?: number }[],
+    ageGroups: { id?: string; birthYear: number; displayLabel?: string; ageCategory?: string; level?: string; format?: string; gameSystem?: string; teamCount?: number; minTeams?: number; numberOfMatches?: number; matchPeriodType?: 'ONE_HALF' | 'TWO_HALVES'; halfDurationMinutes?: number; startDate?: string; endDate?: string; locationId?: string; locationAddress?: string; participationFee?: number; groupsCount?: number; fieldsCount?: number; teamsPerGroup?: number; qualifyingTeamsPerGroup?: number }[],
   ): Promise<TournamentAgeGroup[]> {
     const tournament = await this.findByIdOrFail(tournamentId);
 
@@ -593,6 +595,7 @@ export class TournamentsService {
         maxTeams,
         guaranteedMatches,
         participationFee,
+        qualifyingTeamsPerGroup,
         ...rest
       } = ag as any;
 
@@ -608,6 +611,7 @@ export class TournamentsService {
           if (participationFee !== undefined) {
             existing.participationFee = participationFee as any;
           }
+          existing.qualifyingTeamsPerGroup = qualifyingTeamsPerGroup ?? null as any;
           result.push(await this.ageGroupsRepository.save(existing));
         }
       } else {
@@ -621,6 +625,7 @@ export class TournamentsService {
           maxTeams: undefined,
           guaranteedMatches: undefined,
           participationFee: participationFee ?? undefined,
+          qualifyingTeamsPerGroup: qualifyingTeamsPerGroup ?? undefined,
         };
         result.push(await this.ageGroupsRepository.save(newAgeGroup));
       }

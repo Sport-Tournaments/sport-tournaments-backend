@@ -198,6 +198,13 @@ export class CreateAgeGroupDto {
   @Min(2)
   teamsPerGroup?: number;
 
+  @ApiPropertyOptional({ example: 2, description: 'Teams advancing from each group to the knockout stage' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  qualifyingTeamsPerGroup?: number;
+
   @ApiPropertyOptional({
     enum: ['ONE_HALF', 'TWO_HALVES'],
     example: 'TWO_HALVES',
@@ -340,6 +347,13 @@ export class UpdateAgeGroupDto {
   @IsNumber()
   @Min(2)
   teamsPerGroup?: number;
+
+  @ApiPropertyOptional({ example: 2, description: 'Teams advancing from each group to the knockout stage' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  qualifyingTeamsPerGroup?: number;
 
   @ApiPropertyOptional({
     enum: ['ONE_HALF', 'TWO_HALVES'],

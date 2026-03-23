@@ -298,11 +298,65 @@ export class PotDrawService {
       savedGroups.push(saved);
     }
 
+    // BE-32 Step 1 — Update registration.groupAssignment for every team placed in a group
+    for (const group of savedGroups) {
+      for (const teamId of group.teams) {
+        await this.registrationRepository.update(teamId, {
+          groupAssignment: group.groupLetter,
+        });
+      }
+    }
+
+    // BE-32 Step 2 — Auto-calculate numberOfMatches for this age group
+    if (dto.ageGroupId) {
+      await this.autoCalcNumberOfMatches(tournamentId, dto.ageGroupId, savedGroups);
+    }
+
+    // BE-32 Step 3 — Mark the specific age group draw as completed
+    if (dto.ageGroupId) {
+      await this.ageGroupRepository.update(dto.ageGroupId, { drawCompleted: true });
+    }
+
     // Mark tournament as having completed draw
     tournament.drawCompleted = true;
     await this.tournamentRepository.save(tournament);
 
     return savedGroups;
+  }
+
+  /**
+   * Auto-calculate numberOfMatches for an age group after pot draw.
+   * Mirrors the same logic in GroupsService.autoCalcNumberOfMatches.
+   */
+  private async autoCalcNumberOfMatches(
+    tournamentId: string,
+    ageGroupId: string,
+    groups: Group[],
+  ): Promise<void> {
+    try {
+      const ageGroup = await this.ageGroupRepository.findOne({
+        where: { id: ageGroupId, tournamentId },
+      });
+      if (!ageGroup) return;
+
+      const numGroups = groups.length;
+      if (numGroups === 0) return;
+
+      const teamsPerGroup = Math.ceil(
+        groups.reduce((s, g) => s + g.teams.length, 0) / numGroups,
+      );
+
+      // C(n, 2) = n*(n-1)/2 matches per group
+      const groupMatches = numGroups * ((teamsPerGroup * (teamsPerGroup - 1)) / 2);
+      const advancingPerGroup = ageGroup.qualifyingTeamsPerGroup ?? 2;
+      const qualifyingTeams = numGroups * advancingPerGroup;
+      const knockoutMatches = qualifyingTeams - 1;
+      const total = groupMatches + knockoutMatches + 1; // +1 for third-place match
+
+      await this.ageGroupRepository.update(ageGroupId, { numberOfMatches: total });
+    } catch {
+      // Non-critical — silently skip if calculation fails
+    }
   }
 
   /**
