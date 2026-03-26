@@ -1,76 +1,8 @@
 import { Injectable } from '@nestjs/common';
 
-export enum BracketType {
-  GROUPS_ONLY = 'GROUPS_ONLY',
-  SINGLE_ELIMINATION = 'SINGLE_ELIMINATION',
-  DOUBLE_ELIMINATION = 'DOUBLE_ELIMINATION',
-  ROUND_ROBIN = 'ROUND_ROBIN',
-  GROUPS_PLUS_KNOCKOUT = 'GROUPS_PLUS_KNOCKOUT',
-  LEAGUE = 'LEAGUE',
-}
-
-export interface Match {
-  id: string;
-  round: number;
-  matchNumber: number;
-  team1Id?: string;
-  team2Id?: string;
-  team1Name?: string;
-  team2Name?: string;
-  team1Score?: number;
-  team2Score?: number;
-  // Two-legged tie fields (leg 1 = at team1 home, leg 2 = at team2 home)
-  // null means the leg score was explicitly cleared
-  leg1Team1Score?: number | null;
-  leg1Team2Score?: number | null;
-  leg2Team1Score?: number | null;
-  leg2Team2Score?: number | null;
-  winnerId?: string;
-  loserId?: string;
-  manualWinnerId?: string; // Manual override: organizer picks advancing team
-  isManualOverride?: boolean; // Flag indicating manual advancement override
-  scheduledAt?: Date;
-  courtNumber?: number; // BE-07: court/field assignment
-  fieldName?: string; // football field name
-  locationId?: string;
-  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
-  nextMatchId?: string;
-  loserNextMatchId?: string; // For double elimination
-  autoAdvance?: boolean; // BYE match — top-seeded team advances automatically (BE-SE-01)
-  groupLetter?: string; // group phase tag (GROUPS_PLUS_KNOCKOUT / GROUPS_ONLY)
-}
-
-export interface PlayoffRound {
-  roundNumber: number;
-  roundName: string;
-  matches: Match[];
-  bracket?: 'winners' | 'losers' | 'grand_final' | 'third_place'; // bracket column tag
-}
-
-export interface BracketData {
-  type: BracketType;
-  groupCount?: number;
-  teamsPerGroup?: number;
-  advancingTeamsPerGroup?: number;
-  playoffRounds?: PlayoffRound[];
-  matches?: Match[];
-  thirdPlaceMatch?: boolean;
-  seed?: string;
-  generatedAt?: Date;
-}
-
-export interface GroupStanding {
-  teamId: string;
-  played: number;
-  won: number;
-  drawn: number;
-  lost: number;
-  goalsFor: number;
-  goalsAgainst: number;
-  goalDifference: number;
-  points: number;
-  position: number;
-}
+// Re-export bracket interfaces from shared location
+export { BracketType, Match, PlayoffRound, BracketData, GroupStanding } from '../../../common/interfaces/bracket.interface';
+import { BracketType, Match, PlayoffRound, BracketData, GroupStanding } from '../../../common/interfaces/bracket.interface';
 
 @Injectable()
 export class BracketGeneratorService {

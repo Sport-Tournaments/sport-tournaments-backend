@@ -15,6 +15,7 @@ import {
   Currency,
   AgeCategory,
 } from '../../../common/enums';
+import { BracketData } from '../../../common/interfaces/bracket.interface';
 import { DateOnlyTransformer } from '../../../common/transformers';
 import { User } from '../../users/entities/user.entity';
 import { Registration } from '../../registrations/entities/registration.entity';
@@ -183,24 +184,14 @@ export class Tournament {
     isPublicListing?: boolean; // Whether to show in public listings
   };
 
-  // Bracket data for playoff structure
+  /**
+   * Bracket data stored as JSON. Two formats exist:
+   * - Legacy flat: `BracketData` (single age group or pre-multi-age-group tournaments)
+   * - Per-age-group: `Record<string, BracketData>` (current multi-age-group format)
+   * Use `getBracketForAgeGroup()` in GroupsService to read safely.
+   */
   @Column({ name: 'bracket_data', type: 'json', nullable: true })
-  bracketData?: {
-    type: 'groups_only' | 'groups_and_playoffs' | 'single_elimination';
-    groupCount: number;
-    teamsPerGroup: number;
-    playoffRounds: string[];
-    matches: Array<{
-      matchId: string;
-      stage: string;
-      group?: string;
-      team1Id?: string;
-      team2Id?: string;
-      winner?: string;
-      scheduledDate?: string;
-      score?: { team1: number; team2: number };
-    }>;
-  };
+  bracketData?: BracketData | Record<string, BracketData>;
 
   // Regulations type tracking
   @Column({
