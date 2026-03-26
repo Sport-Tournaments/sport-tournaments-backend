@@ -1,3 +1,5 @@
+export { BracketType, Match, PlayoffRound, BracketData, GroupStanding } from './bracket.interface';
+
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;

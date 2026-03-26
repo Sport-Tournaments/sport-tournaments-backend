@@ -169,9 +169,9 @@ export class TournamentsService {
           tournamentId: savedTournament.id,
           startDate: ag.startDate || createTournamentDto.startDate,
           endDate: ag.endDate || createTournamentDto.endDate,
-          minTeams: undefined,
-          maxTeams: undefined,
-          guaranteedMatches: undefined,
+          minTeams: minTeams ?? undefined,
+          maxTeams: maxTeams ?? undefined,
+          guaranteedMatches: guaranteedMatches ?? undefined,
           participationFee: participationFee ?? undefined,
           qualifyingTeamsPerGroup: qualifyingTeamsPerGroup ?? undefined,
         };
@@ -605,9 +605,9 @@ export class TournamentsService {
         if (existing) {
           // Pass values directly - transformer handles conversion
           Object.assign(existing, rest);
-          existing.minTeams = null as any;
-          existing.maxTeams = null as any;
-          existing.guaranteedMatches = null as any;
+          if (minTeams !== undefined) existing.minTeams = minTeams;
+          if (maxTeams !== undefined) existing.maxTeams = maxTeams;
+          if (guaranteedMatches !== undefined) existing.guaranteedMatches = guaranteedMatches;
           if (participationFee !== undefined) {
             existing.participationFee = participationFee as any;
           }
@@ -621,9 +621,9 @@ export class TournamentsService {
           tournamentId,
           startDate: ag.startDate || tournament.startDate,
           endDate: ag.endDate || tournament.endDate,
-          minTeams: undefined,
-          maxTeams: undefined,
-          guaranteedMatches: undefined,
+          minTeams: minTeams ?? undefined,
+          maxTeams: maxTeams ?? undefined,
+          guaranteedMatches: guaranteedMatches ?? undefined,
           participationFee: participationFee ?? undefined,
           qualifyingTeamsPerGroup: qualifyingTeamsPerGroup ?? undefined,
         };
