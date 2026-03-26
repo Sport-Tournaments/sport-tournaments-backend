@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 
 // Re-export bracket interfaces from shared location
-export { BracketType, Match, PlayoffRound, BracketData, GroupStanding } from '../../../common/interfaces/bracket.interface';
-import { BracketType, Match, PlayoffRound, BracketData, GroupStanding } from '../../../common/interfaces/bracket.interface';
+export { BracketType } from '../../../common/interfaces/bracket.interface';
+export type { Match, PlayoffRound, BracketData, GroupStanding } from '../../../common/interfaces/bracket.interface';
+import { BracketType } from '../../../common/interfaces/bracket.interface';
+import type { Match, PlayoffRound, BracketData, GroupStanding } from '../../../common/interfaces/bracket.interface';
 
 @Injectable()
 export class BracketGeneratorService {

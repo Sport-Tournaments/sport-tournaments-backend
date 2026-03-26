@@ -1,4 +1,5 @@
-export { BracketType, Match, PlayoffRound, BracketData, GroupStanding } from './bracket.interface';
+export { BracketType } from './bracket.interface';
+export type { Match, PlayoffRound, BracketData, GroupStanding } from './bracket.interface';
 
 export interface ApiResponse<T> {
   success: boolean;
