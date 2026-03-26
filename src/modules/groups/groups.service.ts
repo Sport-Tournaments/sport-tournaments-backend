@@ -1210,10 +1210,17 @@ export class GroupsService {
       );
     }
 
-    // BE#148 — draw-completion gate: bracket can only be generated after the draw is done
+    // BE#148 — draw-completion gate: bracket can only be generated after the draw is done.
+    // Only GROUPS_PLUS_KNOCKOUT requires a pot draw (team-to-group assignment); all other
+    // formats (ROUND_ROBIN, SINGLE_ELIMINATION, DOUBLE_ELIMINATION, LEAGUE) generate their
+    // bracket directly without a prior pot draw step.
     if (ageGroupId) {
       const ageGroupForGate = (tournament.ageGroups ?? []).find((ag) => ag.id === ageGroupId);
-      if (ageGroupForGate && !ageGroupForGate.drawCompleted) {
+      if (
+        ageGroupForGate &&
+        ageGroupForGate.format === TournamentFormat.GROUPS_PLUS_KNOCKOUT &&
+        !ageGroupForGate.drawCompleted
+      ) {
         throw new BadRequestException(
           'Draw must be completed for this age group before generating a bracket',
         );
@@ -1329,6 +1336,47 @@ export class GroupsService {
             'Team ' + (team2Index + 1);
         }
       });
+    }
+
+    // Assign team IDs to ROUND_ROBIN matches using the same wheel algorithm
+    // that generateRoundRobinBracket uses, so matches are populated with real
+    // team IDs rather than left as TBD.
+    if (bracketType === BracketType.ROUND_ROBIN && bracketData.matches && bracketData.matches.length > 0) {
+      const shuffled = this.seededShuffle(
+        [...registrations],
+        bracketData.seed || 'default-seed',
+      );
+      const teamCount = shuffled.length;
+      const n = teamCount % 2 === 0 ? teamCount : teamCount + 1;
+      let matchIndex = 0;
+
+      for (let r = 0; r < n - 1 && matchIndex < bracketData.matches.length; r++) {
+        // Fixed pair: slot 0 vs the rotating opponent
+        const oppRotIdx = (r + n / 2 - 1) % (n - 1);
+        const opp = oppRotIdx + 1;
+        if (opp < teamCount) {
+          const m = bracketData.matches[matchIndex++];
+          m.team1Id = shuffled[0].id;
+          m.team1Name = shuffled[0].club?.name || shuffled[0].coachName || 'Team 1';
+          m.team2Id = shuffled[opp].id;
+          m.team2Name = shuffled[opp].club?.name || shuffled[opp].coachName || `Team ${opp + 1}`;
+        }
+
+        // Remaining pairs for this round
+        for (let i = 1; i < n / 2 && matchIndex < bracketData.matches.length; i++) {
+          const rIdx1 = (r + i - 1 + (n - 1)) % (n - 1);
+          const rIdx2 = (r + n - 2 - i + (n - 1)) % (n - 1);
+          const ta = rIdx1 + 1;
+          const tb = rIdx2 + 1;
+          if (ta < teamCount && tb < teamCount) {
+            const m = bracketData.matches[matchIndex++];
+            m.team1Id = shuffled[ta].id;
+            m.team1Name = shuffled[ta].club?.name || shuffled[ta].coachName || `Team ${ta + 1}`;
+            m.team2Id = shuffled[tb].id;
+            m.team2Name = shuffled[tb].club?.name || shuffled[tb].coachName || `Team ${tb + 1}`;
+          }
+        }
+      }
     }
 
     // Generate group phase round-robin matches for GROUPS_PLUS_KNOCKOUT / GROUPS_ONLY
