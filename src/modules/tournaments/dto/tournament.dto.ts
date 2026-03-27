@@ -23,7 +23,6 @@ import {
   TournamentStatus,
   TournamentLevel,
   Currency,
-  AgeCategory,
   TournamentFormat,
 } from '../../../common/enums';
 import { BracketType } from '../../groups/services/bracket-generator.service';
@@ -73,11 +72,6 @@ export class CreateAgeGroupDto {
   @IsOptional()
   @IsString()
   displayLabel?: string;
-
-  @ApiPropertyOptional({ enum: AgeCategory, example: AgeCategory.U14 })
-  @IsOptional()
-  @IsEnum(AgeCategory)
-  ageCategory?: AgeCategory;
 
   @ApiPropertyOptional({ enum: TournamentLevel, example: TournamentLevel.LEVEL_II })
   @IsOptional()
@@ -251,11 +245,6 @@ export class UpdateAgeGroupDto {
   @IsOptional()
   @IsString()
   displayLabel?: string;
-
-  @ApiPropertyOptional({ enum: AgeCategory })
-  @IsOptional()
-  @IsEnum(AgeCategory)
-  ageCategory?: AgeCategory;
 
   @ApiPropertyOptional({ enum: TournamentLevel })
   @IsOptional()
@@ -547,19 +536,12 @@ export class CreateTournamentDto {
   @Max(180)
   longitude?: number;
 
-  @ApiPropertyOptional({ enum: AgeCategory, example: AgeCategory.U14, description: 'Age category (optional if ageGroups provided)' })
-  @IsOptional()
-  @IsEnum(AgeCategory)
-  ageCategory?: AgeCategory;
-
-  @ApiPropertyOptional({
-    enum: TournamentLevel,
-  })
+  @ApiPropertyOptional({ enum: TournamentLevel })
   @IsOptional()
   @IsEnum(TournamentLevel)
   level?: TournamentLevel;
 
-  @ApiPropertyOptional({ example: '4+1', description: 'Game system format' })
+  @ApiPropertyOptional({ example: '4+1' })
   @IsOptional()
   @IsString()
   gameSystem?: string;
@@ -581,7 +563,6 @@ export class CreateTournamentDto {
   @Min(1)
   guaranteedMatches?: number;
 
-  @ApiProperty({ example: 16 })
   @ApiPropertyOptional({
     example: 16,
     description: 'Max teams (optional if ageGroups provided)',
@@ -598,7 +579,7 @@ export class CreateTournamentDto {
   @IsString()
   regulationsDocument?: string;
 
-  @ApiPropertyOptional({ enum: Currency, default: Currency.EUR })
+  @ApiPropertyOptional({ enum: Currency })
   @IsOptional()
   @IsEnum(Currency)
   currency?: Currency;
@@ -836,11 +817,6 @@ export class UpdateTournamentDto {
   @Max(180)
   longitude?: number;
 
-  @ApiPropertyOptional({ enum: AgeCategory })
-  @IsOptional()
-  @IsEnum(AgeCategory)
-  ageCategory?: AgeCategory;
-
   @ApiPropertyOptional({ enum: TournamentLevel })
   @IsOptional()
   @IsEnum(TournamentLevel)
@@ -1015,11 +991,6 @@ export class TournamentFilterDto extends PaginationDto {
   @IsOptional()
   @IsEnum(TournamentStatus)
   status?: TournamentStatus;
-
-  @ApiPropertyOptional({ enum: AgeCategory })
-  @IsOptional()
-  @IsEnum(AgeCategory)
-  ageCategory?: AgeCategory;
 
   @ApiPropertyOptional({ enum: TournamentLevel })
   @IsOptional()

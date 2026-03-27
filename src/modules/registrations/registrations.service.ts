@@ -200,8 +200,7 @@ export class RegistrationsService {
     let ageCategoryMismatch = false;
     if (hasAgeGroups && selectedAgeGroup) {
       const birthYearMismatch = !!(selectedAgeGroup.birthYear && team.birthyear !== selectedAgeGroup.birthYear);
-      const categoryMismatch = !!(selectedAgeGroup.ageCategory && team.ageCategory && selectedAgeGroup.ageCategory !== team.ageCategory);
-      if (birthYearMismatch || categoryMismatch) {
+      if (birthYearMismatch) {
         ageCategoryMismatch = true;
       }
     }
@@ -841,9 +840,7 @@ export class RegistrationsService {
 
       // Build age group label
       let ageGroupLabel = ageGroup.displayLabel;
-      if (!ageGroupLabel && ageGroup.ageCategory) {
-        ageGroupLabel = ageGroup.ageCategory;
-      } else if (!ageGroupLabel && ageGroup.birthYear) {
+      if (!ageGroupLabel && ageGroup.birthYear) {
         ageGroupLabel = `Birth Year ${ageGroup.birthYear}`;
       } else if (!ageGroupLabel) {
         ageGroupLabel = 'Unknown Category';
