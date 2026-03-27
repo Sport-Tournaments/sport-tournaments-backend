@@ -31,36 +31,54 @@ const TOURNAMENT_DEFS: {
   format: FormatType;
   teamCount: number;
   description: string;
+  city: string;
+  latitude: number;
+  longitude: number;
 }[] = [
   {
     name: 'SE Cup 2026 - Single Elim',
     format: 'SINGLE_ELIMINATION',
     teamCount: 16,
     description: 'Test tournament for Single Elimination bracket format (16 teams)',
+    city: 'Bucharest',
+    latitude: 44.4268,
+    longitude: 26.1025,
   },
   {
     name: 'DE Cup 2026 - Double Elim',
     format: 'DOUBLE_ELIMINATION',
     teamCount: 16,
     description: 'Test tournament for Double Elimination bracket format (16 teams)',
+    city: 'Cluj-Napoca',
+    latitude: 46.7712,
+    longitude: 23.6236,
   },
   {
     name: 'RR Cup 2026 - Round Robin',
     format: 'ROUND_ROBIN',
     teamCount: 8,
     description: 'Test tournament for Round Robin (all-play-all) format (8 teams)',
+    city: 'Timișoara',
+    latitude: 45.7489,
+    longitude: 21.2087,
   },
   {
     name: 'GK Cup 2026 - Groups + KO',
     format: 'GROUPS_PLUS_KNOCKOUT',
     teamCount: 16,
     description: 'Test tournament for Groups + Knockout format (16 teams, 4 groups of 4)',
+    city: 'Iași',
+    latitude: 47.1585,
+    longitude: 27.6014,
   },
   {
     name: 'League Cup 2026 - League',
     format: 'LEAGUE',
     teamCount: 12,
     description: 'Test tournament for League format (12 teams, home & away)',
+    city: 'Constanța',
+    latitude: 44.1598,
+    longitude: 28.6348,
   },
 ];
 
@@ -206,10 +224,10 @@ async function bootstrap() {
     await ds.query(
       `INSERT INTO "tournaments" (
         id, name, organizer_id, description, status, start_date, end_date,
-        location, country, age_category, level, max_teams, current_teams,
+        location, country, latitude, longitude, age_category, level, max_teams, current_teams,
         currency, participation_fee, is_published, is_featured,
         registration_deadline, draw_completed, is_private
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)`,
       [
         tId,
         tDef.name,
@@ -218,8 +236,10 @@ async function bootstrap() {
         'PUBLISHED',
         futureDate(startDays),
         futureDate(startDays + 3),
-        'Bucharest, Romania',
+        `${tDef.city}, Romania`,
         'Romania',
+        tDef.latitude,
+        tDef.longitude,
         'U12',
         'I',
         tDef.teamCount,
