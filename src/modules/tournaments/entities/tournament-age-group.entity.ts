@@ -9,7 +9,7 @@ import {
 } from 'typeorm';
 import { Tournament } from './tournament.entity';
 import { DateOnlyTransformer } from '../../../common/transformers';
-import { AgeCategory, TournamentFormat, TournamentLevel } from '../../../common/enums';
+import { TournamentFormat, TournamentLevel } from '../../../common/enums';
 
 // Game systems available per age category
 export type GameSystem =
@@ -38,14 +38,6 @@ export class TournamentAgeGroup {
   @Index()
   @Column({ name: 'birth_year' })
   birthYear: number;
-
-  @Column({
-    name: 'age_category',
-    type: 'enum',
-    enum: AgeCategory,
-    nullable: true,
-  })
-  ageCategory?: AgeCategory;
 
   @Column({
     name: 'level',

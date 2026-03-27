@@ -206,21 +206,6 @@ export class TournamentsService {
       });
     }
 
-    if (filters?.ageCategory) {
-      queryBuilder.andWhere(
-        `(
-          CAST(tournament.ageCategory AS text) = :ageCategory
-          OR EXISTS (
-            SELECT 1
-            FROM tournament_age_groups ageGroup
-            WHERE ageGroup.tournament_id = tournament.id
-              AND CAST(ageGroup.age_category AS text) = :ageCategory
-          )
-        )`,
-        { ageCategory: filters.ageCategory },
-      );
-    }
-
     if (filters?.level) {
       queryBuilder.andWhere('tournament.level = :level', {
         level: filters.level,
@@ -551,7 +536,7 @@ export class TournamentsService {
     tournamentId: string,
     userId: string,
     userRole: string,
-    ageGroups: { id?: string; birthYear: number; displayLabel?: string; ageCategory?: string; level?: string; format?: string; gameSystem?: string; teamCount?: number; minTeams?: number; numberOfMatches?: number; matchPeriodType?: 'ONE_HALF' | 'TWO_HALVES'; halfDurationMinutes?: number; startDate?: string; endDate?: string; locationId?: string; locationAddress?: string; participationFee?: number; groupsCount?: number; fieldsCount?: number; teamsPerGroup?: number; qualifyingTeamsPerGroup?: number }[],
+    ageGroups: { id?: string; birthYear: number; displayLabel?: string; level?: string; format?: string; gameSystem?: string; teamCount?: number; minTeams?: number; numberOfMatches?: number; matchPeriodType?: 'ONE_HALF' | 'TWO_HALVES'; halfDurationMinutes?: number; startDate?: string; endDate?: string; locationId?: string; locationAddress?: string; participationFee?: number; groupsCount?: number; fieldsCount?: number; teamsPerGroup?: number; qualifyingTeamsPerGroup?: number }[],
   ): Promise<TournamentAgeGroup[]> {
     const tournament = await this.findByIdOrFail(tournamentId);
 
@@ -767,7 +752,6 @@ export class TournamentsService {
     ongoingTournaments: number;
     completedTournaments: number;
     tournamentsByStatus: Record<string, number>;
-    tournamentsByAgeCategory: Record<string, number>;
     tournamentsByCountry: Record<string, number>;
     upcomingTournaments: number;
   }> {
@@ -800,13 +784,6 @@ export class TournamentsService {
       .groupBy('tournament.status')
       .getRawMany();
 
-    const ageCategoryStats = await this.tournamentsRepository
-      .createQueryBuilder('tournament')
-      .select('tournament.ageCategory', 'ageCategory')
-      .addSelect('COUNT(*)', 'count')
-      .groupBy('tournament.ageCategory')
-      .getRawMany();
-
     const countryStats = await this.tournamentsRepository
       .createQueryBuilder('tournament')
       .select('tournament.country', 'country')
@@ -825,13 +802,6 @@ export class TournamentsService {
       upcomingTournaments,
       tournamentsByStatus: statusStats.reduce(
         (acc, item) => ({ ...acc, [item.status]: parseInt(item.count, 10) }),
-        {},
-      ),
-      tournamentsByAgeCategory: ageCategoryStats.reduce(
-        (acc, item) => ({
-          ...acc,
-          [item.ageCategory]: parseInt(item.count, 10),
-        }),
         {},
       ),
       tournamentsByCountry: countryStats.reduce(

@@ -13,7 +13,6 @@ import {
   TournamentStatus,
   TournamentLevel,
   Currency,
-  AgeCategory,
 } from '../../../common/enums';
 import { BracketData } from '../../../common/interfaces/bracket.interface';
 import { DateOnlyTransformer } from '../../../common/transformers';
@@ -67,15 +66,6 @@ export class Tournament {
 
   @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
   longitude: number;
-
-  @Index()
-  @Column({
-    name: 'age_category',
-    type: 'enum',
-    enum: AgeCategory,
-    nullable: true,
-  })
-  ageCategory: AgeCategory;
 
   @Index()
   @Column({
