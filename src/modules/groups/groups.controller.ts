@@ -251,6 +251,19 @@ export class GroupsController {
     return this.groupsService.generateBracket(tournamentId, user.sub, user.role, ageGroupId);
   }
 
+  @Post('bracket/generate-knockout')
+  @ApiOperation({ summary: 'Generate knockout bracket after all group matches completed' })
+  @ApiResponse({ status: 201, description: 'Knockout bracket generated' })
+  @ApiResponse({ status: 400, description: 'Group matches not completed or invalid format' })
+  @ApiResponse({ status: 403, description: 'Not authorized' })
+  generateKnockoutBracket(
+    @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
+    @CurrentUser() user: JwtPayload,
+    @Query('ageGroupId') ageGroupId?: string,
+  ) {
+    return this.groupsService.generateKnockoutBracket(tournamentId, user.sub, user.role, ageGroupId);
+  }
+
   // =====================================================
   // Pot-based draw endpoints
   // =====================================================

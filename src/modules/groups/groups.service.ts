@@ -624,6 +624,13 @@ export class GroupsService {
       }
 
       group.teams = dto.teams;
+
+      // Update registration.groupAssignment for all teams in this group
+      for (const teamId of dto.teams) {
+        await this.registrationsRepository.update(teamId, {
+          groupAssignment: group.groupLetter,
+        });
+      }
     }
 
     if (dto.groupLetter !== undefined) {
@@ -1266,6 +1273,13 @@ export class GroupsService {
       },
     );
 
+    // For GROUPS_PLUS_KNOCKOUT, strip the knockout shell — it will be
+    // generated separately via generateKnockoutBracket once all group
+    // matches are completed.
+    if (bracketType === BracketType.GROUPS_PLUS_KNOCKOUT) {
+      delete (bracketData as any).playoffRounds;
+    }
+
     // Assign teams to first round matches, seeded from groups when available
     if (bracketData.playoffRounds && bracketData.playoffRounds.length > 0) {
       const firstRound = bracketData.playoffRounds[0];
@@ -1379,6 +1393,62 @@ export class GroupsService {
       }
     }
 
+    // Assign team IDs to LEAGUE matches using the same wheel algorithm as
+    // generateLeagueBracket: first-leg gets real IDs, second-leg swaps them.
+    if (bracketType === BracketType.LEAGUE && bracketData.matches && bracketData.matches.length > 0) {
+      const shuffled = this.seededShuffle(
+        [...registrations],
+        bracketData.seed || 'default-seed',
+      );
+      const teamCount = shuffled.length;
+      const n = teamCount % 2 === 0 ? teamCount : teamCount + 1;
+
+      const firstLegMatches = bracketData.matches.filter((m: Match) =>
+        (m.id as string).startsWith('leg1_'),
+      );
+      const secondLegMatches = bracketData.matches.filter((m: Match) =>
+        (m.id as string).startsWith('leg2_'),
+      );
+
+      let matchIndex = 0;
+      for (let r = 0; r < n - 1 && matchIndex < firstLegMatches.length; r++) {
+        const oppRotIdx = (r + n / 2 - 1) % (n - 1);
+        const opp = oppRotIdx + 1;
+        if (opp < teamCount) {
+          const m = firstLegMatches[matchIndex++];
+          m.team1Id = shuffled[0].id;
+          m.team1Name = shuffled[0].club?.name || shuffled[0].coachName || 'Team 1';
+          m.team2Id = shuffled[opp].id;
+          m.team2Name = shuffled[opp].club?.name || shuffled[opp].coachName || `Team ${opp + 1}`;
+        }
+
+        for (let i = 1; i < n / 2 && matchIndex < firstLegMatches.length; i++) {
+          const rIdx1 = (r + i - 1 + (n - 1)) % (n - 1);
+          const rIdx2 = (r + n - 2 - i + (n - 1)) % (n - 1);
+          const ta = rIdx1 + 1;
+          const tb = rIdx2 + 1;
+          if (ta < teamCount && tb < teamCount) {
+            const m = firstLegMatches[matchIndex++];
+            m.team1Id = shuffled[ta].id;
+            m.team1Name = shuffled[ta].club?.name || shuffled[ta].coachName || `Team ${ta + 1}`;
+            m.team2Id = shuffled[tb].id;
+            m.team2Name = shuffled[tb].club?.name || shuffled[tb].coachName || `Team ${tb + 1}`;
+          }
+        }
+      }
+
+      // Second-leg: swap home/away from corresponding first-leg match
+      secondLegMatches.forEach((m: Match, idx: number) => {
+        if (idx < firstLegMatches.length) {
+          const fl = firstLegMatches[idx];
+          m.team1Id = fl.team2Id;
+          m.team1Name = fl.team2Name;
+          m.team2Id = fl.team1Id;
+          m.team2Name = fl.team1Name;
+        }
+      });
+    }
+
     // Generate group phase round-robin matches for GROUPS_PLUS_KNOCKOUT / GROUPS_ONLY
     if (
       bracketType === BracketType.GROUPS_PLUS_KNOCKOUT ||
@@ -1463,6 +1533,152 @@ export class GroupsService {
           bracketData: existingBracketData as any,
         });
       }
+    } else {
+      await this.tournamentsRepository.update(tournamentId, {
+        bracketData: bracketData as any,
+      });
+    }
+
+    return bracketData;
+  }
+
+  /**
+   * Generate the knockout bracket for a GROUPS_PLUS_KNOCKOUT tournament.
+   * Only callable once all group-stage matches are COMPLETED.
+   */
+  async generateKnockoutBracket(
+    tournamentId: string,
+    userId: string,
+    userRole: string,
+    ageGroupId?: string,
+  ): Promise<any> {
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id: tournamentId },
+      relations: ['ageGroups'],
+    });
+
+    if (!tournament) {
+      throw new NotFoundException('Tournament not found');
+    }
+
+    if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException(
+        'You are not allowed to generate the knockout bracket for this tournament',
+      );
+    }
+
+    const ageGroup = ageGroupId
+      ? (tournament.ageGroups ?? []).find((ag) => ag.id === ageGroupId)
+      : null;
+
+    if (ageGroup && ageGroup.format !== TournamentFormat.GROUPS_PLUS_KNOCKOUT) {
+      throw new BadRequestException(
+        'Knockout bracket generation is only available for GROUPS_PLUS_KNOCKOUT format',
+      );
+    }
+
+    // Load existing bracket data
+    const existingBracketData = (tournament.bracketData as any) || {};
+    const bracketData = ageGroupId
+      ? existingBracketData[ageGroupId]
+      : existingBracketData;
+
+    if (!bracketData || !bracketData.matches || bracketData.matches.length === 0) {
+      throw new BadRequestException(
+        'Group matches must be generated before creating the knockout bracket',
+      );
+    }
+
+    // Already has playoff rounds — cannot regenerate
+    if (bracketData.playoffRounds && bracketData.playoffRounds.length > 0) {
+      throw new BadRequestException(
+        'Knockout bracket has already been generated',
+      );
+    }
+
+    // Verify all group matches are completed
+    const groupMatches = (bracketData.matches as Match[]).filter(
+      (m) => m.groupLetter,
+    );
+    const incompleteMatches = groupMatches.filter(
+      (m) => m.status !== 'COMPLETED',
+    );
+    if (incompleteMatches.length > 0) {
+      throw new BadRequestException(
+        `All group matches must be completed before generating the knockout bracket. ${incompleteMatches.length} match(es) still pending.`,
+      );
+    }
+
+    // Fetch groups
+    const groupsWhere: any = { tournamentId };
+    if (ageGroupId) groupsWhere.ageGroupId = ageGroupId;
+    const groups = await this.groupsRepository.find({
+      where: groupsWhere,
+      order: { groupLetter: 'ASC' },
+    });
+
+    if (groups.length === 0) {
+      throw new BadRequestException('No groups found for this tournament');
+    }
+
+    const advancingPerGroup =
+      (bracketData as any).advancingTeamsPerGroup ?? 2;
+    const playoffTeamCount = groups.length * advancingPerGroup;
+
+    // Generate knockout bracket shell
+    const knockoutBracketData = this.bracketGeneratorService.generateBracket(
+      BracketType.SINGLE_ELIMINATION,
+      playoffTeamCount,
+      {
+        thirdPlaceMatch: true,
+        seed: tournament.drawSeed || undefined,
+      },
+    );
+
+    // Attach playoffRounds to existing bracketData
+    bracketData.playoffRounds = knockoutBracketData.playoffRounds;
+
+    // Calculate standings from completed group matches and seed teams
+    const nameMap = new Map<string, string>();
+    for (const m of groupMatches) {
+      if (m.team1Id && m.team1Name) nameMap.set(m.team1Id, m.team1Name);
+      if (m.team2Id && m.team2Name) nameMap.set(m.team2Id, m.team2Name);
+    }
+
+    const perGroupStandings = new Map<string, GroupStanding[]>();
+    for (const group of groups) {
+      const gMatches = groupMatches.filter(
+        (m) => m.groupLetter === group.groupLetter,
+      );
+      const standings = this.bracketGeneratorService.calculateGroupStandings(
+        group.teams,
+        gMatches,
+        group.tieBreakOrder,
+      );
+      perGroupStandings.set(group.groupLetter, standings);
+    }
+
+    this.bracketGeneratorService.seedTeamsIntoBracket(
+      perGroupStandings,
+      advancingPerGroup,
+      bracketData,
+    );
+
+    // Fill in team names on first-round knockout matches
+    if (bracketData.playoffRounds && bracketData.playoffRounds.length > 0) {
+      const firstRound = bracketData.playoffRounds[0];
+      for (const m of firstRound.matches) {
+        if (m.team1Id) m.team1Name = nameMap.get(m.team1Id) || m.team1Name || '';
+        if (m.team2Id) m.team2Name = nameMap.get(m.team2Id) || m.team2Name || '';
+      }
+    }
+
+    // Save updated bracket data
+    if (ageGroupId) {
+      existingBracketData[ageGroupId] = bracketData;
+      await this.tournamentsRepository.update(tournamentId, {
+        bracketData: existingBracketData as any,
+      });
     } else {
       await this.tournamentsRepository.update(tournamentId, {
         bracketData: bracketData as any,

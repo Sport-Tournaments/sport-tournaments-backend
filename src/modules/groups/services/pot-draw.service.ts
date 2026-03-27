@@ -192,10 +192,9 @@ export class PotDrawService {
       );
     }
 
-    const baseTeamsPerGroup = Math.floor(totalTeams / dto.numberOfGroups);
+    const teamsPerPot = Math.floor(totalTeams / dto.numberOfGroups);
     const remainder = totalTeams % dto.numberOfGroups;
-    const numFullPots = baseTeamsPerGroup;              // full pots, each with numberOfGroups teams
-    const expectedTeamsPerFullPot = dto.numberOfGroups; // teams_per_pot = num_groups
+    const numPots = dto.numberOfGroups;
 
     // Get pot assignments (filtered by age group if specified)
     const potAssignments = await this.getPotAssignments(tournamentId, dto.ageGroupId);
@@ -213,32 +212,16 @@ export class PotDrawService {
     }
 
     // Validate pot structure:
-    //   - Pots 1..numFullPots: each with exactly numberOfGroups teams
-    //   - If remainder > 0: pot numFullPots+1 with exactly `remainder` teams
-    for (let i = 1; i <= numFullPots; i++) {
+    //   - Number of pots = number of groups
+    //   - First `remainder` pots have teamsPerPot+1 teams, rest have teamsPerPot teams
+    for (let i = 1; i <= numPots; i++) {
       const potTeams = potAssignments.get(i) || [];
-      if (potTeams.length !== expectedTeamsPerFullPot) {
+      const expectedSize = i <= remainder ? teamsPerPot + 1 : teamsPerPot;
+      if (potTeams.length !== expectedSize) {
         throw new BadRequestException(
-          `Pot ${i} has ${potTeams.length} teams, but must have exactly ${expectedTeamsPerFullPot} ` +
-          `(= number of groups). Each full pot must contain exactly as many teams as there are groups.`,
+          `Pot ${i} has ${potTeams.length} teams, but must have exactly ${expectedSize} teams.`,
         );
       }
-    }
-
-    if (remainder > 0) {
-      const remainderPotNum = numFullPots + 1;
-      const remainderTeams = potAssignments.get(remainderPotNum) || [];
-      if (remainderTeams.length !== remainder) {
-        throw new BadRequestException(
-          `Remainder pot (Pot ${remainderPotNum}) has ${remainderTeams.length} teams, ` +
-          `but must have exactly ${remainder} teams (the remainder of ${totalTeams} ÷ ${dto.numberOfGroups}).`,
-        );
-      }
-    }
-
-    const nonEmptyPots: number[] = [];
-    for (const [potNum, teams] of potAssignments.entries()) {
-      if (teams.length > 0) nonEmptyPots.push(potNum);
     }
 
     // Initialize groups with their letters
@@ -250,40 +233,17 @@ export class PotDrawService {
       }),
     );
 
-    // Sort pot numbers so we process Pot 1 first, Pot 2 second, etc.
-    nonEmptyPots.sort((a, b) => a - b);
-
-    // Shuffle within each pot for randomness
-    const shuffledPots = new Map<number, TournamentPot[]>();
-    for (const potNum of nonEmptyPots) {
+    // Distribution: concatenate all pots in order and round-robin to groups.
+    // This ensures each group gets teams from different strength tiers.
+    const allTeams: string[] = [];
+    for (let potNum = 1; potNum <= numPots; potNum++) {
       const potTeams = potAssignments.get(potNum) || [];
-      shuffledPots.set(
-        potNum,
-        this.seededShuffle([...potTeams], tournamentId + potNum),
-      );
-    }
-
-    // Distribution:
-    //   Full pots (1..numFullPots): each group receives exactly 1 team per pot.
-    //   Remainder pot (numFullPots+1, if exists): its teams go to randomly
-    //   chosen groups, so `remainder` groups get one extra team.
-    for (let potNum = 1; potNum <= numFullPots; potNum++) {
-      const potTeams = shuffledPots.get(potNum)!;
-      for (let g = 0; g < dto.numberOfGroups; g++) {
-        groups[g].teams.push(potTeams[g].registrationId);
+      for (const team of potTeams) {
+        allTeams.push(team.registrationId);
       }
     }
-
-    // Distribute remainder pot teams to randomly selected groups
-    if (remainder > 0) {
-      const remainderPotNum = numFullPots + 1;
-      const remainderTeams = shuffledPots.get(remainderPotNum)!;
-      // Randomly pick which groups get the extra team
-      const groupIndices = Array.from({ length: dto.numberOfGroups }, (_, i) => i);
-      const shuffledGroupIndices = this.seededShuffle(groupIndices, tournamentId + 'remainder');
-      for (let i = 0; i < remainder; i++) {
-        groups[shuffledGroupIndices[i]].teams.push(remainderTeams[i].registrationId);
-      }
+    for (let i = 0; i < allTeams.length; i++) {
+      groups[i % dto.numberOfGroups].teams.push(allTeams[i]);
     }
 
     // Save groups to database
