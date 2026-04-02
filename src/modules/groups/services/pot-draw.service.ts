@@ -192,9 +192,10 @@ export class PotDrawService {
       );
     }
 
-    const teamsPerPot = Math.floor(totalTeams / dto.numberOfGroups);
-    const remainder = totalTeams % dto.numberOfGroups;
-    const numPots = dto.numberOfGroups;
+    const numGroups = dto.numberOfGroups;                 // output groups (A, B, C, ...)
+    const numPots = numGroups;                            // rule: numPots = numGroups
+    const teamsPerPot = Math.floor(totalTeams / numGroups); // base teams per pot
+    const remainder = totalTeams % numGroups;             // extra teams spread across first pots
 
     // Get pot assignments (filtered by age group if specified)
     const potAssignments = await this.getPotAssignments(tournamentId, dto.ageGroupId);
@@ -212,8 +213,9 @@ export class PotDrawService {
     }
 
     // Validate pot structure:
-    //   - Number of pots = number of groups
-    //   - First `remainder` pots have teamsPerPot+1 teams, rest have teamsPerPot teams
+    //   - numPots = numGroups (one pot per output group)
+    //   - Pots 1..remainder have (teamsPerPot + 1) teams each
+    //   - Pots (remainder+1)..numPots have teamsPerPot teams each
     for (let i = 1; i <= numPots; i++) {
       const potTeams = potAssignments.get(i) || [];
       const expectedSize = i <= remainder ? teamsPerPot + 1 : teamsPerPot;
@@ -224,8 +226,8 @@ export class PotDrawService {
       }
     }
 
-    // Initialize groups with their letters
-    const groupLetters = this.getGroupLetters(dto.numberOfGroups);
+    // Output = numGroups groups (A, B, C, ...)
+    const groupLetters = this.getGroupLetters(numGroups);
     const groups: { letter: string; teams: string[] }[] = groupLetters.map(
       (letter) => ({
         letter,
@@ -233,17 +235,17 @@ export class PotDrawService {
       }),
     );
 
-    // Distribution: concatenate all pots in order and round-robin to groups.
-    // This ensures each group gets teams from different strength tiers.
-    const allTeams: string[] = [];
+    // Distribution: circular assignment ensuring no two teams from the same pot
+    // end up in the same group.
+    //   Pot p contributes its K teams to groups: (p-1)%N, p%N, ..., (p-1+K-1)%N
+    // This produces each group receiving exactly teamsPerPot (or teamsPerPot+1) teams
+    // from distinct pots.
     for (let potNum = 1; potNum <= numPots; potNum++) {
       const potTeams = potAssignments.get(potNum) || [];
-      for (const team of potTeams) {
-        allTeams.push(team.registrationId);
+      for (let k = 0; k < potTeams.length; k++) {
+        const groupIdx = (potNum - 1 + k) % numGroups;
+        groups[groupIdx].teams.push(potTeams[k].registrationId);
       }
-    }
-    for (let i = 0; i < allTeams.length; i++) {
-      groups[i % dto.numberOfGroups].teams.push(allTeams[i]);
     }
 
     // Save groups to database

@@ -8,7 +8,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThanOrEqual, DeepPartial } from 'typeorm';
+import { Repository, MoreThanOrEqual, DeepPartial, In } from 'typeorm';
 import { Tournament } from './entities/tournament.entity';
 import { TournamentAgeGroup } from './entities/tournament-age-group.entity';
 import {
@@ -360,8 +360,45 @@ export class TournamentsService {
       .take(pageSize)
       .getManyAndCount();
 
+    const tournamentsMissingAgeGroupCapacity = tournaments.filter(
+      (tournament) => tournament.maxTeams == null,
+    );
+
+    let ageGroupsByTournamentId = new Map<string, TournamentAgeGroup[]>();
+
+    if (tournamentsMissingAgeGroupCapacity.length > 0) {
+      const ageGroups = await this.ageGroupsRepository.find({
+        where: {
+          tournamentId: In(
+            tournamentsMissingAgeGroupCapacity.map((tournament) => tournament.id),
+          ),
+        },
+      });
+
+      ageGroupsByTournamentId = ageGroups.reduce(
+        (map, ageGroup) => {
+          const existingAgeGroups = map.get(ageGroup.tournamentId) ?? [];
+          existingAgeGroups.push(ageGroup);
+          map.set(ageGroup.tournamentId, existingAgeGroups);
+          return map;
+        },
+        new Map<string, TournamentAgeGroup[]>(),
+      );
+    }
+
+    const enrichedTournaments = tournaments.map((tournament) =>
+      this.enrichTournamentData(
+        Object.assign(tournament, {
+          ageGroups:
+            tournament.ageGroups && tournament.ageGroups.length > 0
+              ? tournament.ageGroups
+              : ageGroupsByTournamentId.get(tournament.id) ?? [],
+        }),
+      ),
+    );
+
     return {
-      data: tournaments,
+      data: enrichedTournaments,
       meta: {
         total,
         page,
@@ -435,10 +472,41 @@ export class TournamentsService {
   }
 
   private enrichTournamentData(tournament: Tournament): Tournament {
+    const tournamentWithDerivedCounts = tournament as Tournament & {
+      confirmedTeams?: number;
+      registeredTeams?: number;
+    };
+
+    const ageGroupCurrentTeams =
+      tournament.ageGroups?.reduce(
+        (total, ageGroup) => total + (ageGroup.currentTeams ?? 0),
+        0,
+      ) ?? 0;
+
+    const derivedMaxTeams =
+      tournament.maxTeams ??
+      tournament.ageGroups?.reduce((total, ageGroup) => {
+        const ageGroupMaxTeams =
+          ageGroup.teamCount ??
+          ageGroup.maxTeams ??
+          ((ageGroup.teamsPerGroup ?? 0) * (ageGroup.groupsCount ?? 0));
+
+        return total + (ageGroupMaxTeams || 0);
+      }, 0);
+
     const confirmedTeams =
       tournament.registrations?.filter(
         (r) => r.status === RegistrationStatus.APPROVED,
-      ).length ?? 0;
+      ).length ??
+      tournamentWithDerivedCounts.confirmedTeams ??
+      tournament.currentTeams ??
+      ageGroupCurrentTeams;
+
+    const registeredTeams =
+      tournament.registrations?.length ??
+      tournamentWithDerivedCounts.registeredTeams ??
+      tournament.currentTeams ??
+      ageGroupCurrentTeams;
 
     const effectiveStartDate =
       tournament.ageGroups
@@ -446,7 +514,13 @@ export class TournamentsService {
         .filter(Boolean)
         .sort()[0] ?? null;
 
-    return Object.assign(tournament, { confirmedTeams, effectiveStartDate });
+    return Object.assign(tournament, {
+      confirmedTeams,
+      registeredTeams,
+      currentTeams: tournament.currentTeams ?? ageGroupCurrentTeams,
+      maxTeams: derivedMaxTeams ?? tournament.maxTeams,
+      effectiveStartDate,
+    });
   }
 
   async update(

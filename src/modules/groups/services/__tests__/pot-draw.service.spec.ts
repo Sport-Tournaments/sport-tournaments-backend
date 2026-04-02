@@ -6,6 +6,7 @@ import { TournamentPot } from '../../entities/tournament-pot.entity';
 import { Group } from '../../entities/group.entity';
 import { Tournament } from '../../../tournaments/entities/tournament.entity';
 import { Registration } from '../../../registrations/entities/registration.entity';
+import { TournamentAgeGroup } from '../../../tournaments/entities/tournament-age-group.entity';
 import { UserRole, RegistrationStatus } from '../../../../common/enums';
 
 /**
@@ -70,6 +71,12 @@ describe('PotDrawService (Issue #34)', () => {
 
     const mockRegistrationRepository = {
       findOne: jest.fn(),
+      update: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const mockAgeGroupRepository = {
+      findOne: jest.fn().mockResolvedValue(null),
+      update: jest.fn().mockResolvedValue(undefined),
     };
 
     const mockGroupRepository = {
@@ -95,6 +102,10 @@ describe('PotDrawService (Issue #34)', () => {
         {
           provide: getRepositoryToken(Group),
           useValue: mockGroupRepository,
+        },
+        {
+          provide: getRepositoryToken(TournamentAgeGroup),
+          useValue: mockAgeGroupRepository,
         },
       ],
     }).compile();
@@ -293,13 +304,15 @@ describe('PotDrawService (Issue #34)', () => {
       expect(result.get(1)).toHaveLength(2);
       expect(result.get(2)).toHaveLength(1);
       expect(result.get(3)).toHaveLength(1);
-      expect(result.get(4)).toHaveLength(0);
+      // pot 4 has no data → not included in the map
+      expect(result.get(4)).toBeUndefined();
     });
   });
 
   describe('Execute Pot-Based Draw', () => {
-    it('should execute draw and create balanced groups', async () => {
-      // Setup: 16 teams, 4 pots of 4 teams each
+    it('should execute draw and create balanced groups (16 teams, 4 pots of 4)', async () => {
+      // numPots = numberOfGroups = 4; teamsPerPot = 16/4 = 4 → 4 output groups
+      // Circular algorithm: each group gets 1 team from each of the 4 pots
       const tournamentWithRegistrations = {
         ...mockTournament,
         registrations: Array.from({ length: 16 }, (_, i) => ({
@@ -308,20 +321,15 @@ describe('PotDrawService (Issue #34)', () => {
         })),
       };
 
-      const mockPotAssignments = new Map([
-        [1, Array.from({ length: 4 }, (_, i) => ({ registrationId: `reg-${i}`, potNumber: 1 }))],
-        [2, Array.from({ length: 4 }, (_, i) => ({ registrationId: `reg-${i + 4}`, potNumber: 2 }))],
-        [3, Array.from({ length: 4 }, (_, i) => ({ registrationId: `reg-${i + 8}`, potNumber: 3 }))],
-        [4, Array.from({ length: 4 }, (_, i) => ({ registrationId: `reg-${i + 12}`, potNumber: 4 }))],
-      ]);
+      // 4 pots, 4 teams each
+      const allPots: any[] = [
+        ...Array.from({ length: 4 }, (_, i) => ({ registrationId: `reg-${i}`, potNumber: 1 })),
+        ...Array.from({ length: 4 }, (_, i) => ({ registrationId: `reg-${i + 4}`, potNumber: 2 })),
+        ...Array.from({ length: 4 }, (_, i) => ({ registrationId: `reg-${i + 8}`, potNumber: 3 })),
+        ...Array.from({ length: 4 }, (_, i) => ({ registrationId: `reg-${i + 12}`, potNumber: 4 })),
+      ];
 
       tournamentRepository.findOne.mockResolvedValue(tournamentWithRegistrations);
-      
-      // Mock pot data for getPotAssignments (called internally via createQueryBuilder -> getMany -> find)
-      const allPots: any[] = [];
-      for (const [potNum, teams] of mockPotAssignments.entries()) {
-        allPots.push(...teams.map(t => ({ ...t, potNumber: potNum })));
-      }
       potRepository.find.mockResolvedValue(allPots);
 
       const dto = { numberOfGroups: 4 };
@@ -333,12 +341,17 @@ describe('PotDrawService (Issue #34)', () => {
         UserRole.ORGANIZER,
       );
 
-      expect(result).toHaveLength(4); // 4 groups created
+      // numPots = numGroups = 4; circular distribution: each group gets 1 team from each pot
+      expect(result).toHaveLength(4);
       expect(groupRepository.save).toHaveBeenCalledTimes(4);
-      expect(tournamentRepository.save).toHaveBeenCalledWith({
-        ...tournamentWithRegistrations,
-        drawCompleted: true,
-      });
+      // Circular: Pot p → groups (p-1+k)%4 for k=0..3
+      // Group A (idx=0): Pot1[k=0]=reg-0, Pot2[k=3]=reg-7, Pot3[k=2]=reg-10, Pot4[k=1]=reg-13
+      expect(result[0].teams).toEqual(['reg-0', 'reg-7', 'reg-10', 'reg-13']);
+      // Group B (idx=1): Pot1[k=1]=reg-1, Pot2[k=0]=reg-4, Pot3[k=3]=reg-11, Pot4[k=2]=reg-14
+      expect(result[1].teams).toEqual(['reg-1', 'reg-4', 'reg-11', 'reg-14']);
+      expect(tournamentRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ drawCompleted: true }),
+      );
     });
 
     it('should reject if draw already completed', async () => {
@@ -469,7 +482,8 @@ describe('PotDrawService (Issue #34)', () => {
       expect(result.potCounts.get(1)).toBe(2);
       expect(result.potCounts.get(2)).toBe(1);
       expect(result.potCounts.get(3)).toBe(3);
-      expect(result.potCounts.get(4)).toBe(0);
+      // pot 4 has no assignments → not present in the map
+      expect(result.potCounts.get(4)).toBeUndefined();
     });
 
     it('should return valid for empty pots', async () => {
@@ -483,7 +497,8 @@ describe('PotDrawService (Issue #34)', () => {
   });
 
   describe('Execute Pot-Based Draw - Snake Draft Balance', () => {
-    it('should distribute from each pot across groups (6 teams, 2 groups)', async () => {
+    it('should distribute from each pot across groups (6 teams, 3 pots of 2 → 3 output groups)', async () => {
+      // numGroups=3, numPots=3 (=numGroups), teamsPerPot=6/3=2 → 3 output groups of 2 teams each
       const tournamentWith6 = {
         ...mockTournament,
         registrations: Array.from({ length: 6 }, (_, i) => ({
@@ -502,7 +517,7 @@ describe('PotDrawService (Issue #34)', () => {
         { potNumber: 3, registrationId: 'reg-5' },
       ]);
 
-      const dto = { numberOfGroups: 2 };
+      const dto = { numberOfGroups: 3 }; // numPots=numGroups=3, 3 pots of 2 teams → 3 output groups of 2 teams
       const result = await service.executePotBasedDraw(
         mockTournamentId,
         dto,
@@ -510,19 +525,25 @@ describe('PotDrawService (Issue #34)', () => {
         UserRole.ORGANIZER,
       );
 
-      expect(result).toHaveLength(2);
-      expect(groupRepository.save).toHaveBeenCalledTimes(2);
+      expect(result).toHaveLength(3);
+      expect(groupRepository.save).toHaveBeenCalledTimes(3);
 
-      // Each group should have 3 teams
+      // Group i gets team at position i from each pot
       const group1 = result[0];
       const group2 = result[1];
-      expect(group1.teams).toHaveLength(3);
-      expect(group2.teams).toHaveLength(3);
+      const group3 = result[2];
+      expect(group1.teams).toHaveLength(2);
+      expect(group2.teams).toHaveLength(2);
+      expect(group3.teams).toHaveLength(2);
       expect(group1.groupLetter).toBe('A');
       expect(group2.groupLetter).toBe('B');
+      expect(group3.groupLetter).toBe('C');
     });
 
-    it('should handle uneven team counts across groups (5 teams, 2 groups)', async () => {
+    it('should handle uneven team counts (5 teams, numGroups=3 → 3 groups, partial pot)', async () => {
+      // numGroups=3, numPots=3 (=numGroups), 5 teams: teamsPerPot=floor(5/3)=1, remainder=2
+      // Pots 1 & 2 (i<=remainder=2): teamsPerPot+1 = 2 teams each
+      // Pot 3 (i>remainder): teamsPerPot = 1 team
       const tournamentWith5 = {
         ...mockTournament,
         registrations: Array.from({ length: 5 }, (_, i) => ({
@@ -534,13 +555,13 @@ describe('PotDrawService (Issue #34)', () => {
       tournamentRepository.findOne.mockResolvedValue(tournamentWith5);
       potRepository.find.mockResolvedValue([
         { potNumber: 1, registrationId: 'reg-0' },
-        { potNumber: 1, registrationId: 'reg-1' },
+        { potNumber: 1, registrationId: 'reg-1' }, // pot 1: 2 teams (teamsPerPot+1)
         { potNumber: 2, registrationId: 'reg-2' },
-        { potNumber: 2, registrationId: 'reg-3' },
-        { potNumber: 3, registrationId: 'reg-4' },
+        { potNumber: 2, registrationId: 'reg-3' }, // pot 2: 2 teams (teamsPerPot+1)
+        { potNumber: 3, registrationId: 'reg-4' }, // pot 3: 1 team (teamsPerPot)
       ]);
 
-      const dto = { numberOfGroups: 2 };
+      const dto = { numberOfGroups: 3 };
       const result = await service.executePotBasedDraw(
         mockTournamentId,
         dto,
@@ -548,11 +569,10 @@ describe('PotDrawService (Issue #34)', () => {
         UserRole.ORGANIZER,
       );
 
-      expect(result).toHaveLength(2);
-      const totalTeams = result[0].teams.length + result[1].teams.length;
+      // 3 output groups, total 5 teams
+      expect(result).toHaveLength(3);
+      const totalTeams = result.reduce((sum: number, g: any) => sum + g.teams.length, 0);
       expect(totalTeams).toBe(5);
-      // Groups should differ by at most 1 team
-      expect(Math.abs(result[0].teams.length - result[1].teams.length)).toBeLessThanOrEqual(1);
     });
 
     it('should reject numberOfGroups > totalTeams', async () => {
@@ -591,6 +611,7 @@ describe('PotDrawService (Issue #34)', () => {
     });
 
     it('should only count APPROVED registrations (ignore withdrawn/pending)', async () => {
+      // 4 approved teams, numPots=2 → teamsPerPot=2 → 2 output groups of 2 teams each
       const mixedTournament = {
         ...mockTournament,
         registrations: [
@@ -604,6 +625,7 @@ describe('PotDrawService (Issue #34)', () => {
       };
 
       tournamentRepository.findOne.mockResolvedValue(mixedTournament);
+      // 2 pots of 2 approved teams each (total approved = 4)
       potRepository.find.mockResolvedValue([
         { potNumber: 1, registrationId: 'reg-0' },
         { potNumber: 1, registrationId: 'reg-1' },
@@ -619,12 +641,14 @@ describe('PotDrawService (Issue #34)', () => {
         UserRole.ORGANIZER,
       );
 
+      // teamsPerPot=2 → 2 output groups, 2 teams each
       expect(result).toHaveLength(2);
-      const totalTeams = result[0].teams.length + result[1].teams.length;
+      const totalTeams = result.reduce((sum: number, g: any) => sum + g.teams.length, 0);
       expect(totalTeams).toBe(4); // Only 4 approved
     });
 
     it('should set drawCompleted to true after successful draw', async () => {
+      // numGroups=2, numPots=2 (=numGroups), 2 teams: teamsPerPot=1 → 2 pots of 1 team → 2 output groups of 1 team each
       const tournament = {
         ...mockTournament,
         registrations: [
@@ -639,7 +663,7 @@ describe('PotDrawService (Issue #34)', () => {
         { potNumber: 2, registrationId: 'reg-1' },
       ]);
 
-      const dto = { numberOfGroups: 1 };
+      const dto = { numberOfGroups: 2 }; // 2 pots of 1 team → 2 output groups of 1 team each
       await service.executePotBasedDraw(
         mockTournamentId,
         dto,
@@ -697,10 +721,12 @@ describe('PotDrawService (Issue #34)', () => {
 
       const result = await service.getPotAssignments(mockTournamentId);
 
+      // Empty assignments → map has only pot 1 (minimum)
       expect(result.get(1)).toHaveLength(0);
-      expect(result.get(2)).toHaveLength(0);
-      expect(result.get(3)).toHaveLength(0);
-      expect(result.get(4)).toHaveLength(0);
+      // Pots 2-4 don't exist in the map
+      expect(result.get(2)).toBeUndefined();
+      expect(result.get(3)).toBeUndefined();
+      expect(result.get(4)).toBeUndefined();
     });
   });
 });
