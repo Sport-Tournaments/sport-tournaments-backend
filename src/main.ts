@@ -23,7 +23,7 @@ async function bootstrap() {
   const allowedOrigins = configService
     .get<string>('cors.origins')
     ?.split(',')
-    .map((origin) => origin.trim()) || ['http://localhost:3000'];
+    .map((origin) => origin.trim()) || ['http://localhost:4000'];
 
   const isLocalNetworkHost = (host: string) => {
     if (host === 'localhost' || host === '127.0.0.1') return true;
