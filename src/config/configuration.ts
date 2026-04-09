@@ -55,7 +55,7 @@ export default () => ({
     process.env.REQUIRE_EMAIL_VERIFICATION === 'true' ||
     process.env.REQUIRE_EMAIL_VERIFICATION === '1',
 
-  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3001',
+  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:4000',
 
   throttle: {
     ttl: parseInt(process.env.THROTTLE_TTL || '60000', 10),
