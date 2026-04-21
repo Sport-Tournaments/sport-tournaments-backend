@@ -476,7 +476,49 @@ export class TournamentsService {
       order: { startDate: 'DESC' },
     });
 
-    return Promise.all(tournaments.map((tournament) => this.normalizeDraftStatus(tournament)));
+    const normalized = await Promise.all(
+      tournaments.map((tournament) => this.normalizeDraftStatus(tournament)),
+    );
+
+    return normalized.map((tournament) =>
+      this.applyEffectiveDatesFromAgeGroups(tournament),
+    );
+  }
+
+  private applyEffectiveDatesFromAgeGroups(tournament: Tournament): Tournament {
+    if (tournament.startDate && tournament.endDate) {
+      return tournament;
+    }
+
+    const ageGroups = tournament.ageGroups ?? [];
+
+    if (!ageGroups.length) {
+      return tournament;
+    }
+
+    if (!tournament.startDate) {
+      const agStartDates = ageGroups
+        .map((ag) => ag.startDate)
+        .filter(Boolean)
+        .sort() as string[];
+
+      if (agStartDates.length) {
+        tournament.startDate = agStartDates[0] as unknown as Date;
+      }
+    }
+
+    if (!tournament.endDate) {
+      const agEndDates = ageGroups
+        .map((ag) => ag.endDate)
+        .filter(Boolean)
+        .sort() as string[];
+
+      if (agEndDates.length) {
+        tournament.endDate = agEndDates[agEndDates.length - 1] as unknown as Date;
+      }
+    }
+
+    return tournament;
   }
 
   private async normalizeDraftStatus(tournament: Tournament): Promise<Tournament> {
