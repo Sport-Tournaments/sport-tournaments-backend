@@ -38,6 +38,9 @@ export interface Match {
   loserId?: string;
   manualWinnerId?: string;
   isManualOverride?: boolean;
+  hasPenalties?: boolean;
+  penaltyTeam1Score?: number;
+  penaltyTeam2Score?: number;
   scheduledAt?: Date;
   courtNumber?: number;
   fieldName?: string;
