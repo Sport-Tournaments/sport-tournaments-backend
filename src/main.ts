@@ -23,7 +23,7 @@ async function bootstrap() {
   const allowedOrigins = configService
     .get<string>('cors.origins')
     ?.split(',')
-    .map((origin) => origin.trim()) || ['http://localhost:4000'];
+    .map((origin) => origin.trim()) || ['http://localhost:3000'];
 
   const isLocalNetworkHost = (host: string) => {
     if (host === 'localhost' || host === '127.0.0.1') return true;
@@ -169,7 +169,7 @@ Most endpoints require JWT authentication. Include the access token in the Autho
     });
   });
 
-  const port = configService.get<number>('port') || 3000;
+  const port = configService.get<number>('port') || 3001;
   await app.listen(port);
 
   logger.log(`Application is running on: http://localhost:${port}`);

@@ -980,6 +980,11 @@ export class GroupsService {
 
     if (dto.status) targetMatch.status = dto.status as Match['status'];
 
+    // Update penalty fields
+    if (dto.hasPenalties !== undefined) targetMatch.hasPenalties = dto.hasPenalties;
+    if (dto.penaltyTeam1Score !== undefined) targetMatch.penaltyTeam1Score = dto.penaltyTeam1Score;
+    if (dto.penaltyTeam2Score !== undefined) targetMatch.penaltyTeam2Score = dto.penaltyTeam2Score;
+
     let bracketUpdated = false;
 
     // Handle manual advancement override
@@ -1011,6 +1016,42 @@ export class GroupsService {
           targetMatch.loserId,
         );
         bracketUpdated = true;
+      }
+    } else if (
+      targetMatch.hasPenalties &&
+      targetMatch.penaltyTeam1Score !== undefined &&
+      targetMatch.penaltyTeam2Score !== undefined &&
+      targetMatch.penaltyTeam1Score !== targetMatch.penaltyTeam2Score &&
+      !targetMatch.isManualOverride
+    ) {
+      // Penalty shootout determines winner (scores are tied in regular time)
+      const winnerId =
+        targetMatch.penaltyTeam1Score > targetMatch.penaltyTeam2Score
+          ? targetMatch.team1Id
+          : targetMatch.team2Id;
+
+      if (winnerId) {
+        const oldWinnerId = targetMatch.winnerId;
+        targetMatch.winnerId = winnerId;
+        targetMatch.status = 'COMPLETED';
+        targetMatch.loserId =
+          winnerId === targetMatch.team1Id
+            ? targetMatch.team2Id
+            : targetMatch.team1Id;
+
+        if (targetMatch.nextMatchId) {
+          bracketUpdated = this.propagateAdvancement(
+            bracketData,
+            targetMatch,
+            winnerId,
+            oldWinnerId,
+          );
+        }
+
+        if (targetMatch.loserNextMatchId && targetMatch.loserId) {
+          this.propagateLoser(bracketData, targetMatch, targetMatch.loserId);
+          bracketUpdated = true;
+        }
       }
     } else if (
       targetMatch.team1Score !== undefined &&
@@ -1052,6 +1093,15 @@ export class GroupsService {
           bracketUpdated = true;
         }
       }
+    } else if (
+      targetMatch.team1Score !== undefined &&
+      targetMatch.team2Score !== undefined &&
+      targetMatch.team1Score === targetMatch.team2Score &&
+      !targetMatch.hasPenalties &&
+      !targetMatch.isManualOverride
+    ) {
+      // Draw with no penalties required (group stage) — mark as COMPLETED
+      targetMatch.status = 'COMPLETED';
     }
 
     // Auto-seed knockout bracket when ALL group-phase matches are completed

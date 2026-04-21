@@ -7,6 +7,7 @@ import {
   IsUUID,
   IsISO8601,
   ValidateIf,
+  IsBoolean,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
@@ -121,6 +122,23 @@ export class UpdateMatchScoreDto {
   @IsOptional()
   @IsString()
   advancingTeamId?: string;
+
+  @ApiPropertyOptional({ description: 'Whether match was decided by penalty shootout' })
+  @IsOptional()
+  @IsBoolean()
+  hasPenalties?: boolean;
+
+  @ApiPropertyOptional({ description: 'Penalty shootout score for team 1' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  penaltyTeam1Score?: number;
+
+  @ApiPropertyOptional({ description: 'Penalty shootout score for team 2' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  penaltyTeam2Score?: number;
 
   @ApiPropertyOptional({ description: 'Match status' })
   @IsOptional()
