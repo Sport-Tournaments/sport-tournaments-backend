@@ -1,11 +1,11 @@
 export default () => ({
   nodeEnv: process.env.NODE_ENV || 'development',
-  port: parseInt(process.env.PORT || '3000', 10),
+  port: parseInt(process.env.PORT || '4001', 10),
   apiPrefix: process.env.API_PREFIX || 'api/v1',
 
   // CORS configuration
   cors: {
-    origins: process.env.CORS_ORIGINS || 'http://localhost:3000',
+    origins: process.env.CORS_ORIGINS || 'http://localhost:4000',
   },
 
   // PostgreSQL database connection URL (required)

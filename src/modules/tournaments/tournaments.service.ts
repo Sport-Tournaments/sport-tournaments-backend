@@ -193,7 +193,8 @@ export class TournamentsService {
 
     const queryBuilder = this.tournamentsRepository
       .createQueryBuilder('tournament')
-      .leftJoinAndSelect('tournament.organizer', 'organizer');
+      .leftJoinAndSelect('tournament.organizer', 'organizer')
+      .leftJoinAndSelect('tournament.ageGroups', 'ageGroups');
 
     // By default, only show published tournaments for public queries
     if (!filters?.status) {
@@ -359,6 +360,61 @@ export class TournamentsService {
       .skip(skip)
       .take(pageSize)
       .getManyAndCount();
+
+    // Enrich list results with effective dates/maxTeams from age groups and team counts
+    if (tournaments.length > 0) {
+      const tournamentIds = tournaments.map((t) => t.id);
+      const placeholders = tournamentIds.map((_, i) => `$${i + 1}`).join(',');
+      const countRows: Array<{
+        tournament_id: string;
+        confirmedteams: string;
+        registeredteams: string;
+      }> = await this.tournamentsRepository.manager.query(
+        `SELECT tournament_id,
+           SUM(CASE WHEN status = 'APPROVED' THEN 1 ELSE 0 END) AS confirmedteams,
+           COUNT(*) AS registeredteams
+         FROM registrations
+         WHERE tournament_id IN (${placeholders})
+         GROUP BY tournament_id`,
+        tournamentIds,
+      );
+
+      const countMap = new Map(countRows.map((r) => [r.tournament_id, r]));
+
+      for (const tournament of tournaments) {
+        const counts = countMap.get(tournament.id);
+        (tournament as any).confirmedTeams = parseInt(counts?.confirmedteams ?? '0', 10);
+        (tournament as any).registeredTeams = parseInt(counts?.registeredteams ?? '0', 10);
+
+        // Derive effective startDate from age groups when not set at tournament level
+        if (!tournament.startDate && tournament.ageGroups?.length) {
+          const sorted = tournament.ageGroups
+            .map((ag) => ag.startDate)
+            .filter(Boolean)
+            .sort();
+          if (sorted.length) tournament.startDate = sorted[0];
+        }
+
+        // Derive effective endDate from age groups when not set at tournament level
+        if (!tournament.endDate && tournament.ageGroups?.length) {
+          const sorted = tournament.ageGroups
+            .map((ag) => ag.endDate)
+            .filter(Boolean)
+            .sort();
+          if (sorted.length) tournament.endDate = sorted[sorted.length - 1];
+        }
+
+        // Derive effective maxTeams from age groups when not set at tournament level
+        // Use maxTeams if set, otherwise fall back to teamCount (the target/guaranteed capacity)
+        if (!tournament.maxTeams && tournament.ageGroups?.length) {
+          const total = tournament.ageGroups.reduce(
+            (sum, ag) => sum + (ag.maxTeams ?? ag.teamCount ?? 0),
+            0,
+          );
+          if (total > 0) tournament.maxTeams = total;
+        }
+      }
+    }
 
     return {
       data: tournaments,
