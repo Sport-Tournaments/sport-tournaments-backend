@@ -139,6 +139,10 @@ export class TournamentAgeGroup {
   @Column({ name: 'half_duration_minutes', nullable: true })
   halfDurationMinutes?: number;
 
+  // Registration closed flag for this age group
+  @Column({ name: 'is_registration_closed', default: false })
+  isRegistrationClosed: boolean;
+
   // Draw completed flag for this age group
   @Column({ name: 'draw_completed', default: false })
   drawCompleted: boolean;
