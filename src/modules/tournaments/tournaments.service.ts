@@ -177,6 +177,30 @@ export class TournamentsService {
         };
       });
       await this.ageGroupsRepository.save(ageGroupEntities);
+
+      // Derive and persist tournament-level dates from age groups when not explicitly provided
+      if (!savedTournament.startDate) {
+        const startDates = ageGroupEntities
+          .map((ag) => ag.startDate as string)
+          .filter(Boolean)
+          .sort();
+        if (startDates.length > 0) {
+          savedTournament.startDate = startDates[0] as any;
+        }
+      }
+      if (!savedTournament.endDate) {
+        const endDates = ageGroupEntities
+          .map((ag) => ag.endDate as string)
+          .filter(Boolean)
+          .sort()
+          .reverse();
+        if (endDates.length > 0) {
+          savedTournament.endDate = endDates[0] as any;
+        }
+      }
+      if (savedTournament.startDate || savedTournament.endDate) {
+        await this.tournamentsRepository.save(savedTournament);
+      }
     }
 
     return savedTournament;
@@ -670,6 +694,27 @@ export class TournamentsService {
         };
         result.push(await this.ageGroupsRepository.save(newAgeGroup));
       }
+    }
+
+    // Sync tournament-level dates from the final set of age groups
+    const allAgeGroups = await this.ageGroupsRepository.find({ where: { tournamentId } });
+    const startDates = allAgeGroups
+      .map((ag) => ag.startDate as unknown as string)
+      .filter(Boolean)
+      .sort();
+    const endDates = allAgeGroups
+      .map((ag) => ag.endDate as unknown as string)
+      .filter(Boolean)
+      .sort()
+      .reverse();
+    if (startDates.length > 0) {
+      tournament.startDate = startDates[0] as any;
+    }
+    if (endDates.length > 0) {
+      tournament.endDate = endDates[0] as any;
+    }
+    if (startDates.length > 0 || endDates.length > 0) {
+      await this.tournamentsRepository.save(tournament);
     }
 
     return result;
