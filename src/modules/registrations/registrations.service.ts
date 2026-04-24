@@ -151,6 +151,10 @@ export class RegistrationsService {
         throw new BadRequestException('Invalid age group selection');
       }
 
+      if (selectedAgeGroup.isRegistrationClosed) {
+        throw new BadRequestException('Registrations are closed for this age group');
+      }
+
       const ageGroupMaxTeams =
         selectedAgeGroup.maxTeams ||
         selectedAgeGroup.teamCount ||

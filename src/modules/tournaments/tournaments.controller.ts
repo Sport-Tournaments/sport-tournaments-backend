@@ -32,6 +32,14 @@ import {
   RegenerateInvitationCodeDto,
   UpdateAgeGroupsDto,
 } from './dto';
+import { IsBoolean } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+
+class SetAgeGroupRegistrationClosedDto {
+  @ApiProperty({ description: 'Whether registrations are closed for this age group' })
+  @IsBoolean()
+  isRegistrationClosed: boolean;
+}
 import { JwtAuthGuard, RolesGuard } from '../auth/guards';
 import { Roles, CurrentUser, Public } from '../../common/decorators';
 import { UserRole } from '../../common/enums';
@@ -165,6 +173,32 @@ export class TournamentsController {
       user.sub,
       user.role,
       updateAgeGroupsDto.ageGroups,
+    );
+  }
+
+  @Patch(':id/age-groups/:ageGroupId/registration-status')
+  @Roles(
+    UserRole.ORGANIZER,
+    UserRole.PARTICIPANT,
+    UserRole.USER,
+    UserRole.ADMIN,
+  )
+  @ApiOperation({ summary: 'Open or close registrations for a specific age group' })
+  @ApiResponse({ status: 200, description: 'Age group registration status updated' })
+  @ApiResponse({ status: 403, description: 'Not allowed to update this tournament' })
+  @ApiResponse({ status: 404, description: 'Tournament or age group not found' })
+  setAgeGroupRegistrationClosed(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('ageGroupId', ParseUUIDPipe) ageGroupId: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: SetAgeGroupRegistrationClosedDto,
+  ) {
+    return this.tournamentsService.setAgeGroupRegistrationClosed(
+      id,
+      ageGroupId,
+      dto.isRegistrationClosed,
+      user.sub,
+      user.role,
     );
   }
 

@@ -839,6 +839,33 @@ export class TournamentsService {
     await this.tournamentsRepository.remove(tournament);
   }
 
+  async setAgeGroupRegistrationClosed(
+    tournamentId: string,
+    ageGroupId: string,
+    isRegistrationClosed: boolean,
+    userId: string,
+    userRole: string,
+  ): Promise<TournamentAgeGroup> {
+    const tournament = await this.findByIdOrFail(tournamentId);
+
+    if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException(
+        'You are not allowed to update this tournament',
+      );
+    }
+
+    const ageGroup = await this.ageGroupsRepository.findOne({
+      where: { id: ageGroupId, tournamentId },
+    });
+
+    if (!ageGroup) {
+      throw new NotFoundException('Age group not found');
+    }
+
+    ageGroup.isRegistrationClosed = isRegistrationClosed;
+    return this.ageGroupsRepository.save(ageGroup);
+  }
+
   async incrementRegulationsDownload(id: string): Promise<void> {
     await this.tournamentsRepository.increment(
       { id },

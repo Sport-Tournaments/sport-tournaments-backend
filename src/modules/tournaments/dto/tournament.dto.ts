@@ -372,6 +372,11 @@ export class UpdateAgeGroupDto {
   @IsString()
   @MaxLength(2000)
   notes?: string;
+
+  @ApiPropertyOptional({ description: 'Whether registrations are closed for this age group' })
+  @IsOptional()
+  @IsBoolean()
+  isRegistrationClosed?: boolean;
 }
 
 export class UpdateAgeGroupsDto {
