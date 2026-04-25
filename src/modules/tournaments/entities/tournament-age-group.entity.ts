@@ -139,6 +139,14 @@ export class TournamentAgeGroup {
   @Column({ name: 'half_duration_minutes', nullable: true })
   halfDurationMinutes?: number;
 
+  // Pause between halves (minutes), used to auto-calculate match end time
+  @Column({ name: 'half_time_pause_minutes', nullable: true })
+  halfTimePauseMinutes?: number;
+
+  // Pause between consecutive matches (minutes), used to auto-schedule sequential matches
+  @Column({ name: 'pause_between_matches_minutes', nullable: true })
+  pauseBetweenMatchesMinutes?: number;
+
   // Registration closed flag for this age group
   @Column({ name: 'is_registration_closed', default: false })
   isRegistrationClosed: boolean;
