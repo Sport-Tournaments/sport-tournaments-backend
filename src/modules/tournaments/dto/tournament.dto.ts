@@ -220,6 +220,28 @@ export class CreateAgeGroupDto {
   halfDurationMinutes?: number;
 
   @ApiPropertyOptional({
+    example: 5,
+    description: 'Pause between halves in minutes (used to auto-calculate match end time)',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(60)
+  halfTimePauseMinutes?: number;
+
+  @ApiPropertyOptional({
+    example: 10,
+    description: 'Pause between consecutive matches in minutes (used to auto-schedule sequential matches)',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(120)
+  pauseBetweenMatchesMinutes?: number;
+
+  @ApiPropertyOptional({
     example: 'Special rules: no sliding tackles',
     description: 'Optional notes or comments for this age category',
   })
@@ -363,6 +385,28 @@ export class UpdateAgeGroupDto {
   @Min(1)
   @Max(120)
   halfDurationMinutes?: number;
+
+  @ApiPropertyOptional({
+    example: 5,
+    description: 'Pause between halves in minutes (used to auto-calculate match end time)',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(60)
+  halfTimePauseMinutes?: number;
+
+  @ApiPropertyOptional({
+    example: 10,
+    description: 'Pause between consecutive matches in minutes (used to auto-schedule sequential matches)',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(120)
+  pauseBetweenMatchesMinutes?: number;
 
   @ApiPropertyOptional({
     example: 'Special rules: no sliding tackles',
