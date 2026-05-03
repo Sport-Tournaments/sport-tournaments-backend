@@ -88,10 +88,12 @@ export class AuthService {
 
     // Send verification email only if required
     if (requireEmailVerification) {
-      // TODO: Send verification email
-      this.logger.log(
-        `User registered: ${email}, verification token: ${emailVerificationToken}`,
-      );
+      try {
+        await this.mailService.sendWelcomeEmail(email, firstName, emailVerificationToken);
+        this.logger.log(`Verification email sent to ${email}`);
+      } catch (error) {
+        this.logger.error(`Failed to send verification email to ${email}:`, error);
+      }
     } else {
       this.logger.log(
         `User registered and auto-verified: ${email} (email verification disabled)`,
