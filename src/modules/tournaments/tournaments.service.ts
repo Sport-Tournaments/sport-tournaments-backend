@@ -296,7 +296,19 @@ export class TournamentsService {
     }
 
     if (filters?.hasAvailableSpots) {
-      queryBuilder.andWhere('tournament.currentTeams < tournament.maxTeams');
+      // Effective capacity may live on the tournament row OR be derived from age groups
+      // (tournament.max_teams is nullable; many records have it on tournament_age_groups
+      //  via max_teams or team_count). Match if any source shows available spots.
+      queryBuilder.andWhere(
+        `(
+          (tournament.max_teams IS NOT NULL AND tournament.current_teams < tournament.max_teams)
+          OR EXISTS (
+            SELECT 1 FROM tournament_age_groups ag
+            WHERE ag.tournament_id = tournament.id
+              AND ag.current_teams < COALESCE(ag.max_teams, ag.team_count, 0)
+          )
+        )`,
+      );
     }
 
     if (filters?.isPrivate !== undefined) {
