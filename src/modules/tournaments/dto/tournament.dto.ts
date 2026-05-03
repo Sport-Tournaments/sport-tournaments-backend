@@ -18,7 +18,33 @@ import {
   Matches,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
+
+/**
+ * Coerce common query-string representations of a boolean into a real boolean.
+ * Returns undefined when the value is missing so `@IsOptional()` works.
+ * Avoids the JS pitfall `Boolean('false') === true`.
+ */
+const toOptionalBoolean = ({
+  obj,
+  key,
+}: {
+  obj: Record<string, unknown>;
+  key: string;
+}): boolean | undefined => {
+  // Read from `obj` (the raw input) instead of `value` to bypass
+  // class-transformer's `enableImplicitConversion`, which would otherwise
+  // turn the string 'false' into Boolean('false') === true before we run.
+  const raw = obj?.[key];
+  if (raw === undefined || raw === null || raw === '') return undefined;
+  if (typeof raw === 'boolean') return raw;
+  if (typeof raw === 'string') {
+    const v = raw.trim().toLowerCase();
+    if (v === 'true' || v === '1') return true;
+    if (v === 'false' || v === '0') return false;
+  }
+  return undefined;
+};
 import {
   TournamentStatus,
   TournamentLevel,
@@ -1103,32 +1129,32 @@ export class TournamentFilterDto extends PaginationDto {
 
   @ApiPropertyOptional({ description: 'Sort results by distance from user location', default: false })
   @IsOptional()
+  @Transform(toOptionalBoolean)
   @IsBoolean()
-  @Type(() => Boolean)
   sortByDistance?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(toOptionalBoolean)
   @IsBoolean()
-  @Type(() => Boolean)
   isPremium?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(toOptionalBoolean)
   @IsBoolean()
-  @Type(() => Boolean)
   isFeatured?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(toOptionalBoolean)
   @IsBoolean()
-  @Type(() => Boolean)
   hasAvailableSpots?: boolean;
 
   @ApiPropertyOptional({ description: 'Filter for private/public tournaments' })
   @IsOptional()
+  @Transform(toOptionalBoolean)
   @IsBoolean()
-  @Type(() => Boolean)
   isPrivate?: boolean;
 
   @ApiPropertyOptional()
