@@ -67,8 +67,7 @@ export class AuthService {
       false,
     );
 
-    // Generate email verification token only if verification is required
-    const emailVerificationToken = crypto.randomUUID();
+    const emailVerificationToken = randomUUID();
 
 
     // Create user

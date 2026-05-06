@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   ForbiddenException,
   BadRequestException,
@@ -40,6 +41,7 @@ import * as path from 'path';
 
 @Injectable()
 export class RegistrationsService {
+  private readonly logger = new Logger(RegistrationsService.name);
   private readonly uploadsPath = path.join(process.cwd(), 'uploads', 'documents');
 
   constructor(
@@ -512,7 +514,7 @@ export class RegistrationsService {
         );
       }
     } catch (e) {
-      // Don't fail the approval if email fails
+      this.logger.error('Failed to send payment pending email:', e);
     }
 
     return result;

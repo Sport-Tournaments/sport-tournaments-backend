@@ -23,9 +23,7 @@ export class MailService {
       this.configService.get<string>('smtp.fromEmail') || smtpUser || 'noreply@yourdomain.com';
     this.fromName =
       this.configService.get<string>('smtp.fromName') || 'Tournamente';
-    this.frontendUrl =
-      this.configService.get<string>('frontendUrl') ||
-      'http://localhost:3000';
+    this.frontendUrl = this.configService.getOrThrow<string>('frontendUrl');
 
     if (smtpHost && smtpUser && smtpPass) {
       this.transporter = nodemailer.createTransport({
@@ -51,7 +49,7 @@ export class MailService {
     email: string,
     resetToken: string,
     userName?: string,
-  ): Promise<boolean> {
+  ): Promise<void> {
     const resetUrl = `${this.frontendUrl}/auth/reset-password?token=${resetToken}`;
 
     const subject = 'Reset Your Password';
@@ -104,7 +102,7 @@ Football Tournament Platform
     email: string,
     userName: string,
     verificationToken?: string,
-  ): Promise<boolean> {
+  ): Promise<void> {
     const subject = 'Welcome to Football Tournament Platform!';
 
     let verificationSection = '';
@@ -173,7 +171,7 @@ Football Tournament Platform
     amount: number,
     currency: string,
     registrationId: string,
-  ): Promise<boolean> {
+  ): Promise<void> {
     const dashboardUrl = `${this.frontendUrl}/dashboard/registrations/${registrationId}`;
     const subject = `Payment Required – ${tournamentName}`;
 
@@ -231,33 +229,22 @@ Football Tournament Platform
     subject: string,
     html: string,
     text: string,
-  ): Promise<boolean> {
-    const mailOptions = {
-      from: {
-        name: this.fromName,
-        address: this.fromEmail,
-      },
-      to,
-      subject,
-      text,
-      html,
-    };
-
+  ): Promise<void> {
     if (!this.isConfigured || !this.transporter) {
       this.logger.log(`[EMAIL - NOT SENT - SMTP not configured]`);
       this.logger.log(`To: ${to}`);
       this.logger.log(`Subject: ${subject}`);
       this.logger.debug(`Content: ${text}`);
-      return true;
+      return;
     }
 
-    try {
-      await this.transporter.sendMail(mailOptions);
-      this.logger.log(`Email sent successfully to ${to}: ${subject}`);
-      return true;
-    } catch (error) {
-      this.logger.error(`Failed to send email to ${to}:`, error);
-      return false;
-    }
+    await this.transporter.sendMail({
+      from: { name: this.fromName, address: this.fromEmail },
+      to,
+      subject,
+      text,
+      html,
+    });
+    this.logger.log(`Email sent successfully to ${to}: ${subject}`);
   }
 }
