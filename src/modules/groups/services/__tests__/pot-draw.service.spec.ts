@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PotDrawService } from '../pot-draw.service';
 import { TournamentPot } from '../../entities/tournament-pot.entity';
 import { Group } from '../../entities/group.entity';
@@ -168,7 +172,12 @@ describe('PotDrawService (Issue #34)', () => {
       const dto = { registrationId: 'registration-1', potNumber: 1 };
 
       await expect(
-        service.assignTeamToPot(mockTournamentId, dto, mockOrganizerId, UserRole.ORGANIZER),
+        service.assignTeamToPot(
+          mockTournamentId,
+          dto,
+          mockOrganizerId,
+          UserRole.ORGANIZER,
+        ),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -230,7 +239,12 @@ describe('PotDrawService (Issue #34)', () => {
       const dto = { registrationId: 'non-existent-registration', potNumber: 1 };
 
       await expect(
-        service.assignTeamToPot(mockTournamentId, dto, mockOrganizerId, UserRole.ORGANIZER),
+        service.assignTeamToPot(
+          mockTournamentId,
+          dto,
+          mockOrganizerId,
+          UserRole.ORGANIZER,
+        ),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -246,7 +260,12 @@ describe('PotDrawService (Issue #34)', () => {
       const dto = { registrationId: 'registration-1', potNumber: 1 };
 
       await expect(
-        service.assignTeamToPot(mockTournamentId, dto, mockOrganizerId, UserRole.ORGANIZER),
+        service.assignTeamToPot(
+          mockTournamentId,
+          dto,
+          mockOrganizerId,
+          UserRole.ORGANIZER,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -280,10 +299,26 @@ describe('PotDrawService (Issue #34)', () => {
   describe('Get Pot Assignments', () => {
     it('should return pot assignments grouped by pot number', async () => {
       const mockPots = [
-        { potNumber: 1, registrationId: 'reg-1', registration: { club: { name: 'Club A' } } },
-        { potNumber: 1, registrationId: 'reg-2', registration: { club: { name: 'Club B' } } },
-        { potNumber: 2, registrationId: 'reg-3', registration: { club: { name: 'Club C' } } },
-        { potNumber: 3, registrationId: 'reg-4', registration: { club: { name: 'Club D' } } },
+        {
+          potNumber: 1,
+          registrationId: 'reg-1',
+          registration: { club: { name: 'Club A' } },
+        },
+        {
+          potNumber: 1,
+          registrationId: 'reg-2',
+          registration: { club: { name: 'Club B' } },
+        },
+        {
+          potNumber: 2,
+          registrationId: 'reg-3',
+          registration: { club: { name: 'Club C' } },
+        },
+        {
+          potNumber: 3,
+          registrationId: 'reg-4',
+          registration: { club: { name: 'Club D' } },
+        },
       ];
 
       potRepository.find.mockResolvedValue(mockPots);
@@ -309,18 +344,44 @@ describe('PotDrawService (Issue #34)', () => {
       };
 
       const mockPotAssignments = new Map([
-        [1, Array.from({ length: 4 }, (_, i) => ({ registrationId: `reg-${i}`, potNumber: 1 }))],
-        [2, Array.from({ length: 4 }, (_, i) => ({ registrationId: `reg-${i + 4}`, potNumber: 2 }))],
-        [3, Array.from({ length: 4 }, (_, i) => ({ registrationId: `reg-${i + 8}`, potNumber: 3 }))],
-        [4, Array.from({ length: 4 }, (_, i) => ({ registrationId: `reg-${i + 12}`, potNumber: 4 }))],
+        [
+          1,
+          Array.from({ length: 4 }, (_, i) => ({
+            registrationId: `reg-${i}`,
+            potNumber: 1,
+          })),
+        ],
+        [
+          2,
+          Array.from({ length: 4 }, (_, i) => ({
+            registrationId: `reg-${i + 4}`,
+            potNumber: 2,
+          })),
+        ],
+        [
+          3,
+          Array.from({ length: 4 }, (_, i) => ({
+            registrationId: `reg-${i + 8}`,
+            potNumber: 3,
+          })),
+        ],
+        [
+          4,
+          Array.from({ length: 4 }, (_, i) => ({
+            registrationId: `reg-${i + 12}`,
+            potNumber: 4,
+          })),
+        ],
       ]);
 
-      tournamentRepository.findOne.mockResolvedValue(tournamentWithRegistrations);
-      
+      tournamentRepository.findOne.mockResolvedValue(
+        tournamentWithRegistrations,
+      );
+
       // Mock pot data for getPotAssignments (called internally via createQueryBuilder -> getMany -> find)
       const allPots: any[] = [];
       for (const [potNum, teams] of mockPotAssignments.entries()) {
-        allPots.push(...teams.map(t => ({ ...t, potNumber: potNum })));
+        allPots.push(...teams.map((t) => ({ ...t, potNumber: potNum })));
       }
       potRepository.find.mockResolvedValue(allPots);
 
@@ -352,7 +413,12 @@ describe('PotDrawService (Issue #34)', () => {
       const dto = { numberOfGroups: 4 };
 
       await expect(
-        service.executePotBasedDraw(mockTournamentId, dto, mockOrganizerId, UserRole.ORGANIZER),
+        service.executePotBasedDraw(
+          mockTournamentId,
+          dto,
+          mockOrganizerId,
+          UserRole.ORGANIZER,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -367,7 +433,12 @@ describe('PotDrawService (Issue #34)', () => {
       const dto = { numberOfGroups: 4 };
 
       await expect(
-        service.executePotBasedDraw(mockTournamentId, dto, mockOrganizerId, UserRole.ORGANIZER),
+        service.executePotBasedDraw(
+          mockTournamentId,
+          dto,
+          mockOrganizerId,
+          UserRole.ORGANIZER,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -392,7 +463,12 @@ describe('PotDrawService (Issue #34)', () => {
       const dto = { numberOfGroups: 2 };
 
       await expect(
-        service.executePotBasedDraw(mockTournamentId, dto, mockOrganizerId, UserRole.ORGANIZER),
+        service.executePotBasedDraw(
+          mockTournamentId,
+          dto,
+          mockOrganizerId,
+          UserRole.ORGANIZER,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -402,16 +478,26 @@ describe('PotDrawService (Issue #34)', () => {
       tournamentRepository.findOne.mockResolvedValue(mockTournament);
       potRepository.delete.mockResolvedValue({ affected: 10 });
 
-      await service.clearPotAssignments(mockTournamentId, mockOrganizerId, UserRole.ORGANIZER);
+      await service.clearPotAssignments(
+        mockTournamentId,
+        mockOrganizerId,
+        UserRole.ORGANIZER,
+      );
 
-      expect(potRepository.delete).toHaveBeenCalledWith({ tournamentId: mockTournamentId });
+      expect(potRepository.delete).toHaveBeenCalledWith({
+        tournamentId: mockTournamentId,
+      });
     });
 
     it('should reject non-organizer from clearing pots', async () => {
       tournamentRepository.findOne.mockResolvedValue(mockTournament);
 
       await expect(
-        service.clearPotAssignments(mockTournamentId, mockUserId, UserRole.PARTICIPANT),
+        service.clearPotAssignments(
+          mockTournamentId,
+          mockUserId,
+          UserRole.PARTICIPANT,
+        ),
       ).rejects.toThrow(ForbiddenException);
     });
   });
@@ -552,7 +638,9 @@ describe('PotDrawService (Issue #34)', () => {
       const totalTeams = result[0].teams.length + result[1].teams.length;
       expect(totalTeams).toBe(5);
       // Groups should differ by at most 1 team
-      expect(Math.abs(result[0].teams.length - result[1].teams.length)).toBeLessThanOrEqual(1);
+      expect(
+        Math.abs(result[0].teams.length - result[1].teams.length),
+      ).toBeLessThanOrEqual(1);
     });
 
     it('should reject numberOfGroups > totalTeams', async () => {
@@ -569,16 +657,19 @@ describe('PotDrawService (Issue #34)', () => {
       const dto = { numberOfGroups: 5 };
 
       await expect(
-        service.executePotBasedDraw(mockTournamentId, dto, mockOrganizerId, UserRole.ORGANIZER),
+        service.executePotBasedDraw(
+          mockTournamentId,
+          dto,
+          mockOrganizerId,
+          UserRole.ORGANIZER,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('should reject numberOfGroups < 1', async () => {
       const tournament = {
         ...mockTournament,
-        registrations: [
-          { id: 'reg-0', status: RegistrationStatus.APPROVED },
-        ],
+        registrations: [{ id: 'reg-0', status: RegistrationStatus.APPROVED }],
       };
 
       tournamentRepository.findOne.mockResolvedValue(tournament);
@@ -586,7 +677,12 @@ describe('PotDrawService (Issue #34)', () => {
       const dto = { numberOfGroups: 0 };
 
       await expect(
-        service.executePotBasedDraw(mockTournamentId, dto, mockOrganizerId, UserRole.ORGANIZER),
+        service.executePotBasedDraw(
+          mockTournamentId,
+          dto,
+          mockOrganizerId,
+          UserRole.ORGANIZER,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -667,7 +763,12 @@ describe('PotDrawService (Issue #34)', () => {
       potRepository.findOne.mockResolvedValue(existingPot);
 
       const dto = { registrationId: 'registration-1', potNumber: 4 };
-      await service.assignTeamToPot(mockTournamentId, dto, mockOrganizerId, UserRole.ORGANIZER);
+      await service.assignTeamToPot(
+        mockTournamentId,
+        dto,
+        mockOrganizerId,
+        UserRole.ORGANIZER,
+      );
 
       expect(potRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({ potNumber: 4 }),
@@ -678,7 +779,11 @@ describe('PotDrawService (Issue #34)', () => {
       tournamentRepository.findOne.mockResolvedValue(null);
 
       await expect(
-        service.clearPotAssignments('non-existent-id', mockOrganizerId, UserRole.ORGANIZER),
+        service.clearPotAssignments(
+          'non-existent-id',
+          mockOrganizerId,
+          UserRole.ORGANIZER,
+        ),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -687,9 +792,15 @@ describe('PotDrawService (Issue #34)', () => {
       potRepository.delete.mockResolvedValue({ affected: 5 });
 
       // Different user but admin role
-      await service.clearPotAssignments(mockTournamentId, mockUserId, UserRole.ADMIN);
+      await service.clearPotAssignments(
+        mockTournamentId,
+        mockUserId,
+        UserRole.ADMIN,
+      );
 
-      expect(potRepository.delete).toHaveBeenCalledWith({ tournamentId: mockTournamentId });
+      expect(potRepository.delete).toHaveBeenCalledWith({
+        tournamentId: mockTournamentId,
+      });
     });
 
     it('should get pot assignments with empty pots', async () => {

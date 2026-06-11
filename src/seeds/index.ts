@@ -64,7 +64,9 @@ export async function clearDatabase(dataSource: DataSource): Promise<void> {
     try {
       await dataSource.query('TRUNCATE TABLE "team_players" CASCADE');
       console.log('  ✓ Cleared team_players');
-    } catch { /* might not exist yet */ }
+    } catch {
+      /* might not exist yet */
+    }
 
     for (const entity of entities) {
       try {
@@ -116,8 +118,12 @@ export async function runSeeder(dataSource: DataSource): Promise<SeedResult> {
 
   // 1. Users
   const users = await seedUsers(dataSource);
-  const organizerIds = users.filter((u) => u.role === UserRole.ORGANIZER).map((u) => u.id);
-  const participantIds = users.filter((u) => u.role === UserRole.PARTICIPANT).map((u) => u.id);
+  const organizerIds = users
+    .filter((u) => u.role === UserRole.ORGANIZER)
+    .map((u) => u.id);
+  const participantIds = users
+    .filter((u) => u.role === UserRole.PARTICIPANT)
+    .map((u) => u.id);
   const allUserIds = users.map((u) => u.id);
 
   // 2. Clubs
@@ -147,7 +153,11 @@ export async function runSeeder(dataSource: DataSource): Promise<SeedResult> {
   // 7. Tournament Age Groups
   const tournamentAgeGroups = await seedTournamentAgeGroups(
     dataSource,
-    tournaments.map((t) => ({ id: t.id, startDate: t.startDate, endDate: t.endDate })),
+    tournaments.map((t) => ({
+      id: t.id,
+      startDate: t.startDate,
+      endDate: t.endDate,
+    })),
   );
 
   // Tournament names map for notifications
@@ -173,21 +183,35 @@ export async function runSeeder(dataSource: DataSource): Promise<SeedResult> {
   );
 
   // Registrations-by-tournament maps
-  const registrationsByTournament = new Map<string, { clubId: string; status: string }[]>();
-  const registrationsByTournamentFull = new Map<string, { id: string; status: string }[]>();
+  const registrationsByTournament = new Map<
+    string,
+    { clubId: string; status: string }[]
+  >();
+  const registrationsByTournamentFull = new Map<
+    string,
+    { id: string; status: string }[]
+  >();
   registrations.forEach((r) => {
     if (!registrationsByTournament.has(r.tournamentId)) {
       registrationsByTournament.set(r.tournamentId, []);
       registrationsByTournamentFull.set(r.tournamentId, []);
     }
-    registrationsByTournament.get(r.tournamentId)!.push({ clubId: r.clubId, status: r.status });
-    registrationsByTournamentFull.get(r.tournamentId)!.push({ id: r.id, status: r.status });
+    registrationsByTournament
+      .get(r.tournamentId)!
+      .push({ clubId: r.clubId, status: r.status });
+    registrationsByTournamentFull
+      .get(r.tournamentId)!
+      .push({ id: r.id, status: r.status });
   });
 
   // 9. Groups
   const groups = await seedGroups(
     dataSource,
-    tournaments.map((t) => ({ id: t.id, status: t.status, drawCompleted: t.drawCompleted })),
+    tournaments.map((t) => ({
+      id: t.id,
+      status: t.status,
+      drawCompleted: t.drawCompleted,
+    })),
     registrationsByTournament,
   );
 
@@ -212,12 +236,20 @@ export async function runSeeder(dataSource: DataSource): Promise<SeedResult> {
   );
 
   // 12. Notifications
-  const notifications = await seedNotifications(dataSource, allUserIds, tournamentNames);
+  const notifications = await seedNotifications(
+    dataSource,
+    allUserIds,
+    tournamentNames,
+  );
 
   // 13. Invitations
   const invitations = await seedInvitations(
     dataSource,
-    tournaments.map((t) => ({ id: t.id, organizerId: t.organizerId, status: t.status })),
+    tournaments.map((t) => ({
+      id: t.id,
+      organizerId: t.organizerId,
+      status: t.status,
+    })),
     clubs.map((c) => ({ id: c.id, ownerId: c.ownerId })),
   );
 
@@ -236,23 +268,29 @@ export async function runSeeder(dataSource: DataSource): Promise<SeedResult> {
     '## Admins',
     '| Email | Password | Role |',
     '|-------|----------|------|',
-    ...users.filter((u) => u.role === UserRole.ADMIN).map(
-      (u) => `| ${u.email} | ${u.password} | ADMIN |`,
-    ),
+    ...users
+      .filter((u) => u.role === UserRole.ADMIN)
+      .map((u) => `| ${u.email} | ${u.password} | ADMIN |`),
     '',
     '## Organizers',
     '| Email | Password | Role | Name |',
     '|-------|----------|------|------|',
-    ...users.filter((u) => u.role === UserRole.ORGANIZER).map(
-      (u) => `| ${u.email} | ${u.password} | ORGANIZER | ${u.firstName} ${u.lastName} |`,
-    ),
+    ...users
+      .filter((u) => u.role === UserRole.ORGANIZER)
+      .map(
+        (u) =>
+          `| ${u.email} | ${u.password} | ORGANIZER | ${u.firstName} ${u.lastName} |`,
+      ),
     '',
     '## Participants',
     '| Email | Password | Role | Name |',
     '|-------|----------|------|------|',
-    ...users.filter((u) => u.role === UserRole.PARTICIPANT).map(
-      (u) => `| ${u.email} | ${u.password} | PARTICIPANT | ${u.firstName} ${u.lastName} |`,
-    ),
+    ...users
+      .filter((u) => u.role === UserRole.PARTICIPANT)
+      .map(
+        (u) =>
+          `| ${u.email} | ${u.password} | PARTICIPANT | ${u.firstName} ${u.lastName} |`,
+      ),
     '',
   ];
 

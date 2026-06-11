@@ -200,7 +200,9 @@ describe('Pot Management (e2e)', () => {
 
       // Approve registration
       await request(app.getHttpServer())
-        .post(`/api/v1/registrations/${regRes.body.data.id}/approve-without-payment`)
+        .post(
+          `/api/v1/registrations/${regRes.body.data.id}/approve-without-payment`,
+        )
         .set('Authorization', `Bearer ${organizerToken}`)
         .expect(201);
     }

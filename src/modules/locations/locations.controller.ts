@@ -6,11 +6,7 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { LocationsService } from './locations.service';
-import {
-  LocationSearchDto,
-  LocationResultDto,
-  ReverseGeocodeDto,
-} from './dto';
+import { LocationSearchDto, LocationResultDto, ReverseGeocodeDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards';
 import { Public } from '../../common/decorators';
 
@@ -25,7 +21,8 @@ export class LocationsController {
   @Public()
   @ApiOperation({
     summary: 'Search locations by query',
-    description: 'Search for locations using geocoding. Returns coordinates and location details.',
+    description:
+      'Search for locations using geocoding. Returns coordinates and location details.',
   })
   @ApiResponse({
     status: 200,
@@ -42,7 +39,8 @@ export class LocationsController {
   @Public()
   @ApiOperation({
     summary: 'Get location autocomplete suggestions',
-    description: 'Get autocomplete suggestions for location input. Minimum 2 characters required.',
+    description:
+      'Get autocomplete suggestions for location input. Minimum 2 characters required.',
   })
   @ApiResponse({
     status: 200,

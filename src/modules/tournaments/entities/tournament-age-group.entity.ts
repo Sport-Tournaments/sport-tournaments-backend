@@ -12,13 +12,7 @@ import { DateOnlyTransformer } from '../../../common/transformers';
 import { TournamentFormat, TournamentLevel } from '../../../common/enums';
 
 // Game systems available per age category
-export type GameSystem =
-  | '5+1'
-  | '6+1'
-  | '7+1'
-  | '8+1'
-  | '9+1'
-  | '10+1';
+export type GameSystem = '5+1' | '6+1' | '7+1' | '8+1' | '9+1' | '10+1';
 
 @Entity('tournament_age_groups')
 @Index(['tournamentId', 'birthYear'], { unique: true })
@@ -88,17 +82,35 @@ export class TournamentAgeGroup {
   guaranteedMatches?: number;
 
   // Independent date range for this age group
-  @Column({ name: 'start_date', type: 'date', transformer: new DateOnlyTransformer() })
+  @Column({
+    name: 'start_date',
+    type: 'date',
+    transformer: new DateOnlyTransformer(),
+  })
   startDate: Date | string;
 
-  @Column({ name: 'end_date', type: 'date', transformer: new DateOnlyTransformer() })
+  @Column({
+    name: 'end_date',
+    type: 'date',
+    transformer: new DateOnlyTransformer(),
+  })
   endDate: Date | string;
 
   // Registration dates specific to this age group (optional)
-  @Column({ name: 'registration_start_date', type: 'date', nullable: true, transformer: new DateOnlyTransformer() })
+  @Column({
+    name: 'registration_start_date',
+    type: 'date',
+    nullable: true,
+    transformer: new DateOnlyTransformer(),
+  })
   registrationStartDate?: Date | string;
 
-  @Column({ name: 'registration_end_date', type: 'date', nullable: true, transformer: new DateOnlyTransformer() })
+  @Column({
+    name: 'registration_end_date',
+    type: 'date',
+    nullable: true,
+    transformer: new DateOnlyTransformer(),
+  })
   registrationEndDate?: Date | string;
 
   // Optional: assigned location ID (references TournamentLocation)

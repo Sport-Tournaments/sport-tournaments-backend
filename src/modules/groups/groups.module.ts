@@ -11,7 +11,15 @@ import { BracketGeneratorService } from './services/bracket-generator.service';
 import { PotDrawService } from './services/pot-draw.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Group, TournamentPot, Tournament, TournamentAgeGroup, Registration])],
+  imports: [
+    TypeOrmModule.forFeature([
+      Group,
+      TournamentPot,
+      Tournament,
+      TournamentAgeGroup,
+      Registration,
+    ]),
+  ],
   controllers: [GroupsController],
   providers: [GroupsService, BracketGeneratorService, PotDrawService],
   exports: [GroupsService, BracketGeneratorService, PotDrawService],

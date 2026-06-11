@@ -10,7 +10,12 @@ import {
   UseGuards,
   ParseUUIDPipe,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { TeamsService } from './teams.service';
 import { CreateTeamDto, TeamFilterDto, UpdateTeamDto } from './dto/team.dto';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards';
@@ -26,18 +31,25 @@ export class TeamsController {
   constructor(private readonly teamsService: TeamsService) {}
 
   @Get()
-  @Roles(UserRole.ORGANIZER, UserRole.PARTICIPANT, UserRole.USER, UserRole.ADMIN)
+  @Roles(
+    UserRole.ORGANIZER,
+    UserRole.PARTICIPANT,
+    UserRole.USER,
+    UserRole.ADMIN,
+  )
   @ApiOperation({ summary: 'Get teams with optional filters' })
   @ApiResponse({ status: 200, description: 'List of teams' })
-  findAll(
-    @CurrentUser() user: JwtPayload,
-    @Query() filters: TeamFilterDto,
-  ) {
+  findAll(@CurrentUser() user: JwtPayload, @Query() filters: TeamFilterDto) {
     return this.teamsService.findAll(filters, user);
   }
 
   @Get('search')
-  @Roles(UserRole.ORGANIZER, UserRole.PARTICIPANT, UserRole.USER, UserRole.ADMIN)
+  @Roles(
+    UserRole.ORGANIZER,
+    UserRole.PARTICIPANT,
+    UserRole.USER,
+    UserRole.ADMIN,
+  )
   @ApiOperation({ summary: 'Search teams by text query' })
   @ApiResponse({ status: 200, description: 'Search results' })
   search(
@@ -61,7 +73,12 @@ export class TeamsController {
   }
 
   @Get(':id')
-  @Roles(UserRole.ORGANIZER, UserRole.PARTICIPANT, UserRole.USER, UserRole.ADMIN)
+  @Roles(
+    UserRole.ORGANIZER,
+    UserRole.PARTICIPANT,
+    UserRole.USER,
+    UserRole.ADMIN,
+  )
   @ApiOperation({ summary: 'Get team by ID' })
   @ApiResponse({ status: 200, description: 'Team details' })
   @ApiResponse({ status: 404, description: 'Team not found' })

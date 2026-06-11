@@ -3,7 +3,10 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
 export class LocationSearchDto {
-  @ApiProperty({ example: 'Barcelona', description: 'Search query for location' })
+  @ApiProperty({
+    example: 'Barcelona',
+    description: 'Search query for location',
+  })
   @IsString()
   query: string;
 
@@ -15,7 +18,10 @@ export class LocationSearchDto {
   @Max(20)
   limit?: number;
 
-  @ApiPropertyOptional({ example: 'es', description: 'Country code to filter results' })
+  @ApiPropertyOptional({
+    example: 'es',
+    description: 'Country code to filter results',
+  })
   @IsOptional()
   @IsString()
   countryCode?: string;

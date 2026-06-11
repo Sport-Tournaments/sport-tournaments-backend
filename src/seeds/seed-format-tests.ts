@@ -39,7 +39,8 @@ const TOURNAMENT_DEFS: {
     name: 'SE Cup 2026 - Single Elim',
     format: 'SINGLE_ELIMINATION',
     teamCount: 16,
-    description: 'Test tournament for Single Elimination bracket format (16 teams)',
+    description:
+      'Test tournament for Single Elimination bracket format (16 teams)',
     city: 'Bucharest',
     latitude: 44.4268,
     longitude: 26.1025,
@@ -48,7 +49,8 @@ const TOURNAMENT_DEFS: {
     name: 'DE Cup 2026 - Double Elim',
     format: 'DOUBLE_ELIMINATION',
     teamCount: 16,
-    description: 'Test tournament for Double Elimination bracket format (16 teams)',
+    description:
+      'Test tournament for Double Elimination bracket format (16 teams)',
     city: 'Cluj-Napoca',
     latitude: 46.7712,
     longitude: 23.6236,
@@ -57,7 +59,8 @@ const TOURNAMENT_DEFS: {
     name: 'RR Cup 2026 - Round Robin',
     format: 'ROUND_ROBIN',
     teamCount: 8,
-    description: 'Test tournament for Round Robin (all-play-all) format (8 teams)',
+    description:
+      'Test tournament for Round Robin (all-play-all) format (8 teams)',
     city: 'Timișoara',
     latitude: 45.7489,
     longitude: 21.2087,
@@ -66,7 +69,8 @@ const TOURNAMENT_DEFS: {
     name: 'GK Cup 2026 - Groups + KO',
     format: 'GROUPS_PLUS_KNOCKOUT',
     teamCount: 16,
-    description: 'Test tournament for Groups + Knockout format (16 teams, 4 groups of 4)',
+    description:
+      'Test tournament for Groups + Knockout format (16 teams, 4 groups of 4)',
     city: 'Iași',
     latitude: 47.1585,
     longitude: 27.6014,
@@ -84,26 +88,146 @@ const TOURNAMENT_DEFS: {
 
 // Club names from different countries
 const CLUB_DEFS = [
-  { name: 'FC Bayern Junior', country: 'Germany', city: 'Munich', primary: '#DC052D', secondary: '#FFFFFF' },
-  { name: 'FC Barcelona Youth', country: 'Spain', city: 'Barcelona', primary: '#A50044', secondary: '#004D98' },
-  { name: 'Manchester City Academy', country: 'United Kingdom', city: 'Manchester', primary: '#6CABDD', secondary: '#FFFFFF' },
-  { name: 'Juventus Next Gen', country: 'Italy', city: 'Turin', primary: '#000000', secondary: '#FFFFFF' },
-  { name: 'Ajax Youth', country: 'Netherlands', city: 'Amsterdam', primary: '#CF0032', secondary: '#FFFFFF' },
-  { name: 'Benfica Juniors', country: 'Portugal', city: 'Lisbon', primary: '#FF0000', secondary: '#FFFFFF' },
-  { name: 'PSG Academy', country: 'France', city: 'Paris', primary: '#004170', secondary: '#DA291C' },
-  { name: 'Borussia Dortmund Youth', country: 'Germany', city: 'Dortmund', primary: '#FDE100', secondary: '#000000' },
-  { name: 'Celtic FC Youth', country: 'United Kingdom', city: 'Glasgow', primary: '#007A33', secondary: '#FFFFFF' },
-  { name: 'FC Porto Academy', country: 'Portugal', city: 'Porto', primary: '#003399', secondary: '#FFFFFF' },
-  { name: 'Red Bull Salzburg Youth', country: 'Austria', city: 'Salzburg', primary: '#E4003E', secondary: '#FFFFFF' },
-  { name: 'Shakhtar Youth', country: 'Ukraine', city: 'Donetsk', primary: '#FF6600', secondary: '#000000' },
-  { name: 'Olympiacos Academy', country: 'Greece', city: 'Athens', primary: '#CC0000', secondary: '#FFFFFF' },
-  { name: 'Club Brugge Youth', country: 'Belgium', city: 'Bruges', primary: '#0055A5', secondary: '#000000' },
-  { name: 'Galatasaray Juniors', country: 'Turkey', city: 'Istanbul', primary: '#FFC72C', secondary: '#AA151B' },
-  { name: 'Sporting CP Youth', country: 'Portugal', city: 'Lisbon', primary: '#008847', secondary: '#FFFFFF' },
-  { name: 'AS Roma Primavera', country: 'Italy', city: 'Rome', primary: '#8E1F2F', secondary: '#F4A900' },
-  { name: 'Feyenoord Academy', country: 'Netherlands', city: 'Rotterdam', primary: '#FF0000', secondary: '#FFFFFF' },
-  { name: 'Dynamo Kyiv Youth', country: 'Ukraine', city: 'Kyiv', primary: '#004C97', secondary: '#FFFFFF' },
-  { name: 'Steaua București Junior', country: 'Romania', city: 'Bucharest', primary: '#003DA5', secondary: '#CC0000' },
+  {
+    name: 'FC Bayern Junior',
+    country: 'Germany',
+    city: 'Munich',
+    primary: '#DC052D',
+    secondary: '#FFFFFF',
+  },
+  {
+    name: 'FC Barcelona Youth',
+    country: 'Spain',
+    city: 'Barcelona',
+    primary: '#A50044',
+    secondary: '#004D98',
+  },
+  {
+    name: 'Manchester City Academy',
+    country: 'United Kingdom',
+    city: 'Manchester',
+    primary: '#6CABDD',
+    secondary: '#FFFFFF',
+  },
+  {
+    name: 'Juventus Next Gen',
+    country: 'Italy',
+    city: 'Turin',
+    primary: '#000000',
+    secondary: '#FFFFFF',
+  },
+  {
+    name: 'Ajax Youth',
+    country: 'Netherlands',
+    city: 'Amsterdam',
+    primary: '#CF0032',
+    secondary: '#FFFFFF',
+  },
+  {
+    name: 'Benfica Juniors',
+    country: 'Portugal',
+    city: 'Lisbon',
+    primary: '#FF0000',
+    secondary: '#FFFFFF',
+  },
+  {
+    name: 'PSG Academy',
+    country: 'France',
+    city: 'Paris',
+    primary: '#004170',
+    secondary: '#DA291C',
+  },
+  {
+    name: 'Borussia Dortmund Youth',
+    country: 'Germany',
+    city: 'Dortmund',
+    primary: '#FDE100',
+    secondary: '#000000',
+  },
+  {
+    name: 'Celtic FC Youth',
+    country: 'United Kingdom',
+    city: 'Glasgow',
+    primary: '#007A33',
+    secondary: '#FFFFFF',
+  },
+  {
+    name: 'FC Porto Academy',
+    country: 'Portugal',
+    city: 'Porto',
+    primary: '#003399',
+    secondary: '#FFFFFF',
+  },
+  {
+    name: 'Red Bull Salzburg Youth',
+    country: 'Austria',
+    city: 'Salzburg',
+    primary: '#E4003E',
+    secondary: '#FFFFFF',
+  },
+  {
+    name: 'Shakhtar Youth',
+    country: 'Ukraine',
+    city: 'Donetsk',
+    primary: '#FF6600',
+    secondary: '#000000',
+  },
+  {
+    name: 'Olympiacos Academy',
+    country: 'Greece',
+    city: 'Athens',
+    primary: '#CC0000',
+    secondary: '#FFFFFF',
+  },
+  {
+    name: 'Club Brugge Youth',
+    country: 'Belgium',
+    city: 'Bruges',
+    primary: '#0055A5',
+    secondary: '#000000',
+  },
+  {
+    name: 'Galatasaray Juniors',
+    country: 'Turkey',
+    city: 'Istanbul',
+    primary: '#FFC72C',
+    secondary: '#AA151B',
+  },
+  {
+    name: 'Sporting CP Youth',
+    country: 'Portugal',
+    city: 'Lisbon',
+    primary: '#008847',
+    secondary: '#FFFFFF',
+  },
+  {
+    name: 'AS Roma Primavera',
+    country: 'Italy',
+    city: 'Rome',
+    primary: '#8E1F2F',
+    secondary: '#F4A900',
+  },
+  {
+    name: 'Feyenoord Academy',
+    country: 'Netherlands',
+    city: 'Rotterdam',
+    primary: '#FF0000',
+    secondary: '#FFFFFF',
+  },
+  {
+    name: 'Dynamo Kyiv Youth',
+    country: 'Ukraine',
+    city: 'Kyiv',
+    primary: '#004C97',
+    secondary: '#FFFFFF',
+  },
+  {
+    name: 'Steaua București Junior',
+    country: 'Romania',
+    city: 'Bucharest',
+    primary: '#003DA5',
+    secondary: '#CC0000',
+  },
 ];
 
 // ───────── Helper functions ─────────
@@ -157,10 +281,9 @@ async function bootstrap() {
   const teamIds: string[] = [];
 
   for (const c of CLUB_DEFS) {
-    const existing = await ds.query(
-      `SELECT id FROM "clubs" WHERE name = $1`,
-      [c.name],
-    );
+    const existing = await ds.query(`SELECT id FROM "clubs" WHERE name = $1`, [
+      c.name,
+    ]);
     let clubId: string;
     if (existing.length) {
       clubId = existing[0].id;
@@ -170,7 +293,16 @@ async function bootstrap() {
       await ds.query(
         `INSERT INTO "clubs" (id, name, organizer_id, country, city, primary_color, secondary_color, description)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [clubId, c.name, ORGANIZER_ID, c.country, c.city, c.primary, c.secondary, `Youth football club from ${c.city}, ${c.country}`],
+        [
+          clubId,
+          c.name,
+          ORGANIZER_ID,
+          c.country,
+          c.city,
+          c.primary,
+          c.secondary,
+          `Youth football club from ${c.city}, ${c.country}`,
+        ],
       );
       console.log(`  ✓ Club created: ${c.name}`);
     }
@@ -190,7 +322,14 @@ async function bootstrap() {
       await ds.query(
         `INSERT INTO "teams" (id, club_id, name, age_category, birthyear, coach)
          VALUES ($1, $2, $3, $4, $5, $6)`,
-        [teamId, clubId, teamName, 'U12', 2014, `Coach ${c.name.split(' ')[1] || c.name.split(' ')[0]}`],
+        [
+          teamId,
+          clubId,
+          teamName,
+          'U12',
+          2014,
+          `Coach ${c.name.split(' ')[1] || c.name.split(' ')[0]}`,
+        ],
       );
     }
     teamIds.push(teamId);
@@ -199,7 +338,12 @@ async function bootstrap() {
 
   // ─── 3. Create tournaments, one per format type ───
   console.log('🏆 Creating tournaments...');
-  const tournamentRecords: { id: string; format: FormatType; teamCount: number; name: string }[] = [];
+  const tournamentRecords: {
+    id: string;
+    format: FormatType;
+    teamCount: number;
+    name: string;
+  }[] = [];
 
   for (const tDef of TOURNAMENT_DEFS) {
     // Skip if tournament with this exact name already exists
@@ -208,13 +352,22 @@ async function bootstrap() {
       [tDef.name],
     );
     if (existing.length) {
-      console.log(`  ⏭ Tournament exists: ${tDef.name} (${existing[0].id.slice(0, 8)})`);
+      console.log(
+        `  ⏭ Tournament exists: ${tDef.name} (${existing[0].id.slice(0, 8)})`,
+      );
       // Delete old data to recreate cleanly
       const tId = existing[0].id;
-      await ds.query(`DELETE FROM "tournament_pots" WHERE tournament_id = $1`, [tId]);
+      await ds.query(`DELETE FROM "tournament_pots" WHERE tournament_id = $1`, [
+        tId,
+      ]);
       await ds.query(`DELETE FROM "groups" WHERE tournament_id = $1`, [tId]);
-      await ds.query(`DELETE FROM "registrations" WHERE tournament_id = $1`, [tId]);
-      await ds.query(`DELETE FROM "tournament_age_groups" WHERE tournament_id = $1`, [tId]);
+      await ds.query(`DELETE FROM "registrations" WHERE tournament_id = $1`, [
+        tId,
+      ]);
+      await ds.query(
+        `DELETE FROM "tournament_age_groups" WHERE tournament_id = $1`,
+        [tId],
+      );
       await ds.query(`DELETE FROM "tournaments" WHERE id = $1`, [tId]);
       console.log(`    🗑️  Cleared old data for re-creation`);
     }
@@ -243,7 +396,7 @@ async function bootstrap() {
         'U12',
         'I',
         tDef.teamCount,
-        0,       // will update later
+        0, // will update later
         'EUR',
         150,
         true,
@@ -253,8 +406,15 @@ async function bootstrap() {
         false,
       ],
     );
-    console.log(`  ✓ Tournament: ${tDef.name} (${tId.slice(0, 8)}) - format: ${tDef.format}`);
-    tournamentRecords.push({ id: tId, format: tDef.format, teamCount: tDef.teamCount, name: tDef.name });
+    console.log(
+      `  ✓ Tournament: ${tDef.name} (${tId.slice(0, 8)}) - format: ${tDef.format}`,
+    );
+    tournamentRecords.push({
+      id: tId,
+      format: tDef.format,
+      teamCount: tDef.teamCount,
+      name: tDef.name,
+    });
   }
   console.log('');
 
@@ -294,7 +454,9 @@ async function bootstrap() {
       ],
     );
     ageGroupIds.set(t.id, agId);
-    console.log(`  ✓ Age group for ${t.name}: ${t.format}, ${t.teamCount} teams`);
+    console.log(
+      `  ✓ Age group for ${t.name}: ${t.format}, ${t.teamCount} teams`,
+    );
   }
   console.log('');
 

@@ -20,7 +20,9 @@ export class MailService {
     const smtpSecure = this.configService.get<boolean>('smtp.secure') ?? true;
 
     this.fromEmail =
-      this.configService.get<string>('smtp.fromEmail') || smtpUser || 'noreply@yourdomain.com';
+      this.configService.get<string>('smtp.fromEmail') ||
+      smtpUser ||
+      'noreply@yourdomain.com';
     this.fromName =
       this.configService.get<string>('smtp.fromName') || 'Tournamente';
     this.frontendUrl = this.configService.getOrThrow<string>('frontendUrl');
@@ -39,9 +41,7 @@ export class MailService {
       this.logger.log('SMTP mail service configured');
     } else {
       this.isConfigured = false;
-      this.logger.warn(
-        'SMTP not configured - emails will be logged only',
-      );
+      this.logger.warn('SMTP not configured - emails will be logged only');
     }
   }
 

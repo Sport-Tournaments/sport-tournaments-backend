@@ -36,7 +36,9 @@ import { IsBoolean } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 class SetAgeGroupRegistrationClosedDto {
-  @ApiProperty({ description: 'Whether registrations are closed for this age group' })
+  @ApiProperty({
+    description: 'Whether registrations are closed for this age group',
+  })
   @IsBoolean()
   isRegistrationClosed: boolean;
 }
@@ -183,10 +185,21 @@ export class TournamentsController {
     UserRole.USER,
     UserRole.ADMIN,
   )
-  @ApiOperation({ summary: 'Open or close registrations for a specific age group' })
-  @ApiResponse({ status: 200, description: 'Age group registration status updated' })
-  @ApiResponse({ status: 403, description: 'Not allowed to update this tournament' })
-  @ApiResponse({ status: 404, description: 'Tournament or age group not found' })
+  @ApiOperation({
+    summary: 'Open or close registrations for a specific age group',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Age group registration status updated',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Not allowed to update this tournament',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Tournament or age group not found',
+  })
   setAgeGroupRegistrationClosed(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('ageGroupId', ParseUUIDPipe) ageGroupId: string,

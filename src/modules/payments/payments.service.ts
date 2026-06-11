@@ -74,7 +74,9 @@ export class PaymentsService {
 
     const tournament = registration.tournament;
     const effectiveParticipationFee =
-      registration.ageGroup?.participationFee ?? tournament.participationFee ?? 0;
+      registration.ageGroup?.participationFee ??
+      tournament.participationFee ??
+      0;
     const amount = Math.round(Number(effectiveParticipationFee) * 100); // Convert to cents
     const currency = tournament.currency.toLowerCase();
 

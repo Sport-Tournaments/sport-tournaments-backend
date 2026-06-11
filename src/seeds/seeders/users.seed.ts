@@ -59,7 +59,14 @@ export async function seedUsers(dataSource: DataSource): Promise<SeededUser[]> {
       createdAt: seedDatePast(),
     });
 
-    seededUsers.push({ id, email, password: ADMIN_PASSWORD, role: UserRole.ADMIN, firstName, lastName });
+    seededUsers.push({
+      id,
+      email,
+      password: ADMIN_PASSWORD,
+      role: UserRole.ADMIN,
+      firstName,
+      lastName,
+    });
   }
 
   // ── Organizers (15) ──
@@ -94,7 +101,14 @@ export async function seedUsers(dataSource: DataSource): Promise<SeededUser[]> {
       createdAt: seedDatePast(),
     });
 
-    seededUsers.push({ id, email, password: USER_PASSWORD, role: UserRole.ORGANIZER, firstName, lastName });
+    seededUsers.push({
+      id,
+      email,
+      password: USER_PASSWORD,
+      role: UserRole.ORGANIZER,
+      firstName,
+      lastName,
+    });
   }
 
   // ── Participants (30) ──
@@ -116,14 +130,25 @@ export async function seedUsers(dataSource: DataSource): Promise<SeededUser[]> {
       role: UserRole.PARTICIPANT,
       isActive: true,
       isVerified,
-      emailVerificationToken: isVerified ? undefined : faker.string.alphanumeric(64),
+      emailVerificationToken: isVerified
+        ? undefined
+        : faker.string.alphanumeric(64),
       profileImageUrl: faker.image.avatar(),
       createdAt: seedDatePast(),
     });
 
-    seededUsers.push({ id, email, password: USER_PASSWORD, role: UserRole.PARTICIPANT, firstName, lastName });
+    seededUsers.push({
+      id,
+      email,
+      password: USER_PASSWORD,
+      role: UserRole.PARTICIPANT,
+      firstName,
+      lastName,
+    });
   }
 
-  console.log(`✅ Seeded ${seededUsers.length} users (5 admins, 15 organizers, 30 participants)`);
+  console.log(
+    `✅ Seeded ${seededUsers.length} users (5 admins, 15 organizers, 30 participants)`,
+  );
   return seededUsers;
 }

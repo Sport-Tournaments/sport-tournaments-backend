@@ -131,9 +131,7 @@ describe('Cross-Device Token Support (Issue #31)', () => {
         ipAddress: mobileIpAddress, // IP address IS stored
       };
 
-      mockRefreshTokenRepository.findOne.mockResolvedValue(
-        storedMobileToken,
-      );
+      mockRefreshTokenRepository.findOne.mockResolvedValue(storedMobileToken);
       mockRefreshTokenRepository.update.mockResolvedValue({ affected: 1 });
       mockRefreshTokenRepository.create.mockReturnValue({});
       mockRefreshTokenRepository.save.mockResolvedValue({});
@@ -178,9 +176,7 @@ describe('Cross-Device Token Support (Issue #31)', () => {
         ipAddress: loginIpAddress, // Stored ✓
       };
 
-      mockRefreshTokenRepository.findOne.mockResolvedValue(
-        refreshTokenEntity,
-      );
+      mockRefreshTokenRepository.findOne.mockResolvedValue(refreshTokenEntity);
       mockRefreshTokenRepository.update.mockResolvedValue({ affected: 1 });
       mockRefreshTokenRepository.create.mockReturnValue({});
       mockRefreshTokenRepository.save.mockResolvedValue({});

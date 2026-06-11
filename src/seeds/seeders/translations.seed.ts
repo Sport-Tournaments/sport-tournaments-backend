@@ -1,7 +1,5 @@
 import { DataSource } from 'typeorm';
-import {
-  generateUUID,
-} from '../utils/helpers';
+import { generateUUID } from '../utils/helpers';
 import { Language } from '../../common/enums';
 
 /**
@@ -41,8 +39,18 @@ export async function seedTranslations(
 
   // 1. UI-level keys (no entity binding)
   for (const k of UI_KEYS) {
-    await repo.insert({ id: generateUUID(), key: k.key, language: Language.EN, value: k.en });
-    await repo.insert({ id: generateUUID(), key: k.key, language: Language.RO, value: k.ro });
+    await repo.insert({
+      id: generateUUID(),
+      key: k.key,
+      language: Language.EN,
+      value: k.en,
+    });
+    await repo.insert({
+      id: generateUUID(),
+      key: k.key,
+      language: Language.RO,
+      value: k.ro,
+    });
     count += 2;
   }
 

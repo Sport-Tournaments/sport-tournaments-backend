@@ -11,14 +11,28 @@ import { Group } from './entities/group.entity';
 import { Tournament } from '../tournaments/entities/tournament.entity';
 import { TournamentAgeGroup } from '../tournaments/entities/tournament-age-group.entity';
 import { Registration } from '../registrations/entities/registration.entity';
-import { ExecuteDrawDto, UpdateBracketDto, CreateGroupDto, ConfigureGroupsDto, UpdateGroupDto, GroupConfigurationResponseDto, UpdateMatchAdvancementDto, UpdateMatchScoreDto } from './dto';
+import {
+  ExecuteDrawDto,
+  UpdateBracketDto,
+  CreateGroupDto,
+  ConfigureGroupsDto,
+  UpdateGroupDto,
+  GroupConfigurationResponseDto,
+  UpdateMatchAdvancementDto,
+  UpdateMatchScoreDto,
+} from './dto';
 import {
   TournamentStatus,
   RegistrationStatus,
   UserRole,
   TournamentFormat,
 } from '../../common/enums';
-import { BracketGeneratorService, BracketType, GroupStanding, Match } from './services/bracket-generator.service';
+import {
+  BracketGeneratorService,
+  BracketType,
+  GroupStanding,
+  Match,
+} from './services/bracket-generator.service';
 
 @Injectable()
 export class GroupsService {
@@ -62,7 +76,9 @@ export class GroupsService {
         where: { id: executeDrawDto.ageGroupId, tournamentId },
       });
       if (!ageGroup) {
-        throw new NotFoundException(`Age group ${executeDrawDto.ageGroupId} not found`);
+        throw new NotFoundException(
+          `Age group ${executeDrawDto.ageGroupId} not found`,
+        );
       }
       if (ageGroup.drawCompleted) {
         throw new BadRequestException(
@@ -174,9 +190,19 @@ export class GroupsService {
     }
 
     // BE-08 — auto-calculate numberOfMatches for affected age groups
-    const ageGroupIds = [...new Set(registrations.map((r) => r.ageGroupId).filter(Boolean))];
+    const ageGroupIds = [
+      ...new Set(registrations.map((r) => r.ageGroupId).filter(Boolean)),
+    ];
     for (const agId of ageGroupIds) {
-      await this.autoCalcNumberOfMatches(tournamentId, agId!, savedGroups.filter(g => g.teams.some(t => registrations.find(r => r.id === t)?.ageGroupId === agId)));
+      await this.autoCalcNumberOfMatches(
+        tournamentId,
+        agId!,
+        savedGroups.filter((g) =>
+          g.teams.some(
+            (t) => registrations.find((r) => r.id === t)?.ageGroupId === agId,
+          ),
+        ),
+      );
     }
 
     return savedGroups;
@@ -421,7 +447,10 @@ export class GroupsService {
     }
 
     // Get approved registrations count — scoped to age group if specified
-    const regCountWhere: any = { tournamentId, status: RegistrationStatus.APPROVED };
+    const regCountWhere: any = {
+      tournamentId,
+      status: RegistrationStatus.APPROVED,
+    };
     if (dto.ageGroupId) regCountWhere.ageGroupId = dto.ageGroupId;
     const registeredTeamsCount = await this.registrationsRepository.count({
       where: regCountWhere,
@@ -429,7 +458,7 @@ export class GroupsService {
 
     // Validation
     const errors: string[] = [];
-    
+
     // Validate number of groups matches teamsPerGroup array length
     if (dto.numberOfGroups !== dto.teamsPerGroup.length) {
       errors.push(
@@ -522,11 +551,16 @@ export class GroupsService {
     }
 
     if (!tournament.numberOfGroups || !tournament.groupConfiguration) {
-      throw new NotFoundException('No group configuration found for this tournament');
+      throw new NotFoundException(
+        'No group configuration found for this tournament',
+      );
     }
 
     // Get approved registrations count — scoped to age group if specified
-    const regCountWhere: any = { tournamentId, status: RegistrationStatus.APPROVED };
+    const regCountWhere: any = {
+      tournamentId,
+      status: RegistrationStatus.APPROVED,
+    };
     if (ageGroupId) regCountWhere.ageGroupId = ageGroupId;
     const registeredTeamsCount = await this.registrationsRepository.count({
       where: regCountWhere,
@@ -615,7 +649,7 @@ export class GroupsService {
         const groupConfig = tournament.groupConfiguration.find(
           (g) => g.groupLetter === group.groupLetter,
         );
-        
+
         if (groupConfig && dto.teams.length > groupConfig.teamCount) {
           throw new BadRequestException(
             `Group ${group.groupLetter} can only have ${groupConfig.teamCount} teams (tried to assign ${dto.teams.length})`,
@@ -660,7 +694,10 @@ export class GroupsService {
    * Supports both per-age-group format { [ageGroupId]: bracketData }
    * and legacy flat format (playoffRounds at top level).
    */
-  private getBracketForAgeGroup(bracketData: any, ageGroupId?: string): any | null {
+  private getBracketForAgeGroup(
+    bracketData: any,
+    ageGroupId?: string,
+  ): any | null {
     if (!bracketData) return null;
 
     // New format: keyed by ageGroupId
@@ -689,7 +726,11 @@ export class GroupsService {
           if (bd.matches) allMatches.push(...bd.matches);
           if (bd.type) bracketType = bd.type;
         }
-        return { playoffRounds: allRounds, matches: allMatches, type: bracketType };
+        return {
+          playoffRounds: allRounds,
+          matches: allMatches,
+          type: bracketType,
+        };
       }
     }
 
@@ -723,7 +764,10 @@ export class GroupsService {
     return null;
   }
 
-  async getMatches(tournamentId: string, ageGroupId?: string): Promise<{
+  async getMatches(
+    tournamentId: string,
+    ageGroupId?: string,
+  ): Promise<{
     matches: Match[];
     bracketType?: string;
     playoffRounds?: any[];
@@ -759,7 +803,10 @@ export class GroupsService {
       return { matches: [], teams };
     }
 
-    const ageBracket = this.getBracketForAgeGroup(tournament.bracketData, ageGroupId);
+    const ageBracket = this.getBracketForAgeGroup(
+      tournament.bracketData,
+      ageGroupId,
+    );
     if (!ageBracket) {
       return { matches: [], teams };
     }
@@ -790,7 +837,7 @@ export class GroupsService {
       bracketType: ageBracket.type,
       playoffRounds: ageBracket.playoffRounds,
       teams,
-      advancingTeamsPerGroup: (ageBracket as any).advancingTeamsPerGroup ?? undefined,
+      advancingTeamsPerGroup: ageBracket.advancingTeamsPerGroup ?? undefined,
     };
   }
 
@@ -818,11 +865,15 @@ export class GroupsService {
     }
 
     if (!tournament.bracketData) {
-      throw new BadRequestException('No bracket data found for this tournament');
+      throw new BadRequestException(
+        'No bracket data found for this tournament',
+      );
     }
 
     const fullBracketData = tournament.bracketData as any;
-    const bracketData = this.getBracketForAgeGroup(fullBracketData, ageGroupId) || fullBracketData;
+    const bracketData =
+      this.getBracketForAgeGroup(fullBracketData, ageGroupId) ||
+      fullBracketData;
     let targetMatch: Match | null = null;
     let bracketUpdated = false;
 
@@ -883,11 +934,7 @@ export class GroupsService {
 
     // Propagate loser to third place match if exists
     if (targetMatch.loserNextMatchId && targetMatch.loserId) {
-      this.propagateLoser(
-        bracketData,
-        targetMatch,
-        targetMatch.loserId,
-      );
+      this.propagateLoser(bracketData, targetMatch, targetMatch.loserId);
       bracketUpdated = true;
     }
 
@@ -923,11 +970,15 @@ export class GroupsService {
     }
 
     if (!tournament.bracketData) {
-      throw new BadRequestException('No bracket data found for this tournament');
+      throw new BadRequestException(
+        'No bracket data found for this tournament',
+      );
     }
 
     const fullBracketData = tournament.bracketData as any;
-    const bracketData = this.getBracketForAgeGroup(fullBracketData, ageGroupId) || fullBracketData;
+    const bracketData =
+      this.getBracketForAgeGroup(fullBracketData, ageGroupId) ||
+      fullBracketData;
     let targetMatch: Match | null = null;
 
     // Find the match
@@ -953,21 +1004,29 @@ export class GroupsService {
 
     // Update leg scores (two-legged ties: leg1 = at team1 home, leg2 = at team2 home)
     // null = explicitly clear the field (e.g. undo a mistakenly-entered leg)
-    if (dto.leg1Team1Score !== undefined) targetMatch.leg1Team1Score = dto.leg1Team1Score ?? undefined;
-    if (dto.leg1Team2Score !== undefined) targetMatch.leg1Team2Score = dto.leg1Team2Score ?? undefined;
-    if (dto.leg2Team1Score !== undefined) targetMatch.leg2Team1Score = dto.leg2Team1Score ?? undefined;
-    if (dto.leg2Team2Score !== undefined) targetMatch.leg2Team2Score = dto.leg2Team2Score ?? undefined;
+    if (dto.leg1Team1Score !== undefined)
+      targetMatch.leg1Team1Score = dto.leg1Team1Score ?? undefined;
+    if (dto.leg1Team2Score !== undefined)
+      targetMatch.leg1Team2Score = dto.leg1Team2Score ?? undefined;
+    if (dto.leg2Team1Score !== undefined)
+      targetMatch.leg2Team1Score = dto.leg2Team1Score ?? undefined;
+    if (dto.leg2Team2Score !== undefined)
+      targetMatch.leg2Team2Score = dto.leg2Team2Score ?? undefined;
 
     // Compute aggregate when all four leg scores are present (non-null); else use legacy single scores
     const hasAllLegs =
-      targetMatch.leg1Team1Score != null && targetMatch.leg1Team2Score != null &&
-      targetMatch.leg2Team1Score != null && targetMatch.leg2Team2Score != null;
+      targetMatch.leg1Team1Score != null &&
+      targetMatch.leg1Team2Score != null &&
+      targetMatch.leg2Team1Score != null &&
+      targetMatch.leg2Team2Score != null;
     const hasAnyLeg =
       targetMatch.leg1Team1Score != null || targetMatch.leg2Team1Score != null;
     if (hasAllLegs) {
       // Both legs played – compute aggregate
-      targetMatch.team1Score = targetMatch.leg1Team1Score! + targetMatch.leg2Team1Score!;
-      targetMatch.team2Score = targetMatch.leg1Team2Score! + targetMatch.leg2Team2Score!;
+      targetMatch.team1Score =
+        targetMatch.leg1Team1Score! + targetMatch.leg2Team1Score!;
+      targetMatch.team2Score =
+        targetMatch.leg1Team2Score! + targetMatch.leg2Team2Score!;
     } else if (hasAnyLeg) {
       // Only one leg played – clear aggregate to prevent premature auto-advancement
       targetMatch.team1Score = undefined;
@@ -981,9 +1040,12 @@ export class GroupsService {
     if (dto.status) targetMatch.status = dto.status as Match['status'];
 
     // Update penalty fields
-    if (dto.hasPenalties !== undefined) targetMatch.hasPenalties = dto.hasPenalties;
-    if (dto.penaltyTeam1Score !== undefined) targetMatch.penaltyTeam1Score = dto.penaltyTeam1Score;
-    if (dto.penaltyTeam2Score !== undefined) targetMatch.penaltyTeam2Score = dto.penaltyTeam2Score;
+    if (dto.hasPenalties !== undefined)
+      targetMatch.hasPenalties = dto.hasPenalties;
+    if (dto.penaltyTeam1Score !== undefined)
+      targetMatch.penaltyTeam1Score = dto.penaltyTeam1Score;
+    if (dto.penaltyTeam2Score !== undefined)
+      targetMatch.penaltyTeam2Score = dto.penaltyTeam2Score;
 
     let bracketUpdated = false;
 
@@ -1010,11 +1072,7 @@ export class GroupsService {
 
       // Propagate loser to third place match if exists
       if (targetMatch.loserNextMatchId && targetMatch.loserId) {
-        this.propagateLoser(
-          bracketData,
-          targetMatch,
-          targetMatch.loserId,
-        );
+        this.propagateLoser(bracketData, targetMatch, targetMatch.loserId);
         bracketUpdated = true;
       }
     } else if (
@@ -1085,11 +1143,7 @@ export class GroupsService {
 
         // Propagate loser to third place match if exists
         if (targetMatch.loserNextMatchId && targetMatch.loserId) {
-          this.propagateLoser(
-            bracketData,
-            targetMatch,
-            targetMatch.loserId,
-          );
+          this.propagateLoser(bracketData, targetMatch, targetMatch.loserId);
           bracketUpdated = true;
         }
       }
@@ -1111,8 +1165,9 @@ export class GroupsService {
       bracketData.matches &&
       bracketData.playoffRounds?.length > 0
     ) {
-      const groupPhaseMatches = (bracketData.matches as Match[]);
-      const allGroupDone = groupPhaseMatches.length > 0 &&
+      const groupPhaseMatches = bracketData.matches as Match[];
+      const allGroupDone =
+        groupPhaseMatches.length > 0 &&
         groupPhaseMatches.every((m) => m.status === 'COMPLETED');
 
       if (allGroupDone) {
@@ -1135,17 +1190,17 @@ export class GroupsService {
           const gMatches = groupPhaseMatches.filter(
             (m) => m.groupLetter === group.groupLetter,
           );
-          const standings = this.bracketGeneratorService.calculateGroupStandings(
-            group.teams,
-            gMatches,
-            group.tieBreakOrder,
-          );
+          const standings =
+            this.bracketGeneratorService.calculateGroupStandings(
+              group.teams,
+              gMatches,
+              group.tieBreakOrder,
+            );
           perGroupStandings.set(group.groupLetter, standings);
         }
 
         // Seed advancing teams into knockout bracket
-        const advancingPerGroup =
-          (bracketData as any).advancingTeamsPerGroup ?? 2;
+        const advancingPerGroup = bracketData.advancingTeamsPerGroup ?? 2;
         this.bracketGeneratorService.seedTeamsIntoBracket(
           perGroupStandings,
           advancingPerGroup,
@@ -1155,8 +1210,10 @@ export class GroupsService {
         // Fill in team names on first-round knockout matches
         const firstRound = bracketData.playoffRounds[0];
         for (const m of firstRound.matches) {
-          if (m.team1Id) m.team1Name = nameMap.get(m.team1Id) || m.team1Name || '';
-          if (m.team2Id) m.team2Name = nameMap.get(m.team2Id) || m.team2Name || '';
+          if (m.team1Id)
+            m.team1Name = nameMap.get(m.team1Id) || m.team1Name || '';
+          if (m.team2Id)
+            m.team2Name = nameMap.get(m.team2Id) || m.team2Name || '';
         }
 
         // Reset all playoff rounds to a clean state so the knockout phase
@@ -1223,7 +1280,9 @@ export class GroupsService {
     }
 
     const fullBracketData: any = tournament.bracketData || {};
-    const bracketData = this.getBracketForAgeGroup(fullBracketData, ageGroupId) || fullBracketData;
+    const bracketData =
+      this.getBracketForAgeGroup(fullBracketData, ageGroupId) ||
+      fullBracketData;
 
     const targetMatch = this.findMatchInBracket(bracketData, matchId);
     if (!targetMatch) {
@@ -1232,10 +1291,10 @@ export class GroupsService {
 
     targetMatch.scheduledAt = new Date(dto.scheduledAt) as any;
     if (dto.courtNumber !== undefined) {
-      (targetMatch as any).courtNumber = dto.courtNumber;
+      targetMatch.courtNumber = dto.courtNumber;
     }
     if (dto.fieldName !== undefined) {
-      (targetMatch as any).fieldName = dto.fieldName;
+      targetMatch.fieldName = dto.fieldName;
     }
 
     await this.tournamentsRepository.update(tournamentId, {
@@ -1272,7 +1331,9 @@ export class GroupsService {
     // formats (ROUND_ROBIN, SINGLE_ELIMINATION, DOUBLE_ELIMINATION, LEAGUE) generate their
     // bracket directly without a prior pot draw step.
     if (ageGroupId) {
-      const ageGroupForGate = (tournament.ageGroups ?? []).find((ag) => ag.id === ageGroupId);
+      const ageGroupForGate = (tournament.ageGroups ?? []).find(
+        (ag) => ag.id === ageGroupId,
+      );
       if (
         ageGroupForGate &&
         ageGroupForGate.format === TournamentFormat.GROUPS_PLUS_KNOCKOUT &&
@@ -1308,8 +1369,8 @@ export class GroupsService {
       ? (tournament.ageGroups ?? []).find((ag) => ag.id === ageGroupId)
       : null;
     const bracketType: BracketType =
-      ((ageGroup?.format as unknown as BracketType) ??
-        BracketType.SINGLE_ELIMINATION);
+      (ageGroup?.format as unknown as BracketType) ??
+      BracketType.SINGLE_ELIMINATION;
 
     const bracketData = this.bracketGeneratorService.generateBracket(
       bracketType,
@@ -1355,7 +1416,8 @@ export class GroupsService {
         // This lets standard bracket seeding (seed[i] vs seed[n-1-i]) create
         // cross-group QF match-ups that prevent same-group teams from meeting
         // before the semi-finals.
-        const maxTeamsPerGroup = Math.max(...scopedGroups.map((g) => g.teams.length)) || 1;
+        const maxTeamsPerGroup =
+          Math.max(...scopedGroups.map((g) => g.teams.length)) || 1;
         seededRegistrations = [];
         for (let pos = 0; pos < maxTeamsPerGroup; pos++) {
           for (const group of scopedGroups) {
@@ -1405,7 +1467,11 @@ export class GroupsService {
     // Assign team IDs to ROUND_ROBIN matches using the same wheel algorithm
     // that generateRoundRobinBracket uses, so matches are populated with real
     // team IDs rather than left as TBD.
-    if (bracketType === BracketType.ROUND_ROBIN && bracketData.matches && bracketData.matches.length > 0) {
+    if (
+      bracketType === BracketType.ROUND_ROBIN &&
+      bracketData.matches &&
+      bracketData.matches.length > 0
+    ) {
       const shuffled = this.seededShuffle(
         [...registrations],
         bracketData.seed || 'default-seed',
@@ -1414,20 +1480,32 @@ export class GroupsService {
       const n = teamCount % 2 === 0 ? teamCount : teamCount + 1;
       let matchIndex = 0;
 
-      for (let r = 0; r < n - 1 && matchIndex < bracketData.matches.length; r++) {
+      for (
+        let r = 0;
+        r < n - 1 && matchIndex < bracketData.matches.length;
+        r++
+      ) {
         // Fixed pair: slot 0 vs the rotating opponent
         const oppRotIdx = (r + n / 2 - 1) % (n - 1);
         const opp = oppRotIdx + 1;
         if (opp < teamCount) {
           const m = bracketData.matches[matchIndex++];
           m.team1Id = shuffled[0].id;
-          m.team1Name = shuffled[0].club?.name || shuffled[0].coachName || 'Team 1';
+          m.team1Name =
+            shuffled[0].club?.name || shuffled[0].coachName || 'Team 1';
           m.team2Id = shuffled[opp].id;
-          m.team2Name = shuffled[opp].club?.name || shuffled[opp].coachName || `Team ${opp + 1}`;
+          m.team2Name =
+            shuffled[opp].club?.name ||
+            shuffled[opp].coachName ||
+            `Team ${opp + 1}`;
         }
 
         // Remaining pairs for this round
-        for (let i = 1; i < n / 2 && matchIndex < bracketData.matches.length; i++) {
+        for (
+          let i = 1;
+          i < n / 2 && matchIndex < bracketData.matches.length;
+          i++
+        ) {
           const rIdx1 = (r + i - 1 + (n - 1)) % (n - 1);
           const rIdx2 = (r + n - 2 - i + (n - 1)) % (n - 1);
           const ta = rIdx1 + 1;
@@ -1435,9 +1513,15 @@ export class GroupsService {
           if (ta < teamCount && tb < teamCount) {
             const m = bracketData.matches[matchIndex++];
             m.team1Id = shuffled[ta].id;
-            m.team1Name = shuffled[ta].club?.name || shuffled[ta].coachName || `Team ${ta + 1}`;
+            m.team1Name =
+              shuffled[ta].club?.name ||
+              shuffled[ta].coachName ||
+              `Team ${ta + 1}`;
             m.team2Id = shuffled[tb].id;
-            m.team2Name = shuffled[tb].club?.name || shuffled[tb].coachName || `Team ${tb + 1}`;
+            m.team2Name =
+              shuffled[tb].club?.name ||
+              shuffled[tb].coachName ||
+              `Team ${tb + 1}`;
           }
         }
       }
@@ -1445,7 +1529,11 @@ export class GroupsService {
 
     // Assign team IDs to LEAGUE matches using the same wheel algorithm as
     // generateLeagueBracket: first-leg gets real IDs, second-leg swaps them.
-    if (bracketType === BracketType.LEAGUE && bracketData.matches && bracketData.matches.length > 0) {
+    if (
+      bracketType === BracketType.LEAGUE &&
+      bracketData.matches &&
+      bracketData.matches.length > 0
+    ) {
       const shuffled = this.seededShuffle(
         [...registrations],
         bracketData.seed || 'default-seed',
@@ -1454,10 +1542,10 @@ export class GroupsService {
       const n = teamCount % 2 === 0 ? teamCount : teamCount + 1;
 
       const firstLegMatches = bracketData.matches.filter((m: Match) =>
-        (m.id as string).startsWith('leg1_'),
+        m.id.startsWith('leg1_'),
       );
       const secondLegMatches = bracketData.matches.filter((m: Match) =>
-        (m.id as string).startsWith('leg2_'),
+        m.id.startsWith('leg2_'),
       );
 
       let matchIndex = 0;
@@ -1467,9 +1555,13 @@ export class GroupsService {
         if (opp < teamCount) {
           const m = firstLegMatches[matchIndex++];
           m.team1Id = shuffled[0].id;
-          m.team1Name = shuffled[0].club?.name || shuffled[0].coachName || 'Team 1';
+          m.team1Name =
+            shuffled[0].club?.name || shuffled[0].coachName || 'Team 1';
           m.team2Id = shuffled[opp].id;
-          m.team2Name = shuffled[opp].club?.name || shuffled[opp].coachName || `Team ${opp + 1}`;
+          m.team2Name =
+            shuffled[opp].club?.name ||
+            shuffled[opp].coachName ||
+            `Team ${opp + 1}`;
         }
 
         for (let i = 1; i < n / 2 && matchIndex < firstLegMatches.length; i++) {
@@ -1480,9 +1572,15 @@ export class GroupsService {
           if (ta < teamCount && tb < teamCount) {
             const m = firstLegMatches[matchIndex++];
             m.team1Id = shuffled[ta].id;
-            m.team1Name = shuffled[ta].club?.name || shuffled[ta].coachName || `Team ${ta + 1}`;
+            m.team1Name =
+              shuffled[ta].club?.name ||
+              shuffled[ta].coachName ||
+              `Team ${ta + 1}`;
             m.team2Id = shuffled[tb].id;
-            m.team2Name = shuffled[tb].club?.name || shuffled[tb].coachName || `Team ${tb + 1}`;
+            m.team2Name =
+              shuffled[tb].club?.name ||
+              shuffled[tb].coachName ||
+              `Team ${tb + 1}`;
           }
         }
       }
@@ -1509,9 +1607,7 @@ export class GroupsService {
         order: { groupLetter: 'ASC' },
       });
       const rrRegIds = new Set(registrations.map((r) => r.id));
-      const rrRegMap = new Map(
-        registrations.map((r) => [r.id, r]),
-      );
+      const rrRegMap = new Map(registrations.map((r) => [r.id, r]));
 
       const groupPhaseMatches: Match[] = [];
       let rrCounter = 1;
@@ -1580,7 +1676,7 @@ export class GroupsService {
       } else {
         existingBracketData[ageGroupId] = bracketData;
         await this.tournamentsRepository.update(tournamentId, {
-          bracketData: existingBracketData as any,
+          bracketData: existingBracketData,
         });
       }
     } else {
@@ -1633,7 +1729,11 @@ export class GroupsService {
       ? existingBracketData[ageGroupId]
       : existingBracketData;
 
-    if (!bracketData || !bracketData.matches || bracketData.matches.length === 0) {
+    if (
+      !bracketData ||
+      !bracketData.matches ||
+      bracketData.matches.length === 0
+    ) {
       throw new BadRequestException(
         'Group matches must be generated before creating the knockout bracket',
       );
@@ -1671,8 +1771,7 @@ export class GroupsService {
       throw new BadRequestException('No groups found for this tournament');
     }
 
-    const advancingPerGroup =
-      (bracketData as any).advancingTeamsPerGroup ?? 2;
+    const advancingPerGroup = bracketData.advancingTeamsPerGroup ?? 2;
     const playoffTeamCount = groups.length * advancingPerGroup;
 
     // Generate knockout bracket shell
@@ -1718,8 +1817,10 @@ export class GroupsService {
     if (bracketData.playoffRounds && bracketData.playoffRounds.length > 0) {
       const firstRound = bracketData.playoffRounds[0];
       for (const m of firstRound.matches) {
-        if (m.team1Id) m.team1Name = nameMap.get(m.team1Id) || m.team1Name || '';
-        if (m.team2Id) m.team2Name = nameMap.get(m.team2Id) || m.team2Name || '';
+        if (m.team1Id)
+          m.team1Name = nameMap.get(m.team1Id) || m.team1Name || '';
+        if (m.team2Id)
+          m.team2Name = nameMap.get(m.team2Id) || m.team2Name || '';
       }
     }
 
@@ -1727,11 +1828,11 @@ export class GroupsService {
     if (ageGroupId) {
       existingBracketData[ageGroupId] = bracketData;
       await this.tournamentsRepository.update(tournamentId, {
-        bracketData: existingBracketData as any,
+        bracketData: existingBracketData,
       });
     } else {
       await this.tournamentsRepository.update(tournamentId, {
-        bracketData: bracketData as any,
+        bracketData: bracketData,
       });
     }
 
@@ -1777,9 +1878,10 @@ export class GroupsService {
 
     if (!nextMatch) return false;
 
-    const advancingName = sourceMatch.team1Id === advancingTeamId
-      ? sourceMatch.team1Name
-      : sourceMatch.team2Name;
+    const advancingName =
+      sourceMatch.team1Id === advancingTeamId
+        ? sourceMatch.team1Name
+        : sourceMatch.team2Name;
 
     // If the old winner already occupies a slot, replace it (score-edit case)
     if (oldWinnerId) {
@@ -1911,7 +2013,8 @@ export class GroupsService {
       );
 
       // C(n, 2) = n*(n-1)/2
-      const groupMatches = numGroups * ((teamsPerGroup * (teamsPerGroup - 1)) / 2);
+      const groupMatches =
+        numGroups * ((teamsPerGroup * (teamsPerGroup - 1)) / 2);
 
       const advancingPerGroup = ageGroup.qualifyingTeamsPerGroup ?? 2;
       const qualifyingTeams = numGroups * advancingPerGroup;
@@ -1965,7 +2068,8 @@ export class GroupsService {
 
     const fullBracketData = tournament.bracketData as any;
     const bracketData =
-      this.getBracketForAgeGroup(fullBracketData, ageGroupId) || fullBracketData;
+      this.getBracketForAgeGroup(fullBracketData, ageGroupId) ||
+      fullBracketData;
 
     if (!bracketData.matches || !bracketData.playoffRounds?.length) {
       return { success: true, bracketUpdated };
@@ -2005,8 +2109,7 @@ export class GroupsService {
       perGroupStandings.set(g.groupLetter, standings);
     }
 
-    const advancingPerGroup =
-      (bracketData as any).advancingTeamsPerGroup ?? 2;
+    const advancingPerGroup = bracketData.advancingTeamsPerGroup ?? 2;
     this.bracketGeneratorService.seedTeamsIntoBracket(
       perGroupStandings,
       advancingPerGroup,

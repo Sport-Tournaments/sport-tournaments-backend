@@ -1,10 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  LocationSearchDto,
-  LocationResultDto,
-  ReverseGeocodeDto,
-} from './dto';
+import { LocationSearchDto, LocationResultDto, ReverseGeocodeDto } from './dto';
 
 @Injectable()
 export class LocationsService {
@@ -47,7 +43,9 @@ export class LocationsService {
       const payload = await response.json();
       const results = Array.isArray(payload.results) ? payload.results : [];
 
-      return results.slice(0, limit).map((result: any) => this.mapGoogleGeocodeResult(result));
+      return results
+        .slice(0, limit)
+        .map((result: any) => this.mapGoogleGeocodeResult(result));
     } catch (error) {
       this.logger.error('Error searching locations:', error);
       return [];
@@ -57,7 +55,9 @@ export class LocationsService {
   /**
    * Reverse geocode coordinates to get location details
    */
-  async reverseGeocode(dto: ReverseGeocodeDto): Promise<LocationResultDto | null> {
+  async reverseGeocode(
+    dto: ReverseGeocodeDto,
+  ): Promise<LocationResultDto | null> {
     const { latitude, longitude } = dto;
 
     const apiKey = this.getGoogleMapsApiKey();
@@ -129,12 +129,16 @@ export class LocationsService {
       );
 
       if (!response.ok) {
-        this.logger.warn(`Google Places Autocomplete error: ${response.status}`);
+        this.logger.warn(
+          `Google Places Autocomplete error: ${response.status}`,
+        );
         return [];
       }
 
       const payload = await response.json();
-      const predictions = Array.isArray(payload.predictions) ? payload.predictions : [];
+      const predictions = Array.isArray(payload.predictions)
+        ? payload.predictions
+        : [];
 
       const detailsResults = await Promise.all(
         predictions.slice(0, 10).map(async (prediction: any) => {
@@ -146,7 +150,8 @@ export class LocationsService {
             place_id: prediction.place_id,
             key: apiKey,
             language: 'en',
-            fields: 'place_id,formatted_address,name,address_component,geometry',
+            fields:
+              'place_id,formatted_address,name,address_component,geometry',
           });
 
           try {
@@ -155,7 +160,9 @@ export class LocationsService {
             );
 
             if (!detailsResponse.ok) {
-              this.logger.warn(`Google Places Details error: ${detailsResponse.status}`);
+              this.logger.warn(
+                `Google Places Details error: ${detailsResponse.status}`,
+              );
               return null;
             }
 
@@ -187,7 +194,9 @@ export class LocationsService {
   }
 
   private mapGoogleGeocodeResult(result: any): LocationResultDto {
-    const addressData = this.parseGoogleAddressComponents(result?.address_components || []);
+    const addressData = this.parseGoogleAddressComponents(
+      result?.address_components || [],
+    );
 
     return {
       displayName: result.formatted_address || result.name || '',
@@ -205,7 +214,9 @@ export class LocationsService {
   }
 
   private mapGooglePlaceResult(result: any): LocationResultDto {
-    const addressData = this.parseGoogleAddressComponents(result?.address_components || []);
+    const addressData = this.parseGoogleAddressComponents(
+      result?.address_components || [],
+    );
 
     return {
       displayName: result.formatted_address || result.name || '',
@@ -246,10 +257,13 @@ export class LocationsService {
       getComponent('administrative_area_level_2')?.long_name ||
       undefined;
     const country = getComponent('country')?.long_name || '';
-    const countryCode = (getComponent('country')?.short_name || '').toUpperCase();
+    const countryCode = (
+      getComponent('country')?.short_name || ''
+    ).toUpperCase();
     const postalCode = getComponent('postal_code')?.long_name;
 
-    const address = [streetNumber, route].filter(Boolean).join(' ') || undefined;
+    const address =
+      [streetNumber, route].filter(Boolean).join(' ') || undefined;
 
     return {
       city: locality,

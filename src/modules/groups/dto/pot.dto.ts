@@ -1,4 +1,12 @@
-import { IsUUID, IsNumber, IsArray, ValidateNested, Min, Max, IsOptional } from 'class-validator';
+import {
+  IsUUID,
+  IsNumber,
+  IsArray,
+  ValidateNested,
+  Min,
+  Max,
+  IsOptional,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class AssignTeamToPotDto {

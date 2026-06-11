@@ -94,27 +94,167 @@ const ACCOUNTS = [
 
 const CLUBS = [
   // participant1 clubs
-  { id: '22000000-0000-4000-8000-000000000001', name: 'FC Bayern Junior',          country: 'Germany',        city: 'Munich',     primary: '#DC052D', secondary: '#FFFFFF' },
-  { id: '22000000-0000-4000-8000-000000000002', name: 'FC Barcelona Youth',         country: 'Spain',          city: 'Barcelona',  primary: '#A50044', secondary: '#004D98' },
-  { id: '22000000-0000-4000-8000-000000000003', name: 'Manchester City Academy',    country: 'United Kingdom', city: 'Manchester', primary: '#6CABDD', secondary: '#FFFFFF' },
-  { id: '22000000-0000-4000-8000-000000000004', name: 'Juventus Next Gen',          country: 'Italy',          city: 'Turin',      primary: '#000000', secondary: '#FFFFFF' },
-  { id: '22000000-0000-4000-8000-000000000005', name: 'Ajax Youth',                 country: 'Netherlands',    city: 'Amsterdam',  primary: '#CF0032', secondary: '#FFFFFF' },
-  { id: '22000000-0000-4000-8000-000000000006', name: 'Benfica Juniors',            country: 'Portugal',       city: 'Lisbon',     primary: '#FF0000', secondary: '#FFFFFF' },
-  { id: '22000000-0000-4000-8000-000000000007', name: 'PSG Academy',               country: 'France',         city: 'Paris',      primary: '#004170', secondary: '#DA291C' },
-  { id: '22000000-0000-4000-8000-000000000008', name: 'Borussia Dortmund Youth',   country: 'Germany',        city: 'Dortmund',   primary: '#FDE100', secondary: '#000000' },
-  { id: '22000000-0000-4000-8000-000000000009', name: 'Celtic FC Youth',           country: 'United Kingdom', city: 'Glasgow',    primary: '#007A33', secondary: '#FFFFFF' },
-  { id: '22000000-0000-4000-8000-000000000010', name: 'FC Porto Academy',          country: 'Portugal',       city: 'Porto',      primary: '#003399', secondary: '#FFFFFF' },
+  {
+    id: '22000000-0000-4000-8000-000000000001',
+    name: 'FC Bayern Junior',
+    country: 'Germany',
+    city: 'Munich',
+    primary: '#DC052D',
+    secondary: '#FFFFFF',
+  },
+  {
+    id: '22000000-0000-4000-8000-000000000002',
+    name: 'FC Barcelona Youth',
+    country: 'Spain',
+    city: 'Barcelona',
+    primary: '#A50044',
+    secondary: '#004D98',
+  },
+  {
+    id: '22000000-0000-4000-8000-000000000003',
+    name: 'Manchester City Academy',
+    country: 'United Kingdom',
+    city: 'Manchester',
+    primary: '#6CABDD',
+    secondary: '#FFFFFF',
+  },
+  {
+    id: '22000000-0000-4000-8000-000000000004',
+    name: 'Juventus Next Gen',
+    country: 'Italy',
+    city: 'Turin',
+    primary: '#000000',
+    secondary: '#FFFFFF',
+  },
+  {
+    id: '22000000-0000-4000-8000-000000000005',
+    name: 'Ajax Youth',
+    country: 'Netherlands',
+    city: 'Amsterdam',
+    primary: '#CF0032',
+    secondary: '#FFFFFF',
+  },
+  {
+    id: '22000000-0000-4000-8000-000000000006',
+    name: 'Benfica Juniors',
+    country: 'Portugal',
+    city: 'Lisbon',
+    primary: '#FF0000',
+    secondary: '#FFFFFF',
+  },
+  {
+    id: '22000000-0000-4000-8000-000000000007',
+    name: 'PSG Academy',
+    country: 'France',
+    city: 'Paris',
+    primary: '#004170',
+    secondary: '#DA291C',
+  },
+  {
+    id: '22000000-0000-4000-8000-000000000008',
+    name: 'Borussia Dortmund Youth',
+    country: 'Germany',
+    city: 'Dortmund',
+    primary: '#FDE100',
+    secondary: '#000000',
+  },
+  {
+    id: '22000000-0000-4000-8000-000000000009',
+    name: 'Celtic FC Youth',
+    country: 'United Kingdom',
+    city: 'Glasgow',
+    primary: '#007A33',
+    secondary: '#FFFFFF',
+  },
+  {
+    id: '22000000-0000-4000-8000-000000000010',
+    name: 'FC Porto Academy',
+    country: 'Portugal',
+    city: 'Porto',
+    primary: '#003399',
+    secondary: '#FFFFFF',
+  },
   // participant2 clubs
-  { id: '22000000-0000-4000-8000-000000000011', name: 'Red Bull Salzburg Youth',   country: 'Austria',        city: 'Salzburg',   primary: '#E4003E', secondary: '#FFFFFF' },
-  { id: '22000000-0000-4000-8000-000000000012', name: 'Shakhtar Youth',            country: 'Ukraine',        city: 'Donetsk',    primary: '#FF6600', secondary: '#000000' },
-  { id: '22000000-0000-4000-8000-000000000013', name: 'Olympiacos Academy',        country: 'Greece',         city: 'Athens',     primary: '#CC0000', secondary: '#FFFFFF' },
-  { id: '22000000-0000-4000-8000-000000000014', name: 'Club Brugge Youth',         country: 'Belgium',        city: 'Bruges',     primary: '#0055A5', secondary: '#000000' },
-  { id: '22000000-0000-4000-8000-000000000015', name: 'Galatasaray Juniors',       country: 'Turkey',         city: 'Istanbul',   primary: '#FFC72C', secondary: '#AA151B' },
-  { id: '22000000-0000-4000-8000-000000000016', name: 'Sporting CP Youth',         country: 'Portugal',       city: 'Lisbon',     primary: '#008847', secondary: '#FFFFFF' },
-  { id: '22000000-0000-4000-8000-000000000017', name: 'AS Roma Primavera',         country: 'Italy',          city: 'Rome',       primary: '#8E1F2F', secondary: '#F4A900' },
-  { id: '22000000-0000-4000-8000-000000000018', name: 'Feyenoord Academy',         country: 'Netherlands',    city: 'Rotterdam',  primary: '#FF0000', secondary: '#FFFFFF' },
-  { id: '22000000-0000-4000-8000-000000000019', name: 'Dynamo Kyiv Youth',         country: 'Ukraine',        city: 'Kyiv',       primary: '#004C97', secondary: '#FFFFFF' },
-  { id: '22000000-0000-4000-8000-000000000020', name: 'Steaua București Junior',   country: 'Romania',        city: 'Bucharest',  primary: '#003DA5', secondary: '#CC0000' },
+  {
+    id: '22000000-0000-4000-8000-000000000011',
+    name: 'Red Bull Salzburg Youth',
+    country: 'Austria',
+    city: 'Salzburg',
+    primary: '#E4003E',
+    secondary: '#FFFFFF',
+  },
+  {
+    id: '22000000-0000-4000-8000-000000000012',
+    name: 'Shakhtar Youth',
+    country: 'Ukraine',
+    city: 'Donetsk',
+    primary: '#FF6600',
+    secondary: '#000000',
+  },
+  {
+    id: '22000000-0000-4000-8000-000000000013',
+    name: 'Olympiacos Academy',
+    country: 'Greece',
+    city: 'Athens',
+    primary: '#CC0000',
+    secondary: '#FFFFFF',
+  },
+  {
+    id: '22000000-0000-4000-8000-000000000014',
+    name: 'Club Brugge Youth',
+    country: 'Belgium',
+    city: 'Bruges',
+    primary: '#0055A5',
+    secondary: '#000000',
+  },
+  {
+    id: '22000000-0000-4000-8000-000000000015',
+    name: 'Galatasaray Juniors',
+    country: 'Turkey',
+    city: 'Istanbul',
+    primary: '#FFC72C',
+    secondary: '#AA151B',
+  },
+  {
+    id: '22000000-0000-4000-8000-000000000016',
+    name: 'Sporting CP Youth',
+    country: 'Portugal',
+    city: 'Lisbon',
+    primary: '#008847',
+    secondary: '#FFFFFF',
+  },
+  {
+    id: '22000000-0000-4000-8000-000000000017',
+    name: 'AS Roma Primavera',
+    country: 'Italy',
+    city: 'Rome',
+    primary: '#8E1F2F',
+    secondary: '#F4A900',
+  },
+  {
+    id: '22000000-0000-4000-8000-000000000018',
+    name: 'Feyenoord Academy',
+    country: 'Netherlands',
+    city: 'Rotterdam',
+    primary: '#FF0000',
+    secondary: '#FFFFFF',
+  },
+  {
+    id: '22000000-0000-4000-8000-000000000019',
+    name: 'Dynamo Kyiv Youth',
+    country: 'Ukraine',
+    city: 'Kyiv',
+    primary: '#004C97',
+    secondary: '#FFFFFF',
+  },
+  {
+    id: '22000000-0000-4000-8000-000000000020',
+    name: 'Steaua București Junior',
+    country: 'Romania',
+    city: 'Bucharest',
+    primary: '#003DA5',
+    secondary: '#CC0000',
+  },
 ] as const;
 
 // ─── Tournaments (5 formats) ───────────────────────────────────────────────────
@@ -186,7 +326,8 @@ const TOURNAMENTS: {
     startOffset: 45,
     groupsCount: null,
     teamsPerGroup: 4,
-    description: 'Double Elimination Premier – 16 teams, winners & losers bracket.',
+    description:
+      'Double Elimination Premier – 16 teams, winners & losers bracket.',
   },
   {
     id: '33000000-0000-4000-8000-000000000006',
@@ -219,7 +360,8 @@ const TOURNAMENTS: {
     startOffset: 48,
     groupsCount: null,
     teamsPerGroup: 4,
-    description: 'Double Elimination Bronze – 8 teams, loser-bracket repechage.',
+    description:
+      'Double Elimination Bronze – 8 teams, loser-bracket repechage.',
   },
 
   // ── Round Robin (4) ─────────────────────────────────────────────────────────
@@ -232,7 +374,8 @@ const TOURNAMENTS: {
     startOffset: 60,
     groupsCount: null,
     teamsPerGroup: 4,
-    description: 'Round Robin Premier – 8 teams, all-play-all, ranked by points.',
+    description:
+      'Round Robin Premier – 8 teams, all-play-all, ranked by points.',
   },
   {
     id: '33000000-0000-4000-8000-000000000010',
@@ -278,7 +421,8 @@ const TOURNAMENTS: {
     startOffset: 75,
     groupsCount: 4,
     teamsPerGroup: 4,
-    description: 'Groups + KO Premier – 16 teams, 4 groups of 4, top 2 advance.',
+    description:
+      'Groups + KO Premier – 16 teams, 4 groups of 4, top 2 advance.',
   },
   {
     id: '33000000-0000-4000-8000-000000000014',
@@ -300,7 +444,8 @@ const TOURNAMENTS: {
     startOffset: 77,
     groupsCount: 2,
     teamsPerGroup: 4,
-    description: 'Groups + KO Silver – 8 teams, 2 groups of 4, top 2 per group to semis.',
+    description:
+      'Groups + KO Silver – 8 teams, 2 groups of 4, top 2 per group to semis.',
   },
   {
     id: '33000000-0000-4000-8000-000000000016',
@@ -378,14 +523,18 @@ async function hashPwd(plain: string): Promise<string> {
 async function bootstrap() {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
-    console.error('❌  DATABASE_URL not set — add it to .env or export it before running');
+    console.error(
+      '❌  DATABASE_URL not set — add it to .env or export it before running',
+    );
     process.exit(1);
   }
 
   const url = new URL(databaseUrl);
   const sslMode = url.searchParams.get('sslmode');
   const ssl =
-    sslMode === 'disable' || sslMode === 'false' ? false : { rejectUnauthorized: false };
+    sslMode === 'disable' || sslMode === 'false'
+      ? false
+      : { rejectUnauthorized: false };
 
   const ds = new DataSource({
     type: 'postgres',
@@ -410,20 +559,38 @@ async function bootstrap() {
     const userIds = ACCOUNTS.map((a) => `'${a.id}'`).join(',');
     const ageGroupIds = TOURNAMENTS.map((t) => `'${t.ageGroupId}'`).join(',');
 
-    await qr.query(`DELETE FROM "tournament_pots"         WHERE tournament_id IN (${tournamentIds})`);
-    await qr.query(`DELETE FROM "groups"                  WHERE tournament_id IN (${tournamentIds})`);
-    await qr.query(`DELETE FROM "registrations"           WHERE tournament_id IN (${tournamentIds})`);
-    await qr.query(`DELETE FROM "tournament_age_groups"   WHERE id IN (${ageGroupIds})`);
-    await qr.query(`DELETE FROM "tournaments"             WHERE id IN (${tournamentIds})`);
+    await qr.query(
+      `DELETE FROM "tournament_pots"         WHERE tournament_id IN (${tournamentIds})`,
+    );
+    await qr.query(
+      `DELETE FROM "groups"                  WHERE tournament_id IN (${tournamentIds})`,
+    );
+    await qr.query(
+      `DELETE FROM "registrations"           WHERE tournament_id IN (${tournamentIds})`,
+    );
+    await qr.query(
+      `DELETE FROM "tournament_age_groups"   WHERE id IN (${ageGroupIds})`,
+    );
+    await qr.query(
+      `DELETE FROM "tournaments"             WHERE id IN (${tournamentIds})`,
+    );
     // Also delete any stale clubs that share our deterministic names (e.g. from seed-format-tests)
-    const clubNames = CLUBS.map((c) => `'${c.name.replace(/'/g, "''")}'`).join(',');
+    const clubNames = CLUBS.map((c) => `'${c.name.replace(/'/g, "''")}'`).join(
+      ',',
+    );
     const staleClubs = await qr.query(
       `SELECT id FROM "clubs" WHERE name IN (${clubNames})`,
     );
     if (staleClubs.length) {
-      const staleIds = staleClubs.map((r: { id: string }) => `'${r.id}'`).join(',');
-      await qr.query(`DELETE FROM "registrations" WHERE club_id IN (${staleIds})`);
-      await qr.query(`DELETE FROM "teams"         WHERE club_id IN (${staleIds})`);
+      const staleIds = staleClubs
+        .map((r: { id: string }) => `'${r.id}'`)
+        .join(',');
+      await qr.query(
+        `DELETE FROM "registrations" WHERE club_id IN (${staleIds})`,
+      );
+      await qr.query(
+        `DELETE FROM "teams"         WHERE club_id IN (${staleIds})`,
+      );
       await qr.query(`DELETE FROM "clubs"         WHERE id IN (${staleIds})`);
     }
     await qr.query(`DELETE FROM "teams"  WHERE club_id IN (${clubIds})`);
@@ -499,7 +666,14 @@ async function bootstrap() {
         `INSERT INTO "teams"
            (id, club_id, name, age_category, birthyear, coach, created_at)
          VALUES ($1,$2,$3,$4,$5,$6,NOW())`,
-        [teamId, c.id, `${c.name} U12`, 'U12', 2014, `Coach ${c.name.split(' ')[0]}`],
+        [
+          teamId,
+          c.id,
+          `${c.name} U12`,
+          'U12',
+          2014,
+          `Coach ${c.name.split(' ')[0]}`,
+        ],
       );
     }
     console.log(`   ✓ ${CLUBS.length} teams created (U12 / birth year 2014)\n`);
@@ -533,13 +707,13 @@ async function bootstrap() {
           'U12',
           'I',
           t.teamCount,
-          0,          // updated after registrations
+          0, // updated after registrations
           'EUR',
           150,
           true,
           false,
           deadline,
-          false,      // ← draw NOT completed (waiting for manual testing)
+          false, // ← draw NOT completed (waiting for manual testing)
           false,
         ],
       );
@@ -621,7 +795,9 @@ async function bootstrap() {
         [registered, t.ageGroupId],
       );
 
-      console.log(`   ✓ ${t.name}: ${registered}/${t.teamCount} teams registered`);
+      console.log(
+        `   ✓ ${t.name}: ${registered}/${t.teamCount} teams registered`,
+      );
     }
     console.log('');
 
@@ -640,9 +816,9 @@ async function bootstrap() {
 
 function printSummary() {
   const RESET = '\x1b[0m';
-  const BOLD  = '\x1b[1m';
+  const BOLD = '\x1b[1m';
   const GREEN = '\x1b[32m';
-  const CYAN  = '\x1b[36m';
+  const CYAN = '\x1b[36m';
   const YELLOW = '\x1b[33m';
 
   console.log(`${BOLD}${'═'.repeat(60)}${RESET}`);
@@ -650,20 +826,30 @@ function printSummary() {
   console.log(`${'═'.repeat(60)}`);
 
   console.log(`\n${CYAN}${BOLD}👥  TEST ACCOUNTS${RESET}`);
-  console.log('┌──────────────────────────────────┬─────────────┬────────────┐');
-  console.log('│ Email                            │ Role        │ Password   │');
-  console.log('├──────────────────────────────────┼─────────────┼────────────┤');
+  console.log(
+    '┌──────────────────────────────────┬─────────────┬────────────┐',
+  );
+  console.log(
+    '│ Email                            │ Role        │ Password   │',
+  );
+  console.log(
+    '├──────────────────────────────────┼─────────────┼────────────┤',
+  );
   for (const a of ACCOUNTS) {
     const email = a.email.padEnd(32);
-    const role  = a.role.padEnd(11);
-    const pwd   = a.password.padEnd(10);
+    const role = a.role.padEnd(11);
+    const pwd = a.password.padEnd(10);
     console.log(`│ ${email} │ ${role} │ ${pwd} │`);
   }
-  console.log('└──────────────────────────────────┴─────────────┴────────────┘');
+  console.log(
+    '└──────────────────────────────────┴─────────────┴────────────┘',
+  );
 
   console.log(`\n${CYAN}${BOLD}🏆  TOURNAMENTS${RESET}`);
   for (const t of TOURNAMENTS) {
-    console.log(`\n  ${BOLD}${t.name}${RESET}  –  ${YELLOW}${t.format}${RESET}`);
+    console.log(
+      `\n  ${BOLD}${t.name}${RESET}  –  ${YELLOW}${t.format}${RESET}`,
+    );
     console.log(`    Tournament ID : ${t.id}`);
     console.log(`    Age Group ID  : ${t.ageGroupId}`);
     console.log(`    Teams         : ${t.teamCount}`);
@@ -672,7 +858,9 @@ function printSummary() {
   console.log(`\n${BOLD}${'═'.repeat(60)}${RESET}`);
   console.log(`${YELLOW}${BOLD}⚡  Next steps for manual testing:${RESET}`);
   console.log('  1. Login as test.organizer1@sport.ro / Test123!');
-  console.log('  2. For each tournament → open "Pots" tab → assign pots → execute draw');
+  console.log(
+    '  2. For each tournament → open "Pots" tab → assign pots → execute draw',
+  );
   console.log('  3. After draw → open "Matches" tab → enter scores');
   console.log('  4. Use test.participant1/2 to verify read-only view');
   console.log('  5. Use test.organizer2 to verify security (403 on mutations)');

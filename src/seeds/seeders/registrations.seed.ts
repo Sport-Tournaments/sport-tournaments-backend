@@ -35,11 +35,17 @@ export async function seedRegistrations(
     fee: number;
   }[],
   clubs: { id: string; ownerId: string }[],
-  teams: { id: string; clubId: string; birthyear: number; ageCategory: string }[],
+  teams: {
+    id: string;
+    clubId: string;
+    birthyear: number;
+    ageCategory: string;
+  }[],
 ): Promise<SeededRegistration[]> {
   const registrationRepository = dataSource.getRepository('Registration');
   const tournamentRepository = dataSource.getRepository('Tournament');
-  const tournamentAgeGroupRepository = dataSource.getRepository('TournamentAgeGroup');
+  const tournamentAgeGroupRepository =
+    dataSource.getRepository('TournamentAgeGroup');
   const seededRegistrations: SeededRegistration[] = [];
   const usedCombinations = new Set<string>();
 
@@ -51,7 +57,15 @@ export async function seedRegistrations(
   const allTournamentAgeGroups = await tournamentAgeGroupRepository.find({
     select: ['id', 'tournamentId', 'birthYear', 'ageCategory'],
   });
-  const ageGroupsByTournament = new Map<string, { id: string; tournamentId: string; birthYear: number; ageCategory?: string }[]>();
+  const ageGroupsByTournament = new Map<
+    string,
+    {
+      id: string;
+      tournamentId: string;
+      birthYear: number;
+      ageCategory?: string;
+    }[]
+  >();
   for (const ageGroup of allTournamentAgeGroups) {
     if (!ageGroupsByTournament.has(ageGroup.tournamentId)) {
       ageGroupsByTournament.set(ageGroup.tournamentId, []);
@@ -65,7 +79,10 @@ export async function seedRegistrations(
   }
 
   // Index teams by clubId for fast lookup
-  const teamsByClub = new Map<string, { id: string; clubId: string; birthyear: number; ageCategory: string }[]>();
+  const teamsByClub = new Map<
+    string,
+    { id: string; clubId: string; birthyear: number; ageCategory: string }[]
+  >();
   for (const team of teams) {
     if (!teamsByClub.has(team.clubId)) teamsByClub.set(team.clubId, []);
     teamsByClub.get(team.clubId)!.push(team);
@@ -77,11 +94,17 @@ export async function seedRegistrations(
 
     switch (tournament.status) {
       case TournamentStatus.PUBLISHED:
-        registrationCount = faker.number.int({ min: Math.floor(maxTeams * 0.3), max: Math.floor(maxTeams * 0.7) });
+        registrationCount = faker.number.int({
+          min: Math.floor(maxTeams * 0.3),
+          max: Math.floor(maxTeams * 0.7),
+        });
         break;
       case TournamentStatus.ONGOING:
       case TournamentStatus.COMPLETED:
-        registrationCount = faker.number.int({ min: Math.floor(maxTeams * 0.6), max: maxTeams });
+        registrationCount = faker.number.int({
+          min: Math.floor(maxTeams * 0.6),
+          max: maxTeams,
+        });
         break;
       default:
         registrationCount = faker.number.int({ min: 2, max: 6 });
@@ -103,7 +126,10 @@ export async function seedRegistrations(
       let status: RegistrationStatus;
       let paymentStatus: PaymentStatus;
 
-      if (tournament.status === TournamentStatus.ONGOING || tournament.status === TournamentStatus.COMPLETED) {
+      if (
+        tournament.status === TournamentStatus.ONGOING ||
+        tournament.status === TournamentStatus.COMPLETED
+      ) {
         status = weightedRandom([
           { value: RegistrationStatus.APPROVED, weight: 0.85 },
           { value: RegistrationStatus.WITHDRAWN, weight: 0.1 },
@@ -140,43 +166,49 @@ export async function seedRegistrations(
       const groupLetters = ['A', 'B', 'C', 'D'];
       const groupAssignment =
         status === RegistrationStatus.APPROVED &&
-        (tournament.status === TournamentStatus.ONGOING || tournament.status === TournamentStatus.COMPLETED)
+        (tournament.status === TournamentStatus.ONGOING ||
+          tournament.status === TournamentStatus.COMPLETED)
           ? faker.helpers.arrayElement(groupLetters)
           : undefined;
 
       // Link a team from that club, preferring one compatible with tournament age groups
       const clubTeams = teamsByClub.get(club.id) || [];
 
-      const compatibleTeams = tournamentAgeGroups.length > 0
-        ? clubTeams.filter((clubTeam) =>
-            tournamentAgeGroups.some(
-              (ageGroup) =>
-                ageGroup.birthYear === clubTeam.birthyear ||
-                (!!ageGroup.ageCategory && ageGroup.ageCategory === clubTeam.ageCategory),
-            ),
-          )
-        : clubTeams;
+      const compatibleTeams =
+        tournamentAgeGroups.length > 0
+          ? clubTeams.filter((clubTeam) =>
+              tournamentAgeGroups.some(
+                (ageGroup) =>
+                  ageGroup.birthYear === clubTeam.birthyear ||
+                  (!!ageGroup.ageCategory &&
+                    ageGroup.ageCategory === clubTeam.ageCategory),
+              ),
+            )
+          : clubTeams;
 
       if (tournamentAgeGroups.length > 0 && compatibleTeams.length === 0) {
         continue;
       }
 
       const teamPool = compatibleTeams.length > 0 ? compatibleTeams : clubTeams;
-      const team = teamPool.length > 0 ? faker.helpers.arrayElement(teamPool) : undefined;
+      const team =
+        teamPool.length > 0 ? faker.helpers.arrayElement(teamPool) : undefined;
 
       const compatibleAgeGroups = tournamentAgeGroups.filter(
         (ageGroup) =>
           ageGroup.birthYear === team?.birthyear ||
-          (!!ageGroup.ageCategory && ageGroup.ageCategory === team?.ageCategory),
+          (!!ageGroup.ageCategory &&
+            ageGroup.ageCategory === team?.ageCategory),
       );
 
       if (tournamentAgeGroups.length > 0 && compatibleAgeGroups.length === 0) {
         continue;
       }
 
-      const ageGroup = compatibleAgeGroups.length > 0
-        ? faker.helpers.arrayElement(compatibleAgeGroups)
-        : undefined;
+      const ageGroup =
+        compatibleAgeGroups.length > 0
+          ? faker.helpers.arrayElement(compatibleAgeGroups)
+          : undefined;
 
       const id = generateUUID();
       const registrationDate = seedDate();
@@ -193,7 +225,9 @@ export async function seedRegistrations(
         coachName: faker.person.fullName(),
         coachPhone: generateRomanianPhone(),
         emergencyContact: generateRomanianPhone(),
-        notes: faker.datatype.boolean({ probability: 0.3 }) ? faker.lorem.sentence() : undefined,
+        notes: faker.datatype.boolean({ probability: 0.3 })
+          ? faker.lorem.sentence()
+          : undefined,
         paymentStatus,
         registrationDate,
         createdAt: registrationDate,
@@ -221,7 +255,9 @@ export async function seedRegistrations(
     }
 
     if (approvedCount > 0) {
-      await tournamentRepository.update(tournament.id, { currentTeams: approvedCount });
+      await tournamentRepository.update(tournament.id, {
+        currentTeams: approvedCount,
+      });
     }
 
     for (const [ageGroupId, currentTeams] of approvedCountByAgeGroup) {

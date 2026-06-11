@@ -384,7 +384,10 @@ describe('TournamentsService', () => {
           ],
         };
 
-        const mockSavedTournament = { ...mockTournament, id: 'new-tournament-id' };
+        const mockSavedTournament = {
+          ...mockTournament,
+          id: 'new-tournament-id',
+        };
         mockRepository.create.mockReturnValue(mockSavedTournament);
         mockRepository.save.mockResolvedValue(mockSavedTournament);
 
@@ -406,7 +409,8 @@ describe('TournamentsService', () => {
         expect(mockAgeGroupRepository.save).toHaveBeenCalled();
 
         // Verify first age group contains all required fields
-        const firstAgeGroupCall = mockAgeGroupRepository.create.mock.calls[0][0];
+        const firstAgeGroupCall =
+          mockAgeGroupRepository.create.mock.calls[0][0];
         expect(firstAgeGroupCall).toMatchObject({
           birthYear: 2010,
           displayLabel: 'U14',
@@ -421,7 +425,8 @@ describe('TournamentsService', () => {
         });
 
         // Verify second age group contains all required fields
-        const secondAgeGroupCall = mockAgeGroupRepository.create.mock.calls[1][0];
+        const secondAgeGroupCall =
+          mockAgeGroupRepository.create.mock.calls[1][0];
         expect(secondAgeGroupCall).toMatchObject({
           birthYear: 2012,
           displayLabel: 'U12',
@@ -453,7 +458,10 @@ describe('TournamentsService', () => {
           ],
         };
 
-        const mockSavedTournament = { ...mockTournament, id: 'new-tournament-id' };
+        const mockSavedTournament = {
+          ...mockTournament,
+          id: 'new-tournament-id',
+        };
         mockRepository.create.mockReturnValue(mockSavedTournament);
         mockRepository.save.mockResolvedValue(mockSavedTournament);
 
@@ -491,7 +499,9 @@ describe('TournamentsService', () => {
 
         mockRepository.findOne.mockResolvedValue(mockExistingTournament);
         mockAgeGroupRepository.find.mockResolvedValue([existingAgeGroup]);
-        mockAgeGroupRepository.save.mockImplementation((data) => Promise.resolve(data));
+        mockAgeGroupRepository.save.mockImplementation((data) =>
+          Promise.resolve(data),
+        );
 
         const updateData = [
           {
@@ -519,7 +529,9 @@ describe('TournamentsService', () => {
 
         // Verify the age group object was updated with all new fields
         const savedAgeGroups = mockAgeGroupRepository.save.mock.calls[0][0];
-        expect(Array.isArray(savedAgeGroups) ? savedAgeGroups[0] : savedAgeGroups).toMatchObject({
+        expect(
+          Array.isArray(savedAgeGroups) ? savedAgeGroups[0] : savedAgeGroups,
+        ).toMatchObject({
           id: 'age-group-1',
           minTeams: 8,
           maxTeams: 16,
@@ -539,7 +551,9 @@ describe('TournamentsService', () => {
         mockRepository.findOne.mockResolvedValue(mockExistingTournament);
         mockAgeGroupRepository.find.mockResolvedValue([]);
         mockAgeGroupRepository.create.mockImplementation((data) => data);
-        mockAgeGroupRepository.save.mockImplementation((data) => Promise.resolve(data));
+        mockAgeGroupRepository.save.mockImplementation((data) =>
+          Promise.resolve(data),
+        );
 
         const newAgeGroupData = [
           {
@@ -580,14 +594,24 @@ describe('TournamentsService', () => {
         };
 
         const existingAgeGroups = [
-          { id: 'age-group-1', tournamentId: mockTournament.id, birthYear: 2010 },
-          { id: 'age-group-2', tournamentId: mockTournament.id, birthYear: 2011 },
+          {
+            id: 'age-group-1',
+            tournamentId: mockTournament.id,
+            birthYear: 2010,
+          },
+          {
+            id: 'age-group-2',
+            tournamentId: mockTournament.id,
+            birthYear: 2011,
+          },
         ];
 
         mockRepository.findOne.mockResolvedValue(mockExistingTournament);
         mockAgeGroupRepository.find.mockResolvedValue(existingAgeGroups);
         mockAgeGroupRepository.remove.mockResolvedValue(undefined);
-        mockAgeGroupRepository.save.mockImplementation((data) => Promise.resolve(data));
+        mockAgeGroupRepository.save.mockImplementation((data) =>
+          Promise.resolve(data),
+        );
 
         const updateData = [
           {

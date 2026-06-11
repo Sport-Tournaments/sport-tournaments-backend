@@ -1,6 +1,6 @@
 /**
  * Reset & Location Setup Script
- * 
+ *
  * 1. Clears groups, pots, bracketData, drawCompleted for ALL tournaments
  * 2. Sets real GPS coordinates for each tournament across Romanian cities
  *
@@ -14,26 +14,26 @@ import { config } from 'dotenv';
 config();
 
 const ROMANIAN_CITIES = [
-  { city: 'București',    lat: 44.4268, lng: 26.1025 },
-  { city: 'Cluj-Napoca',  lat: 46.7712, lng: 23.6236 },
-  { city: 'Timișoara',    lat: 45.7489, lng: 21.2087 },
-  { city: 'Iași',         lat: 47.1585, lng: 27.6014 },
-  { city: 'Constanța',    lat: 44.1598, lng: 28.6348 },
-  { city: 'Brașov',       lat: 45.6427, lng: 25.5887 },
-  { city: 'Craiova',      lat: 44.3302, lng: 23.7949 },
-  { city: 'Sibiu',        lat: 45.7983, lng: 24.1256 },
-  { city: 'Oradea',       lat: 47.0465, lng: 21.9189 },
-  { city: 'Galați',       lat: 45.4353, lng: 28.0080 },
-  { city: 'Ploiești',     lat: 44.9462, lng: 26.0254 },
-  { city: 'Arad',         lat: 46.1866, lng: 21.3123 },
-  { city: 'Pitești',      lat: 44.8565, lng: 24.8692 },
-  { city: 'Baia Mare',    lat: 47.6567, lng: 23.5850 },
-  { city: 'Buzău',        lat: 45.1500, lng: 26.8333 },
-  { city: 'Târgu Mureș',  lat: 46.5456, lng: 24.5625 },
-  { city: 'Bacău',        lat: 46.5670, lng: 26.9146 },
-  { city: 'Suceava',      lat: 47.6514, lng: 26.2554 },
+  { city: 'București', lat: 44.4268, lng: 26.1025 },
+  { city: 'Cluj-Napoca', lat: 46.7712, lng: 23.6236 },
+  { city: 'Timișoara', lat: 45.7489, lng: 21.2087 },
+  { city: 'Iași', lat: 47.1585, lng: 27.6014 },
+  { city: 'Constanța', lat: 44.1598, lng: 28.6348 },
+  { city: 'Brașov', lat: 45.6427, lng: 25.5887 },
+  { city: 'Craiova', lat: 44.3302, lng: 23.7949 },
+  { city: 'Sibiu', lat: 45.7983, lng: 24.1256 },
+  { city: 'Oradea', lat: 47.0465, lng: 21.9189 },
+  { city: 'Galați', lat: 45.4353, lng: 28.008 },
+  { city: 'Ploiești', lat: 44.9462, lng: 26.0254 },
+  { city: 'Arad', lat: 46.1866, lng: 21.3123 },
+  { city: 'Pitești', lat: 44.8565, lng: 24.8692 },
+  { city: 'Baia Mare', lat: 47.6567, lng: 23.585 },
+  { city: 'Buzău', lat: 45.15, lng: 26.8333 },
+  { city: 'Târgu Mureș', lat: 46.5456, lng: 24.5625 },
+  { city: 'Bacău', lat: 46.567, lng: 26.9146 },
+  { city: 'Suceava', lat: 47.6514, lng: 26.2554 },
   { city: 'Piatra Neamț', lat: 46.9275, lng: 26.3716 },
-  { city: 'Alba Iulia',   lat: 46.0764, lng: 23.5808 },
+  { city: 'Alba Iulia', lat: 46.0764, lng: 23.5808 },
 ];
 
 async function main() {
@@ -83,7 +83,9 @@ async function main() {
   await ds.query(
     `UPDATE "tournaments" SET bracket_data = NULL, draw_completed = false, draw_seed = NULL`,
   );
-  console.log('  ✓ Cleared bracketData, drawCompleted, drawSeed on all tournaments');
+  console.log(
+    '  ✓ Cleared bracketData, drawCompleted, drawSeed on all tournaments',
+  );
 
   // Clear drawCompleted on all age groups
   await ds.query(
@@ -92,9 +94,7 @@ async function main() {
   console.log('  ✓ Reset drawCompleted on all age groups');
 
   // Clear groupAssignment on all registrations
-  await ds.query(
-    `UPDATE "registrations" SET group_assignment = NULL`,
-  );
+  await ds.query(`UPDATE "registrations" SET group_assignment = NULL`);
   console.log('  ✓ Cleared groupAssignment on all registrations');
 
   console.log('');

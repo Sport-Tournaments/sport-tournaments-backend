@@ -19,12 +19,16 @@ export async function seedGroups(
   const seededGroups: SeededGroup[] = [];
 
   const tournamentsWithDraw = tournamentIds.filter(
-    (t) => t.drawCompleted && ['PUBLISHED', 'ONGOING', 'COMPLETED'].includes(t.status),
+    (t) =>
+      t.drawCompleted &&
+      ['PUBLISHED', 'ONGOING', 'COMPLETED'].includes(t.status),
   );
 
   for (const tournament of tournamentsWithDraw) {
     const registrations = registrationsByTournament.get(tournament.id) || [];
-    const approvedClubs = registrations.filter((r) => r.status === 'APPROVED').map((r) => r.clubId);
+    const approvedClubs = registrations
+      .filter((r) => r.status === 'APPROVED')
+      .map((r) => r.clubId);
     if (approvedClubs.length < 4) continue;
 
     const teamCount = approvedClubs.length;
@@ -38,7 +42,10 @@ export async function seedGroups(
     const teamsPerGroup = Math.ceil(shuffledClubs.length / numGroups);
 
     for (let i = 0; i < numGroups; i++) {
-      const groupTeams = shuffledClubs.slice(i * teamsPerGroup, (i + 1) * teamsPerGroup);
+      const groupTeams = shuffledClubs.slice(
+        i * teamsPerGroup,
+        (i + 1) * teamsPerGroup,
+      );
       if (groupTeams.length === 0) continue;
 
       const groupId = generateUUID();
@@ -53,7 +60,12 @@ export async function seedGroups(
         createdAt: seedDate(),
       });
 
-      seededGroups.push({ id: groupId, tournamentId: tournament.id, groupLetter, teams: groupTeams });
+      seededGroups.push({
+        id: groupId,
+        tournamentId: tournament.id,
+        groupLetter,
+        teams: groupTeams,
+      });
     }
   }
 

@@ -31,7 +31,9 @@ export class TeamsService {
     }
 
     if (user.role !== UserRole.ADMIN && club.organizerId !== user.sub) {
-      throw new ForbiddenException('You can only manage teams for your own clubs');
+      throw new ForbiddenException(
+        'You can only manage teams for your own clubs',
+      );
     }
 
     return club;
@@ -70,7 +72,9 @@ export class TeamsService {
     const team = await this.findByIdOrFail(id);
 
     if (user.role !== UserRole.ADMIN && team.club.organizerId !== user.sub) {
-      throw new ForbiddenException('You can only manage teams for your own clubs');
+      throw new ForbiddenException(
+        'You can only manage teams for your own clubs',
+      );
     }
 
     return team;
@@ -84,7 +88,9 @@ export class TeamsService {
 
     if (filters.clubId) {
       await this.verifyClubAccess(filters.clubId, user);
-      queryBuilder.andWhere('team.clubId = :clubId', { clubId: filters.clubId });
+      queryBuilder.andWhere('team.clubId = :clubId', {
+        clubId: filters.clubId,
+      });
     } else if (user.role !== UserRole.ADMIN) {
       queryBuilder.andWhere('club.organizerId = :organizerId', {
         organizerId: user.sub,
@@ -132,7 +138,11 @@ export class TeamsService {
     return this.teamsRepository.save(team);
   }
 
-  async update(id: string, user: JwtPayload, dto: UpdateTeamDto): Promise<Team> {
+  async update(
+    id: string,
+    user: JwtPayload,
+    dto: UpdateTeamDto,
+  ): Promise<Team> {
     const team = await this.verifyTeamAccess(id, user);
 
     const targetClubId = dto.clubId ?? team.clubId;

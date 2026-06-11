@@ -41,13 +41,22 @@ export async function seedPayments(
 
     let paymentStatus: PaymentStatus;
     switch (registration.paymentStatus) {
-      case 'COMPLETED': paymentStatus = PaymentStatus.COMPLETED; break;
-      case 'FAILED': paymentStatus = PaymentStatus.FAILED; break;
-      case 'REFUNDED': paymentStatus = PaymentStatus.REFUNDED; break;
-      default: paymentStatus = Math.random() > 0.7 ? PaymentStatus.FAILED : PaymentStatus.PENDING;
+      case 'COMPLETED':
+        paymentStatus = PaymentStatus.COMPLETED;
+        break;
+      case 'FAILED':
+        paymentStatus = PaymentStatus.FAILED;
+        break;
+      case 'REFUNDED':
+        paymentStatus = PaymentStatus.REFUNDED;
+        break;
+      default:
+        paymentStatus =
+          Math.random() > 0.7 ? PaymentStatus.FAILED : PaymentStatus.PENDING;
     }
 
-    const amount = registration.fee || faker.number.int({ min: 200, max: 2000 });
+    const amount =
+      registration.fee || faker.number.int({ min: 200, max: 2000 });
     const currency = Currency.RON;
 
     const paymentData: Record<string, unknown> = {
@@ -69,7 +78,10 @@ export async function seedPayments(
       updatedAt: new Date(),
     };
 
-    if (paymentStatus === PaymentStatus.COMPLETED || paymentStatus === PaymentStatus.REFUNDED) {
+    if (
+      paymentStatus === PaymentStatus.COMPLETED ||
+      paymentStatus === PaymentStatus.REFUNDED
+    ) {
       paymentData.stripeChargeId = generateStripeChargeId();
       paymentData.transactionDate = seedDate();
       paymentData.stripeFee = Number((amount * 0.029 + 0.3).toFixed(2));
@@ -87,7 +99,13 @@ export async function seedPayments(
     }
 
     await paymentRepository.insert(paymentData);
-    seededPayments.push({ id: paymentId, registrationId: registration.id, userId: registration.userId, amount, status: paymentStatus });
+    seededPayments.push({
+      id: paymentId,
+      registrationId: registration.id,
+      userId: registration.userId,
+      amount,
+      status: paymentStatus,
+    });
   }
 
   console.log(`✅ Seeded ${seededPayments.length} payments`);

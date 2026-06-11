@@ -38,7 +38,11 @@ export async function seedPlayers(
       // date_of_birth in the team's birth year ± 0-1 year
       const year = team.birthyear + faker.number.int({ min: -1, max: 0 });
       const dob = toDateString(
-        new Date(year, faker.number.int({ min: 0, max: 11 }), faker.number.int({ min: 1, max: 28 })),
+        new Date(
+          year,
+          faker.number.int({ min: 0, max: 11 }),
+          faker.number.int({ min: 1, max: 28 }),
+        ),
       );
 
       await playerRepository.insert({
@@ -68,7 +72,9 @@ export async function seedPlayers(
     }
   }
 
-  console.log(`✅ Seeded ${seededPlayers.length} players (${joinRows.length} team-player links)`);
+  console.log(
+    `✅ Seeded ${seededPlayers.length} players (${joinRows.length} team-player links)`,
+  );
   return seededPlayers;
 }
 

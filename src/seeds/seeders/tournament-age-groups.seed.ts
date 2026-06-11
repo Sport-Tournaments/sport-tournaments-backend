@@ -57,7 +57,9 @@ export async function seedTournamentAgeGroups(
 
       // Registration opens 60-30 days before start
       const regStart = new Date(t.startDate);
-      regStart.setDate(regStart.getDate() - faker.number.int({ min: 30, max: 60 }));
+      regStart.setDate(
+        regStart.getDate() - faker.number.int({ min: 30, max: 60 }),
+      );
       const regEnd = new Date(t.startDate);
       regEnd.setDate(regEnd.getDate() - faker.number.int({ min: 5, max: 14 }));
 

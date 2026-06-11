@@ -1,9 +1,5 @@
 import { DataSource } from 'typeorm';
-import {
-  faker,
-  generateUUID,
-  seedDate,
-} from '../utils/helpers';
+import { faker, generateUUID, seedDate } from '../utils/helpers';
 
 export interface SeededTournamentPot {
   id: string;
@@ -27,8 +23,9 @@ export async function seedTournamentPots(
   const tournamentsWithDraw = tournaments.filter((t) => t.drawCompleted);
 
   for (const tournament of tournamentsWithDraw) {
-    const registrations = (registrationsByTournament.get(tournament.id) || [])
-      .filter((r) => r.status === 'APPROVED');
+    const registrations = (
+      registrationsByTournament.get(tournament.id) || []
+    ).filter((r) => r.status === 'APPROVED');
 
     if (registrations.length < 4) continue;
 
@@ -48,7 +45,12 @@ export async function seedTournamentPots(
         createdAt: seedDate(),
       });
 
-      seeded.push({ id, tournamentId: tournament.id, registrationId: shuffled[i].id, potNumber });
+      seeded.push({
+        id,
+        tournamentId: tournament.id,
+        registrationId: shuffled[i].id,
+        potNumber,
+      });
     }
   }
 

@@ -43,7 +43,10 @@ export class CreateTeamDto {
   @MaxLength(120)
   coach: string;
 
-  @ApiPropertyOptional({ example: '+1 234 567 8900', description: 'Coach phone number' })
+  @ApiPropertyOptional({
+    example: '+1 234 567 8900',
+    description: 'Coach phone number',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(30)
@@ -87,14 +90,20 @@ export class UpdateTeamDto {
   @Max(new Date().getFullYear() + 1)
   birthyear?: number;
 
-  @ApiPropertyOptional({ example: 'John Smith', description: 'Team coach name' })
+  @ApiPropertyOptional({
+    example: 'John Smith',
+    description: 'Team coach name',
+  })
   @IsOptional()
   @IsString()
   @MinLength(2)
   @MaxLength(120)
   coach?: string;
 
-  @ApiPropertyOptional({ example: '+1 234 567 8900', description: 'Coach phone number' })
+  @ApiPropertyOptional({
+    example: '+1 234 567 8900',
+    description: 'Coach phone number',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(30)
@@ -116,7 +125,9 @@ export class TeamFilterDto extends PaginationDto {
   @IsUUID()
   clubId?: string;
 
-  @ApiPropertyOptional({ description: 'Search by team name, coach or age category' })
+  @ApiPropertyOptional({
+    description: 'Search by team name, coach or age category',
+  })
   @IsOptional()
   @IsString()
   search?: string;

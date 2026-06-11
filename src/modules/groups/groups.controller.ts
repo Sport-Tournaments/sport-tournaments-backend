@@ -18,8 +18,22 @@ import {
 } from '@nestjs/swagger';
 import { GroupsService } from './groups.service';
 import { PotDrawService } from './services/pot-draw.service';
-import { ExecuteDrawDto, UpdateBracketDto, CreateGroupDto, ConfigureGroupsDto, UpdateGroupDto, GroupConfigurationResponseDto, UpdateMatchAdvancementDto, UpdateMatchScoreDto, ScheduleMatchDto } from './dto';
-import { AssignTeamToPotDto, AssignPotsBulkDto, ExecutePotDrawDto } from './dto/pot.dto';
+import {
+  ExecuteDrawDto,
+  UpdateBracketDto,
+  CreateGroupDto,
+  ConfigureGroupsDto,
+  UpdateGroupDto,
+  GroupConfigurationResponseDto,
+  UpdateMatchAdvancementDto,
+  UpdateMatchScoreDto,
+  ScheduleMatchDto,
+} from './dto';
+import {
+  AssignTeamToPotDto,
+  AssignPotsBulkDto,
+  ExecutePotDrawDto,
+} from './dto/pot.dto';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards';
 import { CurrentUser, Public } from '../../common/decorators';
 import { JwtPayload } from '../../common/interfaces';
@@ -110,7 +124,12 @@ export class GroupsController {
     @CurrentUser() user: JwtPayload,
     @Query('ageGroupId') ageGroupId?: string,
   ) {
-    return this.groupsService.resetDraw(tournamentId, user.sub, user.role, ageGroupId);
+    return this.groupsService.resetDraw(
+      tournamentId,
+      user.sub,
+      user.role,
+      ageGroupId,
+    );
   }
 
   // =====================================================
@@ -119,7 +138,11 @@ export class GroupsController {
 
   @Post('groups/configure')
   @ApiOperation({ summary: 'Configure manual group setup' })
-  @ApiResponse({ status: 201, description: 'Group configuration created', type: GroupConfigurationResponseDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Group configuration created',
+    type: GroupConfigurationResponseDto,
+  })
   @ApiResponse({ status: 400, description: 'Invalid configuration' })
   @ApiResponse({ status: 403, description: 'Not authorized' })
   configureGroups(
@@ -127,12 +150,21 @@ export class GroupsController {
     @CurrentUser() user: JwtPayload,
     @Body() dto: ConfigureGroupsDto,
   ) {
-    return this.groupsService.configureGroups(tournamentId, user.sub, user.role, dto);
+    return this.groupsService.configureGroups(
+      tournamentId,
+      user.sub,
+      user.role,
+      dto,
+    );
   }
 
   @Get('groups/configuration')
   @ApiOperation({ summary: 'Get current group configuration' })
-  @ApiResponse({ status: 200, description: 'Configuration retrieved', type: GroupConfigurationResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Configuration retrieved',
+    type: GroupConfigurationResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'No configuration found' })
   getGroupConfiguration(
     @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
@@ -152,7 +184,13 @@ export class GroupsController {
     @CurrentUser() user: JwtPayload,
     @Body() dto: UpdateGroupDto,
   ) {
-    return this.groupsService.updateGroup(tournamentId, groupId, user.sub, user.role, dto);
+    return this.groupsService.updateGroup(
+      tournamentId,
+      groupId,
+      user.sub,
+      user.role,
+      dto,
+    );
   }
 
   // =====================================================
@@ -217,7 +255,9 @@ export class GroupsController {
   }
 
   @Patch('matches/:matchId/schedule')
-  @ApiOperation({ summary: 'Schedule a match — set date/time and court number (BE-07)' })
+  @ApiOperation({
+    summary: 'Schedule a match — set date/time and court number (BE-07)',
+  })
   @ApiResponse({ status: 200, description: 'Match scheduled' })
   @ApiResponse({ status: 403, description: 'Not authorized (organizer only)' })
   @ApiResponse({ status: 404, description: 'Match not found' })
@@ -248,20 +288,35 @@ export class GroupsController {
     @CurrentUser() user: JwtPayload,
     @Query('ageGroupId') ageGroupId?: string,
   ) {
-    return this.groupsService.generateBracket(tournamentId, user.sub, user.role, ageGroupId);
+    return this.groupsService.generateBracket(
+      tournamentId,
+      user.sub,
+      user.role,
+      ageGroupId,
+    );
   }
 
   @Post('bracket/generate-knockout')
-  @ApiOperation({ summary: 'Generate knockout bracket after all group matches completed' })
+  @ApiOperation({
+    summary: 'Generate knockout bracket after all group matches completed',
+  })
   @ApiResponse({ status: 201, description: 'Knockout bracket generated' })
-  @ApiResponse({ status: 400, description: 'Group matches not completed or invalid format' })
+  @ApiResponse({
+    status: 400,
+    description: 'Group matches not completed or invalid format',
+  })
   @ApiResponse({ status: 403, description: 'Not authorized' })
   generateKnockoutBracket(
     @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
     @CurrentUser() user: JwtPayload,
     @Query('ageGroupId') ageGroupId?: string,
   ) {
-    return this.groupsService.generateKnockoutBracket(tournamentId, user.sub, user.role, ageGroupId);
+    return this.groupsService.generateKnockoutBracket(
+      tournamentId,
+      user.sub,
+      user.role,
+      ageGroupId,
+    );
   }
 
   // =====================================================
@@ -278,7 +333,12 @@ export class GroupsController {
     @Body() dto: AssignTeamToPotDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.potDrawService.assignTeamToPot(tournamentId, dto, user.sub, user.role);
+    return this.potDrawService.assignTeamToPot(
+      tournamentId,
+      dto,
+      user.sub,
+      user.role,
+    );
   }
 
   @Post('pots/bulk-assign')
@@ -291,7 +351,12 @@ export class GroupsController {
     @Body() dto: AssignPotsBulkDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.potDrawService.assignTeamsToPotsBulk(tournamentId, dto, user.sub, user.role);
+    return this.potDrawService.assignTeamsToPotsBulk(
+      tournamentId,
+      dto,
+      user.sub,
+      user.role,
+    );
   }
 
   @Get('pots')
@@ -301,8 +366,11 @@ export class GroupsController {
     @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
     @Query('ageGroupId') ageGroupId?: string,
   ) {
-    const potMap = await this.potDrawService.getPotAssignments(tournamentId, ageGroupId);
-    
+    const potMap = await this.potDrawService.getPotAssignments(
+      tournamentId,
+      ageGroupId,
+    );
+
     // Convert map to array format for API response (dynamic pot count)
     const result: any[] = [];
     const potNumbers = Array.from(potMap.keys()).sort((a, b) => a - b);
@@ -328,7 +396,11 @@ export class GroupsController {
     @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
     @Query('ageGroupId') ageGroupId?: string,
   ) {
-    const result = await this.potDrawService.validatePotDistribution(tournamentId, undefined, ageGroupId);
+    const result = await this.potDrawService.validatePotDistribution(
+      tournamentId,
+      undefined,
+      ageGroupId,
+    );
     // Convert Map to plain object for JSON serialization
     const potCounts: Record<number, number> = {};
     for (const [key, value] of result.potCounts.entries()) {
@@ -347,7 +419,12 @@ export class GroupsController {
     @Body() dto: ExecutePotDrawDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.potDrawService.executePotBasedDraw(tournamentId, dto, user.sub, user.role);
+    return this.potDrawService.executePotBasedDraw(
+      tournamentId,
+      dto,
+      user.sub,
+      user.role,
+    );
   }
 
   @Delete('pots')
@@ -359,13 +436,24 @@ export class GroupsController {
     @CurrentUser() user: JwtPayload,
     @Query('ageGroupId') ageGroupId?: string,
   ) {
-    await this.potDrawService.clearPotAssignments(tournamentId, user.sub, user.role, ageGroupId);
+    await this.potDrawService.clearPotAssignments(
+      tournamentId,
+      user.sub,
+      user.role,
+      ageGroupId,
+    );
     return { message: 'Pot assignments cleared' };
   }
 
   @Patch('groups/:groupId/tiebreak')
-  @ApiOperation({ summary: 'Set manual tiebreak order for a group (organizer only)' })
-  @ApiResponse({ status: 200, description: 'Tiebreak order saved; bracket re-seeded when all group matches are done' })
+  @ApiOperation({
+    summary: 'Set manual tiebreak order for a group (organizer only)',
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Tiebreak order saved; bracket re-seeded when all group matches are done',
+  })
   @ApiResponse({ status: 403, description: 'Not authorized' })
   @ApiResponse({ status: 404, description: 'Group not found' })
   setGroupTiebreak(

@@ -10,7 +10,11 @@ import {
   Index,
   JoinColumn,
 } from 'typeorm';
-import { RegistrationStatus, PaymentStatus, Currency } from '../../../common/enums';
+import {
+  RegistrationStatus,
+  PaymentStatus,
+  Currency,
+} from '../../../common/enums';
 import { Tournament } from '../../tournaments/entities/tournament.entity';
 import { TournamentAgeGroup } from '../../tournaments/entities/tournament-age-group.entity';
 import { Club } from '../../clubs/entities/club.entity';

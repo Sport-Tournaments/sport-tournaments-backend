@@ -27,10 +27,12 @@ async function bootstrap() {
 
   const isLocalNetworkHost = (host: string) => {
     if (host === 'localhost' || host === '127.0.0.1') return true;
-    if (host === 'host.containers.internal' || host === 'host.docker.internal') return true;
+    if (host === 'host.containers.internal' || host === 'host.docker.internal')
+      return true;
     if (/^10\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.test(host)) return true;
     if (/^192\.168\.(\d{1,3})\.(\d{1,3})$/.test(host)) return true;
-    if (/^172\.(1[6-9]|2\d|3[0-1])\.(\d{1,3})\.(\d{1,3})$/.test(host)) return true;
+    if (/^172\.(1[6-9]|2\d|3[0-1])\.(\d{1,3})\.(\d{1,3})$/.test(host))
+      return true;
     return false;
   };
 
@@ -54,9 +56,7 @@ async function bootstrap() {
         }
       }
 
-      callback(
-        new Error(`Origin ${origin} is not allowed by CORS policy`),
-      );
+      callback(new Error(`Origin ${origin} is not allowed by CORS policy`));
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept-Language'],
@@ -169,7 +169,7 @@ Most endpoints require JWT authentication. Include the access token in the Autho
     });
   });
 
-  const port = configService.get<number>('port') || 3001;
+  const port = configService.get<number>('port') || 8081;
   await app.listen(port);
 
   logger.log(`Application is running on: http://localhost:${port}`);

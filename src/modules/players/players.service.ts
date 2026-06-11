@@ -28,7 +28,10 @@ export class PlayersService {
     private readonly clubsRepository: Repository<Club>,
   ) {}
 
-  private async resolveTeams(teamIds: string[], user: JwtPayload): Promise<Team[]> {
+  private async resolveTeams(
+    teamIds: string[],
+    user: JwtPayload,
+  ): Promise<Team[]> {
     if (!teamIds?.length) {
       return [];
     }
@@ -43,10 +46,14 @@ export class PlayersService {
     }
 
     if (user.role !== UserRole.ADMIN) {
-      const unauthorized = teams.some((team) => team.club.organizerId !== user.sub);
+      const unauthorized = teams.some(
+        (team) => team.club.organizerId !== user.sub,
+      );
 
       if (unauthorized) {
-        throw new ForbiddenException('You can only manage players for your own clubs');
+        throw new ForbiddenException(
+          'You can only manage players for your own clubs',
+        );
       }
     }
 
@@ -71,9 +78,13 @@ export class PlayersService {
       return;
     }
 
-    const canAccess = player.teams.some((team) => team.club.organizerId === user.sub);
+    const canAccess = player.teams.some(
+      (team) => team.club.organizerId === user.sub,
+    );
     if (!canAccess) {
-      throw new ForbiddenException('You can only manage players for your own clubs');
+      throw new ForbiddenException(
+        'You can only manage players for your own clubs',
+      );
     }
   }
 
@@ -124,7 +135,10 @@ export class PlayersService {
   }
 
   async create(user: JwtPayload, dto: CreatePlayerDto): Promise<Player> {
-    if (user.role !== UserRole.ADMIN && (!dto.teamIds || dto.teamIds.length === 0)) {
+    if (
+      user.role !== UserRole.ADMIN &&
+      (!dto.teamIds || dto.teamIds.length === 0)
+    ) {
       throw new BadRequestException('teamIds is required for non-admin users');
     }
 
@@ -140,7 +154,11 @@ export class PlayersService {
     return this.playersRepository.save(player);
   }
 
-  async update(id: string, user: JwtPayload, dto: UpdatePlayerDto): Promise<Player> {
+  async update(
+    id: string,
+    user: JwtPayload,
+    dto: UpdatePlayerDto,
+  ): Promise<Player> {
     const player = await this.findByIdOrFail(id);
     this.verifyPlayerAccess(player, user);
 
@@ -158,7 +176,9 @@ export class PlayersService {
 
     if (dto.teamIds !== undefined) {
       if (user.role !== UserRole.ADMIN && dto.teamIds.length === 0) {
-        throw new BadRequestException('teamIds cannot be empty for non-admin users');
+        throw new BadRequestException(
+          'teamIds cannot be empty for non-admin users',
+        );
       }
 
       player.teams = await this.resolveTeams(dto.teamIds, user);
@@ -207,7 +227,9 @@ export class PlayersService {
     user: JwtPayload,
     teamId?: string,
     limit: number = 10,
-  ): Promise<Array<{ id: string; firstname: string; lastname: string; label: string }>> {
+  ): Promise<
+    Array<{ id: string; firstname: string; lastname: string; label: string }>
+  > {
     const players = await this.search(query, user, teamId, limit);
 
     return players.map((player) => ({

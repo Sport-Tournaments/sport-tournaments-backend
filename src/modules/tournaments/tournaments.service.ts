@@ -19,7 +19,11 @@ import {
 } from './dto';
 import { PaginationDto } from '../../common/dto';
 import { PaginatedResponse } from '../../common/interfaces';
-import { TournamentStatus, UserRole, RegistrationStatus } from '../../common/enums';
+import {
+  TournamentStatus,
+  UserRole,
+  RegistrationStatus,
+} from '../../common/enums';
 import { FilesService } from '../files/files.service';
 
 @Injectable()
@@ -44,7 +48,10 @@ export class TournamentsService {
       .replace(/^-+|-+$/g, '');
   }
 
-  private async generateUniqueSlug(baseValue: string, excludeId?: string): Promise<string> {
+  private async generateUniqueSlug(
+    baseValue: string,
+    excludeId?: string,
+  ): Promise<string> {
     const baseSlug = this.slugify(baseValue);
     if (!baseSlug) {
       throw new BadRequestException('Slug cannot be empty');
@@ -74,7 +81,11 @@ export class TournamentsService {
 
     if (typeof value === 'string') {
       const [year, month, day] = value.split('-').map(Number);
-      if (Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day)) {
+      if (
+        Number.isFinite(year) &&
+        Number.isFinite(month) &&
+        Number.isFinite(day)
+      ) {
         return new Date(year, month - 1, day);
       }
       return new Date(value);
@@ -87,13 +98,29 @@ export class TournamentsService {
   private getStartOfDay(value?: Date | string | null): Date | null {
     const date = this.normalizeDateOnly(value);
     if (!date) return null;
-    return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
+    return new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      0,
+      0,
+      0,
+      0,
+    );
   }
 
   private getEndOfDay(value?: Date | string | null): Date | null {
     const date = this.normalizeDateOnly(value);
     if (!date) return null;
-    return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+    return new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      23,
+      59,
+      59,
+      999,
+    );
   }
 
   private async syncPastTournamentsAsCompleted(): Promise<void> {
@@ -114,21 +141,44 @@ export class TournamentsService {
     createTournamentDto: CreateTournamentDto,
   ): Promise<Tournament> {
     // Validate dates only if both are provided - dates are now optional and managed per age group
-    if (createTournamentDto.startDate && createTournamentDto.endDate && createTournamentDto.endDate < createTournamentDto.startDate) {
+    if (
+      createTournamentDto.startDate &&
+      createTournamentDto.endDate &&
+      createTournamentDto.endDate < createTournamentDto.startDate
+    ) {
       throw new BadRequestException('End date must be after start date');
     }
 
     // Validate registration dates if provided
-    if (createTournamentDto.startDate && createTournamentDto.registrationStartDate && createTournamentDto.registrationStartDate >= createTournamentDto.startDate) {
-      throw new BadRequestException('Registration start date must be before tournament start date');
+    if (
+      createTournamentDto.startDate &&
+      createTournamentDto.registrationStartDate &&
+      createTournamentDto.registrationStartDate >= createTournamentDto.startDate
+    ) {
+      throw new BadRequestException(
+        'Registration start date must be before tournament start date',
+      );
     }
 
-    if (createTournamentDto.startDate && createTournamentDto.registrationEndDate && createTournamentDto.registrationEndDate >= createTournamentDto.startDate) {
-      throw new BadRequestException('Registration must close before the tournament starts');
+    if (
+      createTournamentDto.startDate &&
+      createTournamentDto.registrationEndDate &&
+      createTournamentDto.registrationEndDate >= createTournamentDto.startDate
+    ) {
+      throw new BadRequestException(
+        'Registration must close before the tournament starts',
+      );
     }
 
-    if (createTournamentDto.registrationStartDate && createTournamentDto.registrationEndDate && createTournamentDto.registrationEndDate < createTournamentDto.registrationStartDate) {
-      throw new BadRequestException('Registration end date must be after registration start date');
+    if (
+      createTournamentDto.registrationStartDate &&
+      createTournamentDto.registrationEndDate &&
+      createTournamentDto.registrationEndDate <
+        createTournamentDto.registrationStartDate
+    ) {
+      throw new BadRequestException(
+        'Registration end date must be after registration start date',
+      );
     }
 
     // Extract nested DTO arrays to handle separately (not stored in tournament entity)
@@ -136,7 +186,8 @@ export class TournamentsService {
     const { ageGroups, locations, ...tournamentData } = createTournamentDto;
 
     if (createTournamentDto.urlSlug || createTournamentDto.name) {
-      const slugSource = createTournamentDto.urlSlug || createTournamentDto.name;
+      const slugSource =
+        createTournamentDto.urlSlug || createTournamentDto.name;
       if (slugSource) {
         tournamentData.urlSlug = await this.generateUniqueSlug(slugSource);
       }
@@ -148,34 +199,37 @@ export class TournamentsService {
       organizerId,
       status: TournamentStatus.PUBLISHED,
       isPublished: true,
+      isPrivate: tournamentData.isPrivate ?? false,
     });
 
     const savedTournament = await this.tournamentsRepository.save(tournament);
 
     // Save age groups if provided
     if (ageGroups && ageGroups.length > 0) {
-      const ageGroupEntities: DeepPartial<TournamentAgeGroup>[] = ageGroups.map((ag) => {
-        const {
-          minTeams,
-          maxTeams,
-          guaranteedMatches,
-          participationFee,
-          qualifyingTeamsPerGroup,
-          ...rest
-        } = ag as any;
+      const ageGroupEntities: DeepPartial<TournamentAgeGroup>[] = ageGroups.map(
+        (ag) => {
+          const {
+            minTeams,
+            maxTeams,
+            guaranteedMatches,
+            participationFee,
+            qualifyingTeamsPerGroup,
+            ...rest
+          } = ag as any;
 
-        return {
-          ...rest,
-          tournamentId: savedTournament.id,
-          startDate: ag.startDate || createTournamentDto.startDate,
-          endDate: ag.endDate || createTournamentDto.endDate,
-          minTeams: minTeams ?? undefined,
-          maxTeams: maxTeams ?? undefined,
-          guaranteedMatches: guaranteedMatches ?? undefined,
-          participationFee: participationFee ?? undefined,
-          qualifyingTeamsPerGroup: qualifyingTeamsPerGroup ?? undefined,
-        };
-      });
+          return {
+            ...rest,
+            tournamentId: savedTournament.id,
+            startDate: ag.startDate || createTournamentDto.startDate,
+            endDate: ag.endDate || createTournamentDto.endDate,
+            minTeams: minTeams ?? undefined,
+            maxTeams: maxTeams ?? undefined,
+            guaranteedMatches: guaranteedMatches ?? undefined,
+            participationFee: participationFee ?? undefined,
+            qualifyingTeamsPerGroup: qualifyingTeamsPerGroup ?? undefined,
+          };
+        },
+      );
       await this.ageGroupsRepository.save(ageGroupEntities);
 
       // Derive and persist tournament-level dates from age groups when not explicitly provided
@@ -327,7 +381,8 @@ export class TournamentsService {
     // Distance filter using Haversine formula (approximate)
     // Default to 50km radius when user location is provided but no maxDistance specified
     const hasUserLocation = filters?.userLatitude && filters?.userLongitude;
-    const effectiveMaxDistance = filters?.maxDistance ?? (hasUserLocation ? 50 : undefined);
+    const effectiveMaxDistance =
+      filters?.maxDistance ?? (hasUserLocation ? 50 : undefined);
 
     if (hasUserLocation && effectiveMaxDistance) {
       // Add distance calculation as a select expression for potential sorting
@@ -419,8 +474,14 @@ export class TournamentsService {
 
       for (const tournament of tournaments) {
         const counts = countMap.get(tournament.id);
-        (tournament as any).confirmedTeams = parseInt(counts?.confirmedteams ?? '0', 10);
-        (tournament as any).registeredTeams = parseInt(counts?.registeredteams ?? '0', 10);
+        (tournament as any).confirmedTeams = parseInt(
+          counts?.confirmedteams ?? '0',
+          10,
+        );
+        (tournament as any).registeredTeams = parseInt(
+          counts?.registeredteams ?? '0',
+          10,
+        );
 
         // Derive effective startDate from age groups when not set at tournament level
         if (!tournament.startDate && tournament.ageGroups?.length) {
@@ -512,10 +573,14 @@ export class TournamentsService {
       order: { startDate: 'DESC' },
     });
 
-    return Promise.all(tournaments.map((tournament) => this.normalizeDraftStatus(tournament)));
+    return Promise.all(
+      tournaments.map((tournament) => this.normalizeDraftStatus(tournament)),
+    );
   }
 
-  private async normalizeDraftStatus(tournament: Tournament): Promise<Tournament> {
+  private async normalizeDraftStatus(
+    tournament: Tournament,
+  ): Promise<Tournament> {
     if (tournament.status !== TournamentStatus.DRAFT) {
       return tournament;
     }
@@ -583,26 +648,52 @@ export class TournamentsService {
 
     // Validate registration dates if being updated and tournament has a start date
     const startDate = updateTournamentDto.startDate || tournament.startDate;
-    if (startDate && updateTournamentDto.registrationStartDate && updateTournamentDto.registrationStartDate >= startDate) {
-      throw new BadRequestException('Registration start date must be before tournament start date');
+    if (
+      startDate &&
+      updateTournamentDto.registrationStartDate &&
+      updateTournamentDto.registrationStartDate >= startDate
+    ) {
+      throw new BadRequestException(
+        'Registration start date must be before tournament start date',
+      );
     }
 
-    if (startDate && updateTournamentDto.registrationEndDate && updateTournamentDto.registrationEndDate >= startDate) {
-      throw new BadRequestException('Registration must close before the tournament starts');
+    if (
+      startDate &&
+      updateTournamentDto.registrationEndDate &&
+      updateTournamentDto.registrationEndDate >= startDate
+    ) {
+      throw new BadRequestException(
+        'Registration must close before the tournament starts',
+      );
     }
 
-    if (updateTournamentDto.registrationStartDate && updateTournamentDto.registrationEndDate && updateTournamentDto.registrationEndDate < updateTournamentDto.registrationStartDate) {
-      throw new BadRequestException('Registration end date must be after registration start date');
+    if (
+      updateTournamentDto.registrationStartDate &&
+      updateTournamentDto.registrationEndDate &&
+      updateTournamentDto.registrationEndDate <
+        updateTournamentDto.registrationStartDate
+    ) {
+      throw new BadRequestException(
+        'Registration end date must be after registration start date',
+      );
     }
 
     // Also check against existing registration dates if not being updated
 
     // Handle slug updates (user can modify; auto-generate if missing)
     if (updateTournamentDto.urlSlug !== undefined) {
-      const slugSource = updateTournamentDto.urlSlug || updateTournamentDto.name || '';
-      tournament.urlSlug = await this.generateUniqueSlug(slugSource, tournament.id);
+      const slugSource =
+        updateTournamentDto.urlSlug || updateTournamentDto.name || '';
+      tournament.urlSlug = await this.generateUniqueSlug(
+        slugSource,
+        tournament.id,
+      );
     } else if (!tournament.urlSlug && updateTournamentDto.name) {
-      tournament.urlSlug = await this.generateUniqueSlug(updateTournamentDto.name, tournament.id);
+      tournament.urlSlug = await this.generateUniqueSlug(
+        updateTournamentDto.name,
+        tournament.id,
+      );
     }
 
     // Pass values directly - the transformer will handle conversion
@@ -628,7 +719,30 @@ export class TournamentsService {
     tournamentId: string,
     userId: string,
     userRole: string,
-    ageGroups: { id?: string; birthYear: number; displayLabel?: string; level?: string; format?: string; gameSystem?: string; teamCount?: number; minTeams?: number; numberOfMatches?: number; matchPeriodType?: 'ONE_HALF' | 'TWO_HALVES'; halfDurationMinutes?: number; halfTimePauseMinutes?: number; pauseBetweenMatchesMinutes?: number; startDate?: string; endDate?: string; locationId?: string; locationAddress?: string; participationFee?: number; groupsCount?: number; fieldsCount?: number; teamsPerGroup?: number; qualifyingTeamsPerGroup?: number }[],
+    ageGroups: {
+      id?: string;
+      birthYear: number;
+      displayLabel?: string;
+      level?: string;
+      format?: string;
+      gameSystem?: string;
+      teamCount?: number;
+      minTeams?: number;
+      numberOfMatches?: number;
+      matchPeriodType?: 'ONE_HALF' | 'TWO_HALVES';
+      halfDurationMinutes?: number;
+      halfTimePauseMinutes?: number;
+      pauseBetweenMatchesMinutes?: number;
+      startDate?: string;
+      endDate?: string;
+      locationId?: string;
+      locationAddress?: string;
+      participationFee?: number;
+      groupsCount?: number;
+      fieldsCount?: number;
+      teamsPerGroup?: number;
+      qualifyingTeamsPerGroup?: number;
+    }[],
   ): Promise<TournamentAgeGroup[]> {
     const tournament = await this.findByIdOrFail(tournamentId);
 
@@ -684,11 +798,13 @@ export class TournamentsService {
           Object.assign(existing, rest);
           if (minTeams !== undefined) existing.minTeams = minTeams;
           if (maxTeams !== undefined) existing.maxTeams = maxTeams;
-          if (guaranteedMatches !== undefined) existing.guaranteedMatches = guaranteedMatches;
+          if (guaranteedMatches !== undefined)
+            existing.guaranteedMatches = guaranteedMatches;
           if (participationFee !== undefined) {
-            existing.participationFee = participationFee as any;
+            existing.participationFee = participationFee;
           }
-          existing.qualifyingTeamsPerGroup = qualifyingTeamsPerGroup ?? null as any;
+          existing.qualifyingTeamsPerGroup =
+            qualifyingTeamsPerGroup ?? (null as any);
           result.push(await this.ageGroupsRepository.save(existing));
         }
       } else {
@@ -709,7 +825,9 @@ export class TournamentsService {
     }
 
     // Sync tournament-level dates from the final set of age groups
-    const allAgeGroups = await this.ageGroupsRepository.find({ where: { tournamentId } });
+    const allAgeGroups = await this.ageGroupsRepository.find({
+      where: { tournamentId },
+    });
     const startDates = allAgeGroups
       .map((ag) => ag.startDate as unknown as string)
       .filter(Boolean)
@@ -747,7 +865,10 @@ export class TournamentsService {
       tournament.isRegistrationClosed = false;
     }
 
-    if (tournament.status === TournamentStatus.PUBLISHED && previousStatus !== TournamentStatus.PUBLISHED) {
+    if (
+      tournament.status === TournamentStatus.PUBLISHED &&
+      previousStatus !== TournamentStatus.PUBLISHED
+    ) {
       tournament.isRegistrationClosed = false;
     }
 
@@ -771,7 +892,9 @@ export class TournamentsService {
       tournament.status === TournamentStatus.CANCELLED ||
       tournament.status === TournamentStatus.COMPLETED
     ) {
-      throw new BadRequestException('Cannot publish cancelled or completed tournaments');
+      throw new BadRequestException(
+        'Cannot publish cancelled or completed tournaments',
+      );
     }
 
     tournament.status = TournamentStatus.PUBLISHED;
@@ -1011,11 +1134,15 @@ export class TournamentsService {
 
     // Check authorization
     if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
-      throw new ForbiddenException('Only the tournament organizer can regenerate invitation codes');
+      throw new ForbiddenException(
+        'Only the tournament organizer can regenerate invitation codes',
+      );
     }
 
     if (!tournament.isPrivate) {
-      throw new BadRequestException('Invitation codes are only available for private tournaments');
+      throw new BadRequestException(
+        'Invitation codes are only available for private tournaments',
+      );
     }
 
     // Generate new unique code
@@ -1031,7 +1158,9 @@ export class TournamentsService {
     } while (attempts < 10);
 
     if (attempts >= 10) {
-      throw new BadRequestException('Failed to generate unique invitation code. Please try again.');
+      throw new BadRequestException(
+        'Failed to generate unique invitation code. Please try again.',
+      );
     }
 
     // Calculate expiration date
@@ -1064,7 +1193,10 @@ export class TournamentsService {
     }
 
     // Check if code has expired
-    if (tournament.invitationCodeExpiresAt && tournament.invitationCodeExpiresAt < new Date()) {
+    if (
+      tournament.invitationCodeExpiresAt &&
+      tournament.invitationCodeExpiresAt < new Date()
+    ) {
       return { valid: false, message: 'Invitation code has expired' };
     }
 
@@ -1078,13 +1210,20 @@ export class TournamentsService {
     }
 
     if (tournament.isRegistrationClosed) {
-      return { valid: false, message: 'Registrations are closed for this tournament' };
+      return {
+        valid: false,
+        message: 'Registrations are closed for this tournament',
+      };
     }
 
     const now = new Date();
-    const registrationStart = this.getStartOfDay(tournament.registrationStartDate);
+    const registrationStart = this.getStartOfDay(
+      tournament.registrationStartDate,
+    );
     const registrationEnd = this.getEndOfDay(tournament.registrationEndDate);
-    const registrationDeadline = this.getEndOfDay(tournament.registrationDeadline);
+    const registrationDeadline = this.getEndOfDay(
+      tournament.registrationDeadline,
+    );
 
     if (registrationStart && now < registrationStart) {
       return { valid: false, message: 'Registration has not started yet' };
@@ -1094,7 +1233,11 @@ export class TournamentsService {
       return { valid: false, message: 'Registration period has ended' };
     }
 
-    if (!registrationEnd && registrationDeadline && now > registrationDeadline) {
+    if (
+      !registrationEnd &&
+      registrationDeadline &&
+      now > registrationDeadline
+    ) {
       return { valid: false, message: 'Registration deadline has passed' };
     }
 
@@ -1113,7 +1256,9 @@ export class TournamentsService {
 
     // Check authorization
     if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
-      throw new ForbiddenException('Only the tournament organizer can view invitation codes');
+      throw new ForbiddenException(
+        'Only the tournament organizer can view invitation codes',
+      );
     }
 
     return {

@@ -8,7 +8,7 @@ import {
   ParseUUIDPipe,
   UseInterceptors,
   UploadedFile,
-  Body
+  Body,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -90,7 +90,7 @@ export class FilesController {
   @ApiResponse({ status: 403, description: 'Access denied' })
   async getDownloadUrl(
     @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: JwtPayload
+    @CurrentUser() user: JwtPayload,
   ) {
     const url = await this.filesService.getDownloadUrl(id, user.sub, user.role);
     return { url };

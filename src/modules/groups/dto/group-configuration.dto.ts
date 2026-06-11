@@ -53,7 +53,9 @@ export class ConfigureGroupsDto {
   @Type(() => GroupTeamCount)
   teamsPerGroup: GroupTeamCount[];
 
-  @ApiPropertyOptional({ description: 'Scope configuration to a specific age group' })
+  @ApiPropertyOptional({
+    description: 'Scope configuration to a specific age group',
+  })
   @IsOptional()
   @IsUUID()
   ageGroupId?: string;

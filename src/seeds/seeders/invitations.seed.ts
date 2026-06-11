@@ -36,7 +36,9 @@ export async function seedInvitations(
 
   for (const tournament of eligibleTournaments) {
     const invitationCount = faker.number.int({ min: 2, max: 5 });
-    const eligibleClubs = clubs.filter((c) => c.ownerId !== tournament.organizerId);
+    const eligibleClubs = clubs.filter(
+      (c) => c.ownerId !== tournament.organizerId,
+    );
 
     for (let i = 0; i < invitationCount && eligibleClubs.length > 0; i++) {
       const invitationId = generateUUID();
@@ -80,14 +82,20 @@ export async function seedInvitations(
         updatedAt: new Date(),
       };
 
-      if (type === InvitationType.DIRECT || type === InvitationType.PAST_PARTICIPANT) {
+      if (
+        type === InvitationType.DIRECT ||
+        type === InvitationType.PAST_PARTICIPANT
+      ) {
         const club = pickRandom(eligibleClubs);
         const comboKey = `${tournament.id}-${club.id}`;
         if (usedCombinations.has(comboKey)) continue;
         usedCombinations.add(comboKey);
         invitationData.club = { id: club.id };
 
-        if (status === InvitationStatus.ACCEPTED || status === InvitationStatus.DECLINED) {
+        if (
+          status === InvitationStatus.ACCEPTED ||
+          status === InvitationStatus.DECLINED
+        ) {
           invitationData.respondedAt = seedDate();
         }
         if (status === InvitationStatus.DECLINED) {
@@ -99,14 +107,26 @@ export async function seedInvitations(
           ]);
         }
 
-        seededInvitations.push({ id: invitationId, tournamentId: tournament.id, clubId: club.id, type, status });
+        seededInvitations.push({
+          id: invitationId,
+          tournamentId: tournament.id,
+          clubId: club.id,
+          type,
+          status,
+        });
       } else {
         const email = faker.internet.email();
         const comboKey = `${tournament.id}-${email}`;
         if (usedCombinations.has(comboKey)) continue;
         usedCombinations.add(comboKey);
         invitationData.email = email;
-        seededInvitations.push({ id: invitationId, tournamentId: tournament.id, email, type, status });
+        seededInvitations.push({
+          id: invitationId,
+          tournamentId: tournament.id,
+          email,
+          type,
+          status,
+        });
       }
 
       await invitationRepository.insert(invitationData);

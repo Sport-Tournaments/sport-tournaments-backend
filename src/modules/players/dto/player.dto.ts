@@ -56,7 +56,10 @@ export class UpdatePlayerDto {
   @MaxLength(80)
   lastname?: string;
 
-  @ApiPropertyOptional({ example: '2010-04-15', description: 'Player birth date' })
+  @ApiPropertyOptional({
+    example: '2010-04-15',
+    description: 'Player birth date',
+  })
   @IsOptional()
   @IsDateString()
   dateOfBirth?: string;
@@ -94,7 +97,12 @@ export class PlayerSearchDto {
   @IsUUID()
   teamId?: string;
 
-  @ApiPropertyOptional({ description: 'Maximum results', default: 10, minimum: 1, maximum: 50 })
+  @ApiPropertyOptional({
+    description: 'Maximum results',
+    default: 10,
+    minimum: 1,
+    maximum: 50,
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()

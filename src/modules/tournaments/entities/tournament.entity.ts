@@ -52,10 +52,20 @@ export class Tournament {
   status: TournamentStatus;
 
   @Index()
-  @Column({ name: 'start_date', type: 'date', nullable: true, transformer: new DateOnlyTransformer() })
+  @Column({
+    name: 'start_date',
+    type: 'date',
+    nullable: true,
+    transformer: new DateOnlyTransformer(),
+  })
   startDate?: Date | string;
 
-  @Column({ name: 'end_date', type: 'date', nullable: true, transformer: new DateOnlyTransformer() })
+  @Column({
+    name: 'end_date',
+    type: 'date',
+    nullable: true,
+    transformer: new DateOnlyTransformer(),
+  })
   endDate?: Date | string;
 
   @Column()
@@ -127,13 +137,28 @@ export class Tournament {
   @Column({ type: 'json', nullable: true })
   tags?: string[];
 
-  @Column({ name: 'registration_deadline', type: 'date', nullable: true, transformer: new DateOnlyTransformer() })
+  @Column({
+    name: 'registration_deadline',
+    type: 'date',
+    nullable: true,
+    transformer: new DateOnlyTransformer(),
+  })
   registrationDeadline?: Date | string;
 
-  @Column({ name: 'registration_start_date', type: 'date', nullable: true, transformer: new DateOnlyTransformer() })
+  @Column({
+    name: 'registration_start_date',
+    type: 'date',
+    nullable: true,
+    transformer: new DateOnlyTransformer(),
+  })
   registrationStartDate?: Date | string;
 
-  @Column({ name: 'registration_end_date', type: 'date', nullable: true, transformer: new DateOnlyTransformer() })
+  @Column({
+    name: 'registration_end_date',
+    type: 'date',
+    nullable: true,
+    transformer: new DateOnlyTransformer(),
+  })
   registrationEndDate?: Date | string;
 
   @Column({ name: 'contact_email', nullable: true })
@@ -162,7 +187,11 @@ export class Tournament {
   invitationCode?: string;
 
   // Invitation code expiration date
-  @Column({ name: 'invitation_code_expires_at', type: 'timestamp', nullable: true })
+  @Column({
+    name: 'invitation_code_expires_at',
+    type: 'timestamp',
+    nullable: true,
+  })
   invitationCodeExpiresAt?: Date;
 
   // Visibility configuration for private tournaments
@@ -260,4 +289,7 @@ export class Tournament {
 
   @OneToMany(() => TournamentPot, (pot) => pot.tournament)
   pots: TournamentPot[];
+
+  @Column({ name: 'data_test', default: false })
+  dataTest: boolean;
 }

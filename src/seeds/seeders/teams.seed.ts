@@ -1,9 +1,5 @@
 import { DataSource } from 'typeorm';
-import {
-  faker,
-  generateUUID,
-  seedDatePast,
-} from '../utils/helpers';
+import { faker, generateUUID, seedDatePast } from '../utils/helpers';
 import { AgeCategory } from '../../common/enums';
 
 export interface SeededTeam {

@@ -29,10 +29,26 @@ export async function seedClubs(
   const seededClubs: SeededClub[] = [];
 
   const RO_CLUB_WORDS = [
-    'Viitorul', 'Rapid', 'Gloria', 'Progresul', 'Olimpia',
-    'Steaua', 'Universitatea', 'Petrolul', 'Astra', 'Poli',
-    'Dinamo', 'Metalul', 'Minerul', 'Energia', 'Victoria',
-    'Flamura', 'Sportul', 'Voința', 'Unirea', 'CSM',
+    'Viitorul',
+    'Rapid',
+    'Gloria',
+    'Progresul',
+    'Olimpia',
+    'Steaua',
+    'Universitatea',
+    'Petrolul',
+    'Astra',
+    'Poli',
+    'Dinamo',
+    'Metalul',
+    'Minerul',
+    'Energia',
+    'Victoria',
+    'Flamura',
+    'Sportul',
+    'Voința',
+    'Unirea',
+    'CSM',
   ];
 
   function roClubName(city: string): string {
@@ -44,7 +60,9 @@ export async function seedClubs(
   async function insertClub(ownerId: string): Promise<SeededClub> {
     const city = faker.helpers.arrayElement(ROMANIAN_CITIES);
     const id = generateUUID();
-    const name = roClubName(city.name) + ` ${faker.string.alpha({ length: 2, casing: 'upper' })}`;
+    const name =
+      roClubName(city.name) +
+      ` ${faker.string.alpha({ length: 2, casing: 'upper' })}`;
     const latOffset = faker.number.float({ min: -0.05, max: 0.05 });
     const lngOffset = faker.number.float({ min: -0.05, max: 0.05 });
 
@@ -66,7 +84,9 @@ export async function seedClubs(
       website: faker.datatype.boolean({ probability: 0.5 })
         ? `https://www.${name.toLowerCase().replace(/\s/g, '-')}.ro`
         : undefined,
-      contactEmail: faker.internet.email({ firstName: city.name.toLowerCase() }),
+      contactEmail: faker.internet.email({
+        firstName: city.name.toLowerCase(),
+      }),
       contactPhone: generateRomanianPhone(),
       createdAt: seedDatePast(),
     });

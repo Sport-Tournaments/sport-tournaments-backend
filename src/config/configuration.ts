@@ -1,11 +1,11 @@
 export default () => ({
   nodeEnv: process.env.NODE_ENV || 'development',
-  port: parseInt(process.env.PORT || '3001', 10),
+  port: parseInt(process.env.PORT || '8081', 10),
   apiPrefix: process.env.API_PREFIX || 'api/v1',
 
   // CORS configuration
   cors: {
-    origins: process.env.CORS_ORIGINS || 'http://localhost:4000',
+    origins: process.env.CORS_ORIGINS || 'http://localhost:3002',
   },
 
   // PostgreSQL database connection URL (required)
@@ -15,12 +15,18 @@ export default () => ({
     secret: process.env.JWT_SECRET || 'default-secret-change-me',
     expiresIn: process.env.JWT_EXPIRES_IN || '60d',
     // 60 days in seconds (2 months)
-    expiresInSeconds: parseInt(process.env.JWT_EXPIRES_IN_SECONDS || String(60 * 24 * 60 * 60), 10),
+    expiresInSeconds: parseInt(
+      process.env.JWT_EXPIRES_IN_SECONDS || String(60 * 24 * 60 * 60),
+      10,
+    ),
     refreshSecret:
       process.env.JWT_REFRESH_SECRET || 'default-refresh-secret-change-me',
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '60d',
     // 60 days in seconds (2 months)
-    refreshExpiresInSeconds: parseInt(process.env.JWT_REFRESH_EXPIRES_IN_SECONDS || String(60 * 24 * 60 * 60), 10),
+    refreshExpiresInSeconds: parseInt(
+      process.env.JWT_REFRESH_EXPIRES_IN_SECONDS || String(60 * 24 * 60 * 60),
+      10,
+    ),
   },
 
   aws: {
@@ -55,7 +61,7 @@ export default () => ({
     process.env.REQUIRE_EMAIL_VERIFICATION === 'true' ||
     process.env.REQUIRE_EMAIL_VERIFICATION === '1',
 
-  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:4000',
+  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3002',
 
   throttle: {
     ttl: parseInt(process.env.THROTTLE_TTL || '60000', 10),

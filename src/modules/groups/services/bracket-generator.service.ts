@@ -2,9 +2,19 @@ import { Injectable } from '@nestjs/common';
 
 // Re-export bracket interfaces from shared location
 export { BracketType } from '../../../common/interfaces/bracket.interface';
-export type { Match, PlayoffRound, BracketData, GroupStanding } from '../../../common/interfaces/bracket.interface';
+export type {
+  Match,
+  PlayoffRound,
+  BracketData,
+  GroupStanding,
+} from '../../../common/interfaces/bracket.interface';
 import { BracketType } from '../../../common/interfaces/bracket.interface';
-import type { Match, PlayoffRound, BracketData, GroupStanding } from '../../../common/interfaces/bracket.interface';
+import type {
+  Match,
+  PlayoffRound,
+  BracketData,
+  GroupStanding,
+} from '../../../common/interfaces/bracket.interface';
 
 @Injectable()
 export class BracketGeneratorService {
@@ -47,7 +57,11 @@ export class BracketGeneratorService {
         return this.generateRoundRobinBracket(teamCount, seed);
 
       case BracketType.LEAGUE:
-        return this.generateLeagueBracket(teamCount, options.leagueLegs ?? 2, seed);
+        return this.generateLeagueBracket(
+          teamCount,
+          options.leagueLegs ?? 2,
+          seed,
+        );
 
       case BracketType.GROUPS_PLUS_KNOCKOUT:
         return this.generateGroupsWithKnockoutBracket(
@@ -185,9 +199,8 @@ export class BracketGeneratorService {
     // ── Winners bracket rounds ──────────────────────────────────────────────
     for (let round = 1; round <= roundsNeeded; round++) {
       const matchesInRound = bracketSize / Math.pow(2, round);
-      const roundName = round === roundsNeeded
-        ? 'Winners Final'
-        : `Winners Round ${round}`;
+      const roundName =
+        round === roundsNeeded ? 'Winners Final' : `Winners Round ${round}`;
 
       const matches: Match[] = [];
       for (let i = 0; i < matchesInRound; i++) {
@@ -213,9 +226,8 @@ export class BracketGeneratorService {
       const matchesInRound = Math.ceil(
         bracketSize / Math.pow(2, Math.ceil(round / 2) + 1),
       );
-      const roundName = round === loserRounds
-        ? 'Losers Final'
-        : `Losers Round ${round}`;
+      const roundName =
+        round === loserRounds ? 'Losers Final' : `Losers Round ${round}`;
 
       const matches: Match[] = [];
       for (let i = 0; i < matchesInRound; i++) {
@@ -284,12 +296,14 @@ export class BracketGeneratorService {
     // ── Wire nextMatchId for winner advancement within each bracket ─────────
     // Winners bracket: each round feeds the next (halving each time)
     const winnersRounds = playoffRounds.filter((r) => r.bracket === 'winners');
-    const losersRounds  = playoffRounds.filter((r) => r.bracket === 'losers');
-    const grandFinalRound = playoffRounds.find((r) => r.bracket === 'grand_final');
+    const losersRounds = playoffRounds.filter((r) => r.bracket === 'losers');
+    const grandFinalRound = playoffRounds.find(
+      (r) => r.bracket === 'grand_final',
+    );
 
     // Within WR: match[i] → match[⌊i/2⌋] in next WR round; WR final → Grand Final
     for (let i = 0; i < winnersRounds.length; i++) {
-      const cur  = winnersRounds[i];
+      const cur = winnersRounds[i];
       const next = winnersRounds[i + 1] ?? null;
       const gfTarget = i === winnersRounds.length - 1 ? grandFinalRound : null;
       cur.matches.forEach((match, mi) => {
@@ -306,14 +320,13 @@ export class BracketGeneratorService {
 
     // Within LR: same count → 1:1; fewer → halving; LR final → Grand Final
     for (let i = 0; i < losersRounds.length; i++) {
-      const cur  = losersRounds[i];
+      const cur = losersRounds[i];
       const next = losersRounds[i + 1] ?? null;
       const gfTarget = i === losersRounds.length - 1 ? grandFinalRound : null;
       cur.matches.forEach((match, mi) => {
         if (next) {
-          const targetIdx = next.matches.length < cur.matches.length
-            ? Math.floor(mi / 2)
-            : mi;
+          const targetIdx =
+            next.matches.length < cur.matches.length ? Math.floor(mi / 2) : mi;
           if (next.matches[targetIdx]) {
             match.nextMatchId = next.matches[targetIdx].id;
           }
@@ -534,10 +547,7 @@ export class BracketGeneratorService {
         }
 
         // Link semi-final losers to third place match
-        if (
-          thirdPlaceMatchId &&
-          nextRound.roundName === 'Final'
-        ) {
+        if (thirdPlaceMatchId && nextRound.roundName === 'Final') {
           match.loserNextMatchId = thirdPlaceMatchId;
         }
       });
@@ -643,28 +653,41 @@ export class BracketGeneratorService {
         team2.goalDifference = team2.goalsFor - team2.goalsAgainst;
       });
 
-    // Sort standings: Pts → GD → GF → tieBreakOrder → draw position
-    const sortedStandings = Array.from(standings.values()).sort((a, b) => {
-      // Points
-      if (b.points !== a.points) return b.points - a.points;
-      // Goal difference
-      if (b.goalDifference !== a.goalDifference)
-        return b.goalDifference - a.goalDifference;
-      // Goals for
-      if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
-      // Manual tiebreak order set by organizer
-      if (tieBreakOrder && tieBreakOrder.length > 0) {
-        const ia = tieBreakOrder.indexOf(a.teamId);
-        const ib = tieBreakOrder.indexOf(b.teamId);
-        if (ia !== -1 && ib !== -1) return ia - ib;
-        if (ia !== -1) return -1;
-        if (ib !== -1) return 1;
-      }
-      // Default: preserve original draw order (stable)
-      return 0;
-    });
+    const teamIds = Array.from(standings.keys());
+    const isFullOverride =
+      tieBreakOrder &&
+      tieBreakOrder.length === teamIds.length &&
+      teamIds.every((id) => tieBreakOrder.includes(id));
 
-    // Update positions
+    let sortedStandings: GroupStanding[];
+
+    if (isFullOverride) {
+      // Complete manual override — use tieBreakOrder as the authoritative rank order
+      const orderMap = new Map(tieBreakOrder.map((id, i) => [id, i]));
+      sortedStandings = teamIds
+        .map((id) => standings.get(id)!)
+        .sort(
+          (a, b) =>
+            (orderMap.get(a.teamId) ?? 999) - (orderMap.get(b.teamId) ?? 999),
+        );
+    } else {
+      // Sort standings: Pts → GD → GF → tieBreakOrder → draw position
+      sortedStandings = Array.from(standings.values()).sort((a, b) => {
+        if (b.points !== a.points) return b.points - a.points;
+        if (b.goalDifference !== a.goalDifference)
+          return b.goalDifference - a.goalDifference;
+        if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
+        if (tieBreakOrder && tieBreakOrder.length > 0) {
+          const ia = tieBreakOrder.indexOf(a.teamId);
+          const ib = tieBreakOrder.indexOf(b.teamId);
+          if (ia !== -1 && ib !== -1) return ia - ib;
+          if (ia !== -1) return -1;
+          if (ib !== -1) return 1;
+        }
+        return 0;
+      });
+    }
+
     sortedStandings.forEach((standing, index) => {
       standing.position = index + 1;
     });

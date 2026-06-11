@@ -99,18 +99,31 @@ export async function seedTournaments(
       }
 
       const regDeadline = new Date(dateRange.startDate);
-      regDeadline.setDate(regDeadline.getDate() - faker.number.int({ min: 7, max: 30 }));
+      regDeadline.setDate(
+        regDeadline.getDate() - faker.number.int({ min: 7, max: 30 }),
+      );
 
       let currentTeams = 0;
       if (status === TournamentStatus.PUBLISHED) {
-        currentTeams = faker.number.int({ min: 2, max: Math.floor(maxTeams * 0.7) });
-      } else if (status === TournamentStatus.ONGOING || status === TournamentStatus.COMPLETED) {
-        currentTeams = faker.number.int({ min: Math.floor(maxTeams * 0.6), max: maxTeams });
+        currentTeams = faker.number.int({
+          min: 2,
+          max: Math.floor(maxTeams * 0.7),
+        });
+      } else if (
+        status === TournamentStatus.ONGOING ||
+        status === TournamentStatus.COMPLETED
+      ) {
+        currentTeams = faker.number.int({
+          min: Math.floor(maxTeams * 0.6),
+          max: maxTeams,
+        });
       }
 
       const latOffset = faker.number.float({ min: -0.05, max: 0.05 });
       const lngOffset = faker.number.float({ min: -0.05, max: 0.05 });
-      const drawCompleted = status === TournamentStatus.ONGOING || status === TournamentStatus.COMPLETED;
+      const drawCompleted =
+        status === TournamentStatus.ONGOING ||
+        status === TournamentStatus.COMPLETED;
 
       await tournamentRepository.insert({
         id,
@@ -135,7 +148,10 @@ export async function seedTournaments(
         isPublished: status !== TournamentStatus.DRAFT,
         isFeatured: faker.datatype.boolean({ probability: 0.1 }),
         tags: pickRandomMultiple(TOURNAMENT_TAGS, { min: 1, max: 4 }),
-        registrationDeadline: status === TournamentStatus.DRAFT ? undefined : toDateString(regDeadline),
+        registrationDeadline:
+          status === TournamentStatus.DRAFT
+            ? undefined
+            : toDateString(regDeadline),
         contactEmail: faker.internet.email(),
         contactPhone: generateRomanianPhone(),
         drawSeed: drawCompleted ? faker.string.alphanumeric(16) : undefined,
@@ -146,8 +162,14 @@ export async function seedTournaments(
       });
 
       seededTournaments.push({
-        id, name, organizerId, status, drawCompleted, fee,
-        startDate: dateRange.startDate, endDate: dateRange.endDate,
+        id,
+        name,
+        organizerId,
+        status,
+        drawCompleted,
+        fee,
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
       });
     }
   }
@@ -164,11 +186,15 @@ export async function seedTournaments(
     const fee = generateTournamentFee();
 
     let dateRange: { startDate: Date; endDate: Date };
-    if (status === TournamentStatus.COMPLETED) dateRange = getTournamentDateRange('past');
-    else if (status === TournamentStatus.ONGOING) dateRange = getTournamentDateRange('ongoing');
+    if (status === TournamentStatus.COMPLETED)
+      dateRange = getTournamentDateRange('past');
+    else if (status === TournamentStatus.ONGOING)
+      dateRange = getTournamentDateRange('ongoing');
     else dateRange = getTournamentDateRange('upcoming');
 
-    const drawCompleted = status === TournamentStatus.ONGOING || status === TournamentStatus.COMPLETED;
+    const drawCompleted =
+      status === TournamentStatus.ONGOING ||
+      status === TournamentStatus.COMPLETED;
     const latOffset = faker.number.float({ min: -0.05, max: 0.05 });
     const lngOffset = faker.number.float({ min: -0.05, max: 0.05 });
 
@@ -188,7 +214,10 @@ export async function seedTournaments(
       gameSystem: pickRandom(GAME_SYSTEMS),
       numberOfMatches: faker.number.int({ min: maxTeams, max: maxTeams * 2 }),
       maxTeams,
-      currentTeams: status === TournamentStatus.DRAFT ? 0 : faker.number.int({ min: 2, max: maxTeams }),
+      currentTeams:
+        status === TournamentStatus.DRAFT
+          ? 0
+          : faker.number.int({ min: 2, max: maxTeams }),
       currency: Currency.RON,
       participationFee: fee,
       isPremium: faker.datatype.boolean({ probability: 0.15 }),
@@ -204,8 +233,14 @@ export async function seedTournaments(
     });
 
     seededTournaments.push({
-      id, name, organizerId, status, drawCompleted, fee,
-      startDate: dateRange.startDate, endDate: dateRange.endDate,
+      id,
+      name,
+      organizerId,
+      status,
+      drawCompleted,
+      fee,
+      startDate: dateRange.startDate,
+      endDate: dateRange.endDate,
     });
   }
 

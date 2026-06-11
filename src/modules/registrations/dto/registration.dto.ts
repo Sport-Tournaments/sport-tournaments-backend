@@ -11,7 +11,11 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { RegistrationStatus, PaymentStatus, Currency } from '../../../common/enums';
+import {
+  RegistrationStatus,
+  PaymentStatus,
+  Currency,
+} from '../../../common/enums';
 import { PaginationDto } from '../../../common/dto';
 
 export class CreateRegistrationDto {
@@ -23,7 +27,9 @@ export class CreateRegistrationDto {
   @IsUUID()
   teamId: string;
 
-  @ApiPropertyOptional({ description: 'Age group ID for the tournament category' })
+  @ApiPropertyOptional({
+    description: 'Age group ID for the tournament category',
+  })
   @IsOptional()
   @IsUUID()
   ageGroupId?: string;
@@ -60,7 +66,9 @@ export class CreateRegistrationDto {
 }
 
 export class UpdateRegistrationDto {
-  @ApiPropertyOptional({ description: 'Age group ID for the tournament category' })
+  @ApiPropertyOptional({
+    description: 'Age group ID for the tournament category',
+  })
   @IsOptional()
   @IsUUID()
   ageGroupId?: string;
@@ -136,7 +144,7 @@ export class RegistrationFilterDto extends PaginationDto {
 export class ApproveRegistrationDto {
   @ApiPropertyOptional({
     example: 'All documents verified and in order.',
-    description: 'Notes from the reviewer about the approval'
+    description: 'Notes from the reviewer about the approval',
   })
   @IsOptional()
   @IsString()
@@ -146,14 +154,14 @@ export class ApproveRegistrationDto {
 export class RejectRegistrationDto {
   @ApiProperty({
     example: 'Missing medical certificates for 3 players.',
-    description: 'Reason for rejecting the registration'
+    description: 'Reason for rejecting the registration',
   })
   @IsString()
   rejectionReason: string;
 
   @ApiPropertyOptional({
     example: 'Please resubmit with complete documentation.',
-    description: 'Additional notes for the registrant'
+    description: 'Additional notes for the registrant',
   })
   @IsOptional()
   @IsString()
@@ -163,14 +171,14 @@ export class RejectRegistrationDto {
 export class BulkReviewDto {
   @ApiProperty({
     description: 'Array of registration IDs to process',
-    type: [String]
+    type: [String],
   })
   @IsUUID('4', { each: true })
   registrationIds: string[];
 
   @ApiPropertyOptional({
     example: 'Bulk approval for verified teams.',
-    description: 'Notes for all registrations being processed'
+    description: 'Notes for all registrations being processed',
   })
   @IsOptional()
   @IsString()
@@ -179,7 +187,7 @@ export class BulkReviewDto {
 
 export class MarkAsPaidDto {
   @ApiPropertyOptional({
-    example: 150.00,
+    example: 150.0,
     description: 'Amount paid (defaults to the registration price if omitted)',
   })
   @IsOptional()

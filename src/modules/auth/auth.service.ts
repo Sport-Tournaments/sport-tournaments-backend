@@ -69,7 +69,6 @@ export class AuthService {
 
     const emailVerificationToken = randomUUID();
 
-
     // Create user
     const user = this.usersRepository.create({
       email: email.toLowerCase(),
@@ -88,10 +87,17 @@ export class AuthService {
     // Send verification email only if required
     if (requireEmailVerification) {
       try {
-        await this.mailService.sendWelcomeEmail(email, firstName, emailVerificationToken);
+        await this.mailService.sendWelcomeEmail(
+          email,
+          firstName,
+          emailVerificationToken,
+        );
         this.logger.log(`Verification email sent to ${email}`);
       } catch (error) {
-        this.logger.error(`Failed to send verification email to ${email}:`, error);
+        this.logger.error(
+          `Failed to send verification email to ${email}:`,
+          error,
+        );
       }
     } else {
       this.logger.log(
@@ -278,7 +284,10 @@ export class AuthService {
         );
         this.logger.log(`Password reset email sent to ${email}`);
       } catch (error) {
-        this.logger.error(`Failed to send password reset email to ${email}:`, error);
+        this.logger.error(
+          `Failed to send password reset email to ${email}:`,
+          error,
+        );
         // Still return success to prevent email enumeration
       }
     }
@@ -391,9 +400,11 @@ export class AuthService {
       'default-refresh-secret';
     // 60 days in seconds (2 months)
     const jwtExpiresIn =
-      this.configService.get<number>('jwt.expiresInSeconds') || 60 * 24 * 60 * 60;
+      this.configService.get<number>('jwt.expiresInSeconds') ||
+      60 * 24 * 60 * 60;
     const jwtRefreshExpiresIn =
-      this.configService.get<number>('jwt.refreshExpiresInSeconds') || 60 * 24 * 60 * 60;
+      this.configService.get<number>('jwt.refreshExpiresInSeconds') ||
+      60 * 24 * 60 * 60;
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
@@ -417,7 +428,8 @@ export class AuthService {
   ): Promise<void> {
     // 60 days in seconds (2 months) as default
     const expiresInSeconds =
-      this.configService.get<number>('jwt.refreshExpiresInSeconds') || 60 * 24 * 60 * 60;
+      this.configService.get<number>('jwt.refreshExpiresInSeconds') ||
+      60 * 24 * 60 * 60;
     const expiresAt = new Date();
     expiresAt.setSeconds(expiresAt.getSeconds() + expiresInSeconds);
 

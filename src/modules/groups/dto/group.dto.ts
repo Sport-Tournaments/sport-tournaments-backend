@@ -72,7 +72,9 @@ export class CreateGroupDto {
 }
 
 export class UpdateMatchAdvancementDto {
-  @ApiProperty({ description: 'ID of the team (registration) that advances/wins' })
+  @ApiProperty({
+    description: 'ID of the team (registration) that advances/wins',
+  })
   @IsUUID()
   advancingTeamId: string;
 }
@@ -90,40 +92,56 @@ export class UpdateMatchScoreDto {
   @IsNumber()
   team2Score?: number;
 
-  @ApiPropertyOptional({ description: 'Leg 1 score of team 1 (at team 1 home)', nullable: true })
+  @ApiPropertyOptional({
+    description: 'Leg 1 score of team 1 (at team 1 home)',
+    nullable: true,
+  })
   @IsOptional()
   @ValidateIf((_, v) => v !== null)
   @Type(() => Number)
   @IsNumber()
   leg1Team1Score?: number | null;
 
-  @ApiPropertyOptional({ description: 'Leg 1 score of team 2 (at team 1 home)', nullable: true })
+  @ApiPropertyOptional({
+    description: 'Leg 1 score of team 2 (at team 1 home)',
+    nullable: true,
+  })
   @IsOptional()
   @ValidateIf((_, v) => v !== null)
   @Type(() => Number)
   @IsNumber()
   leg1Team2Score?: number | null;
 
-  @ApiPropertyOptional({ description: 'Leg 2 score of team 1 (at team 2 home)', nullable: true })
+  @ApiPropertyOptional({
+    description: 'Leg 2 score of team 1 (at team 2 home)',
+    nullable: true,
+  })
   @IsOptional()
   @ValidateIf((_, v) => v !== null)
   @Type(() => Number)
   @IsNumber()
   leg2Team1Score?: number | null;
 
-  @ApiPropertyOptional({ description: 'Leg 2 score of team 2 (at team 2 home)', nullable: true })
+  @ApiPropertyOptional({
+    description: 'Leg 2 score of team 2 (at team 2 home)',
+    nullable: true,
+  })
   @IsOptional()
   @ValidateIf((_, v) => v !== null)
   @Type(() => Number)
   @IsNumber()
   leg2Team2Score?: number | null;
 
-  @ApiPropertyOptional({ description: 'ID of the advancing/winning team (manual override)' })
+  @ApiPropertyOptional({
+    description: 'ID of the advancing/winning team (manual override)',
+  })
   @IsOptional()
   @IsString()
   advancingTeamId?: string;
 
-  @ApiPropertyOptional({ description: 'Whether match was decided by penalty shootout' })
+  @ApiPropertyOptional({
+    description: 'Whether match was decided by penalty shootout',
+  })
   @IsOptional()
   @IsBoolean()
   hasPenalties?: boolean;
@@ -162,7 +180,10 @@ export class ScheduleMatchDto {
   @Min(1)
   courtNumber?: number;
 
-  @ApiPropertyOptional({ example: 'Pitch 1', description: 'Football field name' })
+  @ApiPropertyOptional({
+    example: 'Pitch 1',
+    description: 'Football field name',
+  })
   @IsOptional()
   @IsString()
   fieldName?: string;

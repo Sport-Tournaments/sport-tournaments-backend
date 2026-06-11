@@ -14,7 +14,14 @@ export interface SeededTournamentLocation {
 }
 
 const FIELD_TYPES = ['gazon natural', 'gazon sintetic', 'hybrid', 'sala'];
-const FIELD_DIMS = ['40x20m', '50x30m', '68x45m', '90x60m', '100x64m', '105x68m'];
+const FIELD_DIMS = [
+  '40x20m',
+  '50x30m',
+  '68x45m',
+  '90x60m',
+  '100x64m',
+  '105x68m',
+];
 
 /**
  * Seed 1-3 locations per tournament.

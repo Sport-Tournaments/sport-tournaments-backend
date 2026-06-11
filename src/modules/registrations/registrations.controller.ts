@@ -103,11 +103,16 @@ export class RegistrationsController {
   @Get('tournaments/:tournamentId/registrations/statistics-by-age-group')
   @Public()
   @ApiOperation({ summary: 'Get registration statistics grouped by age group' })
-  @ApiResponse({ status: 200, description: 'Registration statistics by age group' })
+  @ApiResponse({
+    status: 200,
+    description: 'Registration statistics by age group',
+  })
   getStatusStatisticsByAgeGroup(
     @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
   ) {
-    return this.registrationsService.getStatusStatisticsByAgeGroup(tournamentId);
+    return this.registrationsService.getStatusStatisticsByAgeGroup(
+      tournamentId,
+    );
   }
 
   @Get('registrations/my-registrations')
@@ -168,7 +173,10 @@ export class RegistrationsController {
 
   @Post('registrations/:id/approve-with-payment')
   @ApiOperation({ summary: 'Approve registration with payment' })
-  @ApiResponse({ status: 200, description: 'Registration approved with payment' })
+  @ApiResponse({
+    status: 200,
+    description: 'Registration approved with payment',
+  })
   approveWithPayment(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
@@ -184,7 +192,10 @@ export class RegistrationsController {
 
   @Post('registrations/:id/approve-without-payment')
   @ApiOperation({ summary: 'Approve registration without payment' })
-  @ApiResponse({ status: 200, description: 'Registration approved without payment' })
+  @ApiResponse({
+    status: 200,
+    description: 'Registration approved without payment',
+  })
   approveWithoutPayment(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,

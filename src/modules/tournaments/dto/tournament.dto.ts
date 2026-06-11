@@ -99,12 +99,18 @@ export class CreateAgeGroupDto {
   @IsString()
   displayLabel?: string;
 
-  @ApiPropertyOptional({ enum: TournamentLevel, example: TournamentLevel.LEVEL_II })
+  @ApiPropertyOptional({
+    enum: TournamentLevel,
+    example: TournamentLevel.LEVEL_II,
+  })
   @IsOptional()
   @IsEnum(TournamentLevel)
   level?: TournamentLevel;
 
-  @ApiPropertyOptional({ enum: TournamentFormat, example: TournamentFormat.GROUPS_PLUS_KNOCKOUT })
+  @ApiPropertyOptional({
+    enum: TournamentFormat,
+    example: TournamentFormat.GROUPS_PLUS_KNOCKOUT,
+  })
   @IsOptional()
   @IsEnum(TournamentFormat)
   format?: TournamentFormat;
@@ -121,14 +127,21 @@ export class CreateAgeGroupDto {
   @Min(2)
   teamCount?: number;
 
-  @ApiPropertyOptional({ example: 4, description: 'Minimum number of teams required for the age group to be played' })
+  @ApiPropertyOptional({
+    example: 4,
+    description:
+      'Minimum number of teams required for the age group to be played',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(2)
   minTeams?: number;
 
-  @ApiPropertyOptional({ example: 16, description: 'Maximum number of teams allowed for this age group' })
+  @ApiPropertyOptional({
+    example: 16,
+    description: 'Maximum number of teams allowed for this age group',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
@@ -136,7 +149,10 @@ export class CreateAgeGroupDto {
   @Max(128)
   maxTeams?: number;
 
-  @ApiPropertyOptional({ example: 3, description: 'Guaranteed number of matches per team' })
+  @ApiPropertyOptional({
+    example: 3,
+    description: 'Guaranteed number of matches per team',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
@@ -144,7 +160,11 @@ export class CreateAgeGroupDto {
   @Max(20)
   numberOfMatches?: number;
 
-  @ApiPropertyOptional({ example: 3, description: 'Guaranteed number of matches per team (same as numberOfMatches for consistency)' })
+  @ApiPropertyOptional({
+    example: 3,
+    description:
+      'Guaranteed number of matches per team (same as numberOfMatches for consistency)',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
@@ -152,28 +172,49 @@ export class CreateAgeGroupDto {
   @Max(20)
   guaranteedMatches?: number;
 
-  @ApiPropertyOptional({ example: '2025-07-01', description: 'Age group start date (YYYY-MM-DD format)' })
+  @ApiPropertyOptional({
+    example: '2025-07-01',
+    description: 'Age group start date (YYYY-MM-DD format)',
+  })
   @IsOptional()
   @IsDateString()
-  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'startDate must be in YYYY-MM-DD format' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'startDate must be in YYYY-MM-DD format',
+  })
   startDate?: string;
 
-  @ApiPropertyOptional({ example: '2025-07-02', description: 'Age group end date (YYYY-MM-DD format)' })
+  @ApiPropertyOptional({
+    example: '2025-07-02',
+    description: 'Age group end date (YYYY-MM-DD format)',
+  })
   @IsOptional()
   @IsDateString()
-  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'endDate must be in YYYY-MM-DD format' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'endDate must be in YYYY-MM-DD format',
+  })
   endDate?: string;
 
-  @ApiPropertyOptional({ example: '2025-06-15', description: 'Registration start date for this age group (YYYY-MM-DD format)' })
+  @ApiPropertyOptional({
+    example: '2025-06-15',
+    description:
+      'Registration start date for this age group (YYYY-MM-DD format)',
+  })
   @IsOptional()
   @IsDateString()
-  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'registrationStartDate must be in YYYY-MM-DD format' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'registrationStartDate must be in YYYY-MM-DD format',
+  })
   registrationStartDate?: string;
 
-  @ApiPropertyOptional({ example: '2025-06-30', description: 'Registration end date for this age group (YYYY-MM-DD format)' })
+  @ApiPropertyOptional({
+    example: '2025-06-30',
+    description: 'Registration end date for this age group (YYYY-MM-DD format)',
+  })
   @IsOptional()
   @IsDateString()
-  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'registrationEndDate must be in YYYY-MM-DD format' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'registrationEndDate must be in YYYY-MM-DD format',
+  })
   registrationEndDate?: string;
 
   @ApiPropertyOptional({ description: 'Location ID for this age group' })
@@ -196,14 +237,21 @@ export class CreateAgeGroupDto {
   @Min(0)
   participationFee?: number;
 
-  @ApiPropertyOptional({ example: 4, description: 'Number of groups for this age category' })
+  @ApiPropertyOptional({
+    example: 4,
+    description: 'Number of groups for this age category',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(1)
   groupsCount?: number;
 
-  @ApiPropertyOptional({ example: 2, description: 'Number of playing fields (simultaneous games) for this age category' })
+  @ApiPropertyOptional({
+    example: 2,
+    description:
+      'Number of playing fields (simultaneous games) for this age category',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
@@ -218,7 +266,10 @@ export class CreateAgeGroupDto {
   @Min(2)
   teamsPerGroup?: number;
 
-  @ApiPropertyOptional({ example: 2, description: 'Teams advancing from each group to the knockout stage' })
+  @ApiPropertyOptional({
+    example: 2,
+    description: 'Teams advancing from each group to the knockout stage',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
@@ -236,7 +287,8 @@ export class CreateAgeGroupDto {
 
   @ApiPropertyOptional({
     example: 15,
-    description: 'Duration in minutes of one half (or the only half when matchPeriodType is ONE_HALF)',
+    description:
+      'Duration in minutes of one half (or the only half when matchPeriodType is ONE_HALF)',
   })
   @IsOptional()
   @Type(() => Number)
@@ -247,7 +299,8 @@ export class CreateAgeGroupDto {
 
   @ApiPropertyOptional({
     example: 5,
-    description: 'Pause between halves in minutes (used to auto-calculate match end time)',
+    description:
+      'Pause between halves in minutes (used to auto-calculate match end time)',
   })
   @IsOptional()
   @Type(() => Number)
@@ -258,7 +311,8 @@ export class CreateAgeGroupDto {
 
   @ApiPropertyOptional({
     example: 10,
-    description: 'Pause between consecutive matches in minutes (used to auto-schedule sequential matches)',
+    description:
+      'Pause between consecutive matches in minutes (used to auto-schedule sequential matches)',
   })
   @IsOptional()
   @Type(() => Number)
@@ -278,7 +332,9 @@ export class CreateAgeGroupDto {
 }
 
 export class UpdateAgeGroupDto {
-  @ApiPropertyOptional({ description: 'Age group ID (required for updates, omit for new)' })
+  @ApiPropertyOptional({
+    description: 'Age group ID (required for updates, omit for new)',
+  })
   @IsOptional()
   @IsUUID()
   id?: string;
@@ -316,28 +372,49 @@ export class UpdateAgeGroupDto {
   @Min(2)
   teamCount?: number;
 
-  @ApiPropertyOptional({ example: '2025-07-01', description: 'Age group start date (YYYY-MM-DD format)' })
+  @ApiPropertyOptional({
+    example: '2025-07-01',
+    description: 'Age group start date (YYYY-MM-DD format)',
+  })
   @IsOptional()
   @IsDateString()
-  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'startDate must be in YYYY-MM-DD format' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'startDate must be in YYYY-MM-DD format',
+  })
   startDate?: string;
 
-  @ApiPropertyOptional({ example: '2025-07-02', description: 'Age group end date (YYYY-MM-DD format)' })
+  @ApiPropertyOptional({
+    example: '2025-07-02',
+    description: 'Age group end date (YYYY-MM-DD format)',
+  })
   @IsOptional()
   @IsDateString()
-  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'endDate must be in YYYY-MM-DD format' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'endDate must be in YYYY-MM-DD format',
+  })
   endDate?: string;
 
-  @ApiPropertyOptional({ example: '2025-06-15', description: 'Registration start date for this age group (YYYY-MM-DD format)' })
+  @ApiPropertyOptional({
+    example: '2025-06-15',
+    description:
+      'Registration start date for this age group (YYYY-MM-DD format)',
+  })
   @IsOptional()
   @IsDateString()
-  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'registrationStartDate must be in YYYY-MM-DD format' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'registrationStartDate must be in YYYY-MM-DD format',
+  })
   registrationStartDate?: string;
 
-  @ApiPropertyOptional({ example: '2025-06-30', description: 'Registration end date for this age group (YYYY-MM-DD format)' })
+  @ApiPropertyOptional({
+    example: '2025-06-30',
+    description: 'Registration end date for this age group (YYYY-MM-DD format)',
+  })
   @IsOptional()
   @IsDateString()
-  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'registrationEndDate must be in YYYY-MM-DD format' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'registrationEndDate must be in YYYY-MM-DD format',
+  })
   registrationEndDate?: string;
 
   @ApiPropertyOptional({ description: 'Location ID for this age group' })
@@ -370,7 +447,11 @@ export class UpdateAgeGroupDto {
   @Min(1)
   groupsCount?: number;
 
-  @ApiPropertyOptional({ example: 2, description: 'Number of playing fields (simultaneous games) for this age category' })
+  @ApiPropertyOptional({
+    example: 2,
+    description:
+      'Number of playing fields (simultaneous games) for this age category',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
@@ -385,7 +466,10 @@ export class UpdateAgeGroupDto {
   @Min(2)
   teamsPerGroup?: number;
 
-  @ApiPropertyOptional({ example: 2, description: 'Teams advancing from each group to the knockout stage' })
+  @ApiPropertyOptional({
+    example: 2,
+    description: 'Teams advancing from each group to the knockout stage',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
@@ -403,7 +487,8 @@ export class UpdateAgeGroupDto {
 
   @ApiPropertyOptional({
     example: 15,
-    description: 'Duration in minutes of one half (or the only half when matchPeriodType is ONE_HALF)',
+    description:
+      'Duration in minutes of one half (or the only half when matchPeriodType is ONE_HALF)',
   })
   @IsOptional()
   @Type(() => Number)
@@ -414,7 +499,8 @@ export class UpdateAgeGroupDto {
 
   @ApiPropertyOptional({
     example: 5,
-    description: 'Pause between halves in minutes (used to auto-calculate match end time)',
+    description:
+      'Pause between halves in minutes (used to auto-calculate match end time)',
   })
   @IsOptional()
   @Type(() => Number)
@@ -425,7 +511,8 @@ export class UpdateAgeGroupDto {
 
   @ApiPropertyOptional({
     example: 10,
-    description: 'Pause between consecutive matches in minutes (used to auto-schedule sequential matches)',
+    description:
+      'Pause between consecutive matches in minutes (used to auto-schedule sequential matches)',
   })
   @IsOptional()
   @Type(() => Number)
@@ -443,14 +530,19 @@ export class UpdateAgeGroupDto {
   @MaxLength(2000)
   notes?: string;
 
-  @ApiPropertyOptional({ description: 'Whether registrations are closed for this age group' })
+  @ApiPropertyOptional({
+    description: 'Whether registrations are closed for this age group',
+  })
   @IsOptional()
   @IsBoolean()
   isRegistrationClosed?: boolean;
 }
 
 export class UpdateAgeGroupsDto {
-  @ApiProperty({ type: [UpdateAgeGroupDto], description: 'Age groups to update/create/delete' })
+  @ApiProperty({
+    type: [UpdateAgeGroupDto],
+    description: 'Age groups to update/create/delete',
+  })
   @ValidateNested({ each: true })
   @Type(() => UpdateAgeGroupDto)
   ageGroups: UpdateAgeGroupDto[];
@@ -577,16 +669,28 @@ export class CreateTournamentDto {
   @MaxLength(5000)
   description?: string;
 
-  @ApiPropertyOptional({ example: '2025-07-01', description: 'Tournament start date (YYYY-MM-DD format, date only) - use age group dates instead' })
+  @ApiPropertyOptional({
+    example: '2025-07-01',
+    description:
+      'Tournament start date (YYYY-MM-DD format, date only) - use age group dates instead',
+  })
   @IsOptional()
   @IsDateString()
-  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'startDate must be in YYYY-MM-DD format' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'startDate must be in YYYY-MM-DD format',
+  })
   startDate?: string;
 
-  @ApiPropertyOptional({ example: '2025-07-05', description: 'Tournament end date (YYYY-MM-DD format, date only) - use age group dates instead' })
+  @ApiPropertyOptional({
+    example: '2025-07-05',
+    description:
+      'Tournament end date (YYYY-MM-DD format, date only) - use age group dates instead',
+  })
   @IsOptional()
   @IsDateString()
-  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'endDate must be in YYYY-MM-DD format' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'endDate must be in YYYY-MM-DD format',
+  })
   endDate?: string;
 
   @ApiProperty({ example: 'Barcelona, Spain' })
@@ -685,16 +789,26 @@ export class CreateTournamentDto {
   @IsBoolean()
   isRegistrationClosed?: boolean;
 
-  @ApiPropertyOptional({ example: '2025-06-01', description: 'Registration opening date (YYYY-MM-DD format)' })
+  @ApiPropertyOptional({
+    example: '2025-06-01',
+    description: 'Registration opening date (YYYY-MM-DD format)',
+  })
   @IsOptional()
   @IsDateString()
-  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'registrationStartDate must be in YYYY-MM-DD format' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'registrationStartDate must be in YYYY-MM-DD format',
+  })
   registrationStartDate?: string;
 
-  @ApiPropertyOptional({ example: '2025-06-25', description: 'Registration closing date (YYYY-MM-DD format)' })
+  @ApiPropertyOptional({
+    example: '2025-06-25',
+    description: 'Registration closing date (YYYY-MM-DD format)',
+  })
   @IsOptional()
   @IsDateString()
-  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'registrationEndDate must be in YYYY-MM-DD format' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'registrationEndDate must be in YYYY-MM-DD format',
+  })
   registrationEndDate?: string;
 
   @ApiPropertyOptional({ example: 'organizer@tournament.com' })
@@ -717,6 +831,22 @@ export class CreateTournamentDto {
   @IsOptional()
   @IsString()
   country?: string;
+
+  @ApiPropertyOptional({
+    description: 'Whether tournament is premium',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  isPremium?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Whether tournament is featured',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  isFeatured?: boolean;
 
   // New privacy and visibility fields
   @ApiPropertyOptional({
@@ -767,7 +897,11 @@ export class CreateTournamentDto {
   @IsBoolean()
   thirdPlaceMatch?: boolean;
 
-  @ApiPropertyOptional({ example: 4, description: 'Total number of playing fields/grounds available for the tournament' })
+  @ApiPropertyOptional({
+    example: 4,
+    description:
+      'Total number of playing fields/grounds available for the tournament',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
@@ -857,16 +991,26 @@ export class UpdateTournamentDto {
   @MaxLength(5000)
   description?: string;
 
-  @ApiPropertyOptional({ example: '2025-07-01', description: 'Tournament start date (YYYY-MM-DD format)' })
+  @ApiPropertyOptional({
+    example: '2025-07-01',
+    description: 'Tournament start date (YYYY-MM-DD format)',
+  })
   @IsOptional()
   @IsDateString()
-  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'startDate must be in YYYY-MM-DD format' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'startDate must be in YYYY-MM-DD format',
+  })
   startDate?: string;
 
-  @ApiPropertyOptional({ example: '2025-07-05', description: 'Tournament end date (YYYY-MM-DD format)' })
+  @ApiPropertyOptional({
+    example: '2025-07-05',
+    description: 'Tournament end date (YYYY-MM-DD format)',
+  })
   @IsOptional()
   @IsDateString()
-  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'endDate must be in YYYY-MM-DD format' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'endDate must be in YYYY-MM-DD format',
+  })
   endDate?: string;
 
   @ApiPropertyOptional({ example: 'Barcelona, Spain' })
@@ -931,16 +1075,26 @@ export class UpdateTournamentDto {
   @IsBoolean()
   isRegistrationClosed?: boolean;
 
-  @ApiPropertyOptional({ example: '2025-06-01', description: 'Registration opening date (YYYY-MM-DD format)' })
+  @ApiPropertyOptional({
+    example: '2025-06-01',
+    description: 'Registration opening date (YYYY-MM-DD format)',
+  })
   @IsOptional()
   @IsDateString()
-  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'registrationStartDate must be in YYYY-MM-DD format' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'registrationStartDate must be in YYYY-MM-DD format',
+  })
   registrationStartDate?: string;
 
-  @ApiPropertyOptional({ example: '2025-06-25', description: 'Registration closing date (YYYY-MM-DD format)' })
+  @ApiPropertyOptional({
+    example: '2025-06-25',
+    description: 'Registration closing date (YYYY-MM-DD format)',
+  })
   @IsOptional()
   @IsDateString()
-  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'registrationEndDate must be in YYYY-MM-DD format' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'registrationEndDate must be in YYYY-MM-DD format',
+  })
   registrationEndDate?: string;
 
   @ApiPropertyOptional({ example: 'organizer@tournament.com' })
@@ -963,6 +1117,16 @@ export class UpdateTournamentDto {
   @IsOptional()
   @IsString()
   country?: string;
+
+  @ApiPropertyOptional({ description: 'Whether tournament is premium' })
+  @IsOptional()
+  @IsBoolean()
+  isPremium?: boolean;
+
+  @ApiPropertyOptional({ description: 'Whether tournament is featured' })
+  @IsOptional()
+  @IsBoolean()
+  isFeatured?: boolean;
 
   // New privacy and visibility fields
   @ApiPropertyOptional({
@@ -1012,7 +1176,11 @@ export class UpdateTournamentDto {
   @IsBoolean()
   thirdPlaceMatch?: boolean;
 
-  @ApiPropertyOptional({ example: 4, description: 'Total number of playing fields/grounds available for the tournament' })
+  @ApiPropertyOptional({
+    example: 4,
+    description:
+      'Total number of playing fields/grounds available for the tournament',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
@@ -1120,14 +1288,19 @@ export class TournamentFilterDto extends PaginationDto {
   @IsNumber()
   userLongitude?: number;
 
-  @ApiPropertyOptional({ description: 'Max distance in km (default: 50 when user location provided)' })
+  @ApiPropertyOptional({
+    description: 'Max distance in km (default: 50 when user location provided)',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(1)
   maxDistance?: number;
 
-  @ApiPropertyOptional({ description: 'Sort results by distance from user location', default: false })
+  @ApiPropertyOptional({
+    description: 'Sort results by distance from user location',
+    default: false,
+  })
   @IsOptional()
   @Transform(toOptionalBoolean)
   @IsBoolean()
@@ -1182,12 +1355,12 @@ export class AdminUpdateTournamentDto extends UpdateTournamentDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
-  isPremium?: boolean;
+  declare isPremium?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
-  isFeatured?: boolean;
+  declare isFeatured?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -1197,7 +1370,10 @@ export class AdminUpdateTournamentDto extends UpdateTournamentDto {
 
 // Invitation code DTOs
 export class ValidateInvitationCodeDto {
-  @ApiProperty({ example: 'ABC123XY', description: 'Invitation code to validate' })
+  @ApiProperty({
+    example: 'ABC123XY',
+    description: 'Invitation code to validate',
+  })
   @IsString()
   @MinLength(6)
   @MaxLength(20)
@@ -1219,9 +1395,10 @@ export class InvitationCodeResponseDto {
 }
 
 export class RegenerateInvitationCodeDto {
-  @ApiPropertyOptional({ 
-    example: 30, 
-    description: 'Number of days until the code expires. If not provided, code will not expire.' 
+  @ApiPropertyOptional({
+    example: 30,
+    description:
+      'Number of days until the code expires. If not provided, code will not expire.',
   })
   @IsOptional()
   @Type(() => Number)

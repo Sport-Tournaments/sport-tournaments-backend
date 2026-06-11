@@ -8,7 +8,7 @@ async function runMigration() {
   const dataSource = app.get(DataSource);
 
   console.log('Running migration: Add default colors to clubs...\n');
-  
+
   try {
     await addDefaultColorsToClubs(dataSource);
     console.log('\n✓ Migration completed successfully!');

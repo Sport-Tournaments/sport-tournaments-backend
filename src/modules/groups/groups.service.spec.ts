@@ -1,8 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { GroupsService } from './groups.service';
+import { BracketGeneratorService } from './services/bracket-generator.service';
 import { Group } from './entities/group.entity';
 import { Tournament } from '../tournaments/entities/tournament.entity';
+import { TournamentAgeGroup } from '../tournaments/entities/tournament-age-group.entity';
 import { Registration } from '../registrations/entities/registration.entity';
 import { ExecuteDrawDto } from './dto';
 import {
@@ -80,6 +82,13 @@ describe('GroupsService', () => {
     delete: jest.fn(),
   };
 
+  const mockAgeGroupRepo = {
+    findOne: jest.fn(),
+    update: jest.fn(),
+    find: jest.fn(),
+    save: jest.fn(),
+  };
+
   const mockTournamentsRepo = {
     findOne: jest.fn(),
     update: jest.fn(),
@@ -104,8 +113,16 @@ describe('GroupsService', () => {
           useValue: mockTournamentsRepo,
         },
         {
+          provide: getRepositoryToken(TournamentAgeGroup),
+          useValue: mockAgeGroupRepo,
+        },
+        {
           provide: getRepositoryToken(Registration),
           useValue: mockRegistrationsRepo,
+        },
+        {
+          provide: BracketGeneratorService,
+          useValue: {},
         },
       ],
     }).compile();

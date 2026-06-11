@@ -42,7 +42,11 @@ import * as path from 'path';
 @Injectable()
 export class RegistrationsService {
   private readonly logger = new Logger(RegistrationsService.name);
-  private readonly uploadsPath = path.join(process.cwd(), 'uploads', 'documents');
+  private readonly uploadsPath = path.join(
+    process.cwd(),
+    'uploads',
+    'documents',
+  );
 
   constructor(
     @InjectRepository(Registration)
@@ -65,14 +69,16 @@ export class RegistrationsService {
     }
   }
 
-  private normalizeDateOnly(
-    value?: Date | string | null,
-  ): Date | null {
+  private normalizeDateOnly(value?: Date | string | null): Date | null {
     if (!value) return null;
 
     if (typeof value === 'string') {
       const [year, month, day] = value.split('-').map(Number);
-      if (Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day)) {
+      if (
+        Number.isFinite(year) &&
+        Number.isFinite(month) &&
+        Number.isFinite(day)
+      ) {
         return new Date(year, month - 1, day);
       }
       return new Date(value);
@@ -85,13 +91,29 @@ export class RegistrationsService {
   private getStartOfDay(value?: Date | string | null): Date | null {
     const date = this.normalizeDateOnly(value);
     if (!date) return null;
-    return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
+    return new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      0,
+      0,
+      0,
+      0,
+    );
   }
 
   private getEndOfDay(value?: Date | string | null): Date | null {
     const date = this.normalizeDateOnly(value);
     if (!date) return null;
-    return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+    return new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      23,
+      59,
+      59,
+      999,
+    );
   }
 
   async create(
@@ -117,13 +139,19 @@ export class RegistrationsService {
     }
 
     if (tournament.isRegistrationClosed) {
-      throw new BadRequestException('Registrations are closed for this tournament');
+      throw new BadRequestException(
+        'Registrations are closed for this tournament',
+      );
     }
 
     const now = new Date();
-    const registrationStart = this.getStartOfDay(tournament.registrationStartDate);
+    const registrationStart = this.getStartOfDay(
+      tournament.registrationStartDate,
+    );
     const registrationEnd = this.getEndOfDay(tournament.registrationEndDate);
-    const registrationDeadline = this.getEndOfDay(tournament.registrationDeadline);
+    const registrationDeadline = this.getEndOfDay(
+      tournament.registrationDeadline,
+    );
 
     if (registrationStart && now < registrationStart) {
       throw new BadRequestException('Registration has not started yet');
@@ -133,28 +161,38 @@ export class RegistrationsService {
       throw new BadRequestException('Registration period has ended');
     }
 
-    if (!registrationEnd && registrationDeadline && now > registrationDeadline) {
+    if (
+      !registrationEnd &&
+      registrationDeadline &&
+      now > registrationDeadline
+    ) {
       throw new BadRequestException('Registration deadline has passed');
     }
 
-    const hasAgeGroups = tournament.ageGroups && tournament.ageGroups.length > 0;
+    const hasAgeGroups =
+      tournament.ageGroups && tournament.ageGroups.length > 0;
     let selectedAgeGroup: TournamentAgeGroup | null = null;
 
     if (hasAgeGroups) {
       if (!createRegistrationDto.ageGroupId) {
-        throw new BadRequestException('Age group is required for this tournament');
+        throw new BadRequestException(
+          'Age group is required for this tournament',
+        );
       }
 
       selectedAgeGroup =
-        tournament.ageGroups.find((ag) => ag.id === createRegistrationDto.ageGroupId) ||
-        null;
+        tournament.ageGroups.find(
+          (ag) => ag.id === createRegistrationDto.ageGroupId,
+        ) || null;
 
       if (!selectedAgeGroup) {
         throw new BadRequestException('Invalid age group selection');
       }
 
       if (selectedAgeGroup.isRegistrationClosed) {
-        throw new BadRequestException('Registrations are closed for this age group');
+        throw new BadRequestException(
+          'Registrations are closed for this age group',
+        );
       }
 
       const ageGroupMaxTeams =
@@ -164,7 +202,10 @@ export class RegistrationsService {
           ? selectedAgeGroup.teamsPerGroup * selectedAgeGroup.groupsCount
           : 0);
 
-      if (ageGroupMaxTeams > 0 && selectedAgeGroup.currentTeams >= ageGroupMaxTeams) {
+      if (
+        ageGroupMaxTeams > 0 &&
+        selectedAgeGroup.currentTeams >= ageGroupMaxTeams
+      ) {
         throw new BadRequestException('Selected category is full');
       }
     } else {
@@ -199,13 +240,18 @@ export class RegistrationsService {
     }
 
     if (team.clubId !== club.id) {
-      throw new BadRequestException('Selected team does not belong to the club');
+      throw new BadRequestException(
+        'Selected team does not belong to the club',
+      );
     }
 
     // BE-03: allow cross-age-category registrations — flag instead of blocking
     let ageCategoryMismatch = false;
     if (hasAgeGroups && selectedAgeGroup) {
-      const birthYearMismatch = !!(selectedAgeGroup.birthYear && team.birthyear !== selectedAgeGroup.birthYear);
+      const birthYearMismatch = !!(
+        selectedAgeGroup.birthYear &&
+        team.birthyear !== selectedAgeGroup.birthYear
+      );
       if (birthYearMismatch) {
         ageCategoryMismatch = true;
       }
@@ -217,9 +263,7 @@ export class RegistrationsService {
         tournamentId,
         clubId: createRegistrationDto.clubId,
         teamId: createRegistrationDto.teamId,
-        ageGroupId: hasAgeGroups
-          ? selectedAgeGroup?.id
-          : IsNull(),
+        ageGroupId: hasAgeGroups ? selectedAgeGroup?.id : IsNull(),
       },
     });
 
@@ -327,7 +371,15 @@ export class RegistrationsService {
   async findById(id: string): Promise<Registration | null> {
     return this.registrationsRepository.findOne({
       where: { id },
-      relations: ['club', 'club.organizer', 'team', 'team.players', 'tournament', 'payment', 'ageGroup'],
+      relations: [
+        'club',
+        'club.organizer',
+        'team',
+        'team.players',
+        'tournament',
+        'payment',
+        'ageGroup',
+      ],
     });
   }
 
@@ -344,7 +396,13 @@ export class RegistrationsService {
   async findByClub(clubId: string): Promise<Registration[]> {
     return this.registrationsRepository.find({
       where: { clubId },
-      relations: ['club', 'club.organizer', 'tournament', 'team', 'team.players'],
+      relations: [
+        'club',
+        'club.organizer',
+        'tournament',
+        'team',
+        'team.players',
+      ],
       order: { registrationDate: 'DESC' },
     });
   }
@@ -505,7 +563,8 @@ export class RegistrationsService {
       if (registration?.club?.organizer?.email) {
         await this.mailService.sendPaymentPendingEmail(
           registration.club.organizer.email,
-          registration.club.organizer.firstName || registration.club.organizer.email,
+          registration.club.organizer.firstName ||
+            registration.club.organizer.email,
           registration.tournament?.name || 'Tournament',
           registration.team?.name || registration.club?.name || 'Team',
           Number(registration.priceAmount) || 0,
@@ -563,8 +622,8 @@ export class RegistrationsService {
   }
 
   async reject(
-    id: string, 
-    userId: string, 
+    id: string,
+    userId: string,
     userRole: string,
     dto?: RejectRegistrationDto,
   ): Promise<Registration> {
@@ -779,6 +838,7 @@ export class RegistrationsService {
       ageGroupLabel: string;
       total: number;
       pending: number;
+      pendingPayment: number;
       approved: number;
       rejected: number;
       withdrawn: number;
@@ -809,29 +869,39 @@ export class RegistrationsService {
     // Group the results by age group
     const ageGroupStatsMap = new Map<
       string,
-      { pending: number; approved: number; rejected: number; withdrawn: number }
+      {
+        pending: number;
+        pendingPayment: number;
+        approved: number;
+        rejected: number;
+        withdrawn: number;
+      }
     >();
 
     for (const stat of statsByAgeGroup) {
       if (!ageGroupStatsMap.has(stat.ageGroupId)) {
         ageGroupStatsMap.set(stat.ageGroupId, {
           pending: 0,
+          pendingPayment: 0,
           approved: 0,
           rejected: 0,
           withdrawn: 0,
         });
       }
       const groupStats = ageGroupStatsMap.get(stat.ageGroupId)!;
-      groupStats[stat.status.toLowerCase() as keyof typeof groupStats] = parseInt(
-        stat.count,
-        10,
-      );
+      const status = stat.status.toLowerCase();
+      if (status === 'pending_payment') {
+        groupStats.pendingPayment = parseInt(stat.count, 10);
+      } else {
+        groupStats[status as keyof typeof groupStats] = parseInt(stat.count, 10);
+      }
     }
 
     // Build the result with age group details
     const byAgeGroup = ageGroups.map((ageGroup) => {
       const stats = ageGroupStatsMap.get(ageGroup.id) || {
         pending: 0,
+        pendingPayment: 0,
         approved: 0,
         rejected: 0,
         withdrawn: 0,
@@ -855,7 +925,9 @@ export class RegistrationsService {
       return {
         ageGroupId: ageGroup.id,
         ageGroupLabel,
-        total: stats.pending + stats.approved + stats.rejected + stats.withdrawn,
+        total:
+          stats.pending + stats.pendingPayment + stats.approved + stats.rejected + stats.withdrawn,
+        pendingPayment: stats.pendingPayment,
         pending: stats.pending,
         approved: stats.approved,
         rejected: stats.rejected,
@@ -902,7 +974,9 @@ export class RegistrationsService {
     }
 
     if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
-      throw new ForbiddenException('You are not allowed to approve registrations for this tournament');
+      throw new ForbiddenException(
+        'You are not allowed to approve registrations for this tournament',
+      );
     }
 
     const results = { approved: 0, failed: [] as string[] };
@@ -959,7 +1033,9 @@ export class RegistrationsService {
     }
 
     if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
-      throw new ForbiddenException('You are not allowed to reject registrations for this tournament');
+      throw new ForbiddenException(
+        'You are not allowed to reject registrations for this tournament',
+      );
     }
 
     const results = { rejected: 0, failed: [] as string[] };
@@ -1024,7 +1100,9 @@ export class RegistrationsService {
     }
 
     if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
-      throw new ForbiddenException('You are not allowed to view registrations for this tournament');
+      throw new ForbiddenException(
+        'You are not allowed to view registrations for this tournament',
+      );
     }
 
     return this.registrationsRepository.find({
@@ -1331,9 +1409,7 @@ export class RegistrationsService {
     const registration = await queryBuilder.getOne();
 
     if (!registration) {
-      throw new NotFoundException(
-        'No registration found for this tournament',
-      );
+      throw new NotFoundException('No registration found for this tournament');
     }
 
     return registration;
