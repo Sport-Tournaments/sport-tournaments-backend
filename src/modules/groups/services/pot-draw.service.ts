@@ -275,8 +275,8 @@ export class PotDrawService {
     }
 
     // Validate pot structure:
-    //   - Number of pots = number of groups
-    //   - First `remainder` pots have teamsPerPot+1 teams, rest have teamsPerPot teams
+    // Validate pot structure against the requested number of pots:
+    //   - First `remainder` pots have teamsPerPot + 1 teams, rest have teamsPerPot teams
     for (let i = 1; i <= numberOfPots; i++) {
       const potTeams = potAssignments.get(i) || [];
       const expectedSize = i <= remainder ? teamsPerPot + 1 : teamsPerPot;
