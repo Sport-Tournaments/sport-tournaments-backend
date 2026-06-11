@@ -174,27 +174,28 @@ export class PotDrawService {
     );
 
     // BE-12 — Gate by age-group format
-    if (dto.ageGroupId) {
-      const ageGroup = await this.ageGroupRepository.findOne({
-        where: { id: dto.ageGroupId, tournamentId },
-      });
-      if (ageGroup?.format) {
-        switch (ageGroup.format) {
-          case TournamentFormat.ROUND_ROBIN:
-            throw new BadRequestException(
-              'Pot draw is not applicable for ROUND_ROBIN format. Teams are assigned directly.',
-            );
-          case TournamentFormat.GROUPS_PLUS_KNOCKOUT:
-            // Group-seeding pot draw — continue with existing logic below
-            break;
-          case TournamentFormat.SINGLE_ELIMINATION:
-          case TournamentFormat.DOUBLE_ELIMINATION:
-          case TournamentFormat.LEAGUE:
-            // For SE/DE/LEAGUE the draw creates a seeding order, not group assignments.
-            // The existing simple pot draw is repurposed here as a seeding draw.
-            // Full seeding-order draw (FE-14) is a future enhancement.
-            break;
-        }
+    const ageGroup = dto.ageGroupId
+      ? await this.ageGroupRepository.findOne({
+          where: { id: dto.ageGroupId, tournamentId },
+        })
+      : undefined;
+
+    if (ageGroup?.format) {
+      switch (ageGroup.format) {
+        case TournamentFormat.ROUND_ROBIN:
+          throw new BadRequestException(
+            'Pot draw is not applicable for ROUND_ROBIN format. Teams are assigned directly.',
+          );
+        case TournamentFormat.GROUPS_PLUS_KNOCKOUT:
+          // Group-seeding pot draw — continue with existing logic below
+          break;
+        case TournamentFormat.SINGLE_ELIMINATION:
+        case TournamentFormat.DOUBLE_ELIMINATION:
+        case TournamentFormat.LEAGUE:
+          // For SE/DE/LEAGUE the draw creates a seeding order, not group assignments.
+          // The existing simple pot draw is repurposed here as a seeding draw.
+          // Full seeding-order draw (FE-14) is a future enhancement.
+          break;
       }
     }
 
@@ -221,15 +222,39 @@ export class PotDrawService {
       throw new BadRequestException('No teams registered for this tournament');
     }
 
-    if (dto.numberOfGroups < 1 || dto.numberOfGroups > totalTeams) {
+    const numberOfPots = dto.numberOfPots ?? dto.numberOfGroups;
+    if (!numberOfPots) {
+      throw new BadRequestException(
+        'Number of pots is required to execute a pot draw.',
+      );
+    }
+
+    const numberOfGroups =
+      ageGroup?.groupsCount ??
+      tournament.numberOfGroups ??
+      dto.numberOfGroups ??
+      numberOfPots;
+
+    if (numberOfGroups < 1 || numberOfGroups > totalTeams) {
       throw new BadRequestException(
         `Number of groups must be between 1 and ${totalTeams}`,
       );
     }
 
-    const teamsPerPot = Math.floor(totalTeams / dto.numberOfGroups);
-    const remainder = totalTeams % dto.numberOfGroups;
-    const numPots = dto.numberOfGroups;
+    if (numberOfPots < 1 || numberOfPots > 64) {
+      throw new BadRequestException(
+        `Number of pots must be between 1 and 64`,
+      );
+    }
+
+    if (numberOfPots > totalTeams) {
+      throw new BadRequestException(
+        `Number of pots cannot exceed total approved teams (${totalTeams}).`,
+      );
+    }
+
+    const teamsPerPot = Math.floor(totalTeams / numberOfPots);
+    const remainder = totalTeams % numberOfPots;
 
     // Get pot assignments (filtered by age group if specified)
     const potAssignments = await this.getPotAssignments(
@@ -252,7 +277,7 @@ export class PotDrawService {
     // Validate pot structure:
     //   - Number of pots = number of groups
     //   - First `remainder` pots have teamsPerPot+1 teams, rest have teamsPerPot teams
-    for (let i = 1; i <= numPots; i++) {
+    for (let i = 1; i <= numberOfPots; i++) {
       const potTeams = potAssignments.get(i) || [];
       const expectedSize = i <= remainder ? teamsPerPot + 1 : teamsPerPot;
       if (potTeams.length !== expectedSize) {
@@ -263,7 +288,7 @@ export class PotDrawService {
     }
 
     // Initialize groups with their letters
-    const groupLetters = this.getGroupLetters(dto.numberOfGroups);
+    const groupLetters = this.getGroupLetters(numberOfGroups);
     const groups: { letter: string; teams: string[] }[] = groupLetters.map(
       (letter) => ({
         letter,
@@ -274,14 +299,14 @@ export class PotDrawService {
     // Distribution: concatenate all pots in order and round-robin to groups.
     // This ensures each group gets teams from different strength tiers.
     const allTeams: string[] = [];
-    for (let potNum = 1; potNum <= numPots; potNum++) {
+    for (let potNum = 1; potNum <= numberOfPots; potNum++) {
       const potTeams = potAssignments.get(potNum) || [];
       for (const team of potTeams) {
         allTeams.push(team.registrationId);
       }
     }
     for (let i = 0; i < allTeams.length; i++) {
-      groups[i % dto.numberOfGroups].teams.push(allTeams[i]);
+      groups[i % numberOfGroups].teams.push(allTeams[i]);
     }
 
     // Save groups to database
