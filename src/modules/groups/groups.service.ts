@@ -367,6 +367,11 @@ export class GroupsService {
         drawCompleted: false,
         drawSeed: undefined,
       });
+      tournament.bracketData = this.clearBracketData(
+        tournament.bracketData,
+        ageGroupId,
+      ) as any;
+      await this.tournamentsRepository.save(tournament);
     } else {
       // Full tournament reset
       await this.groupsRepository.delete({ tournamentId });
@@ -376,8 +381,33 @@ export class GroupsService {
       );
       tournament.drawCompleted = false;
       tournament.drawSeed = undefined;
+      tournament.bracketData = undefined as any;
       await this.tournamentsRepository.save(tournament);
     }
+  }
+
+  private clearBracketData(bracketData: any, ageGroupId?: string) {
+    if (!bracketData) {
+      return undefined;
+    }
+
+    if (!ageGroupId) {
+      return undefined;
+    }
+
+    const hasFlatBracketShape =
+      bracketData.playoffRounds || bracketData.matches || bracketData.type;
+
+    if (hasFlatBracketShape) {
+      return undefined;
+    }
+
+    const nextBracketData = { ...bracketData };
+    delete nextBracketData[ageGroupId];
+
+    return Object.keys(nextBracketData).length > 0
+      ? nextBracketData
+      : undefined;
   }
 
   async createGroup(
@@ -1602,8 +1632,10 @@ export class GroupsService {
       bracketType === BracketType.GROUPS_PLUS_KNOCKOUT ||
       bracketType === BracketType.GROUPS_ONLY
     ) {
+      const groupsWhere: any = { tournamentId };
+      if (ageGroupId) groupsWhere.ageGroupId = ageGroupId;
       const groupsForRR = await this.groupsRepository.find({
-        where: { tournamentId },
+        where: groupsWhere,
         order: { groupLetter: 'ASC' },
       });
       const rrRegIds = new Set(registrations.map((r) => r.id));

@@ -199,8 +199,19 @@ export class PotDrawService {
       }
     }
 
-    // Check if draw already completed
-    if (tournament.drawCompleted) {
+    // Check if draw already completed — per age group if ageGroupId given,
+    // otherwise at tournament level.
+    if (dto.ageGroupId) {
+      if (!ageGroup) {
+        throw new NotFoundException(`Age group ${dto.ageGroupId} not found`);
+      }
+
+      if (ageGroup.drawCompleted) {
+        throw new BadRequestException(
+          'Draw has already been completed for this age group',
+        );
+      }
+    } else if (tournament.drawCompleted) {
       throw new BadRequestException(
         'Draw has already been completed for this tournament',
       );
@@ -345,11 +356,10 @@ export class PotDrawService {
       await this.ageGroupRepository.update(dto.ageGroupId, {
         drawCompleted: true,
       });
+    } else {
+      tournament.drawCompleted = true;
+      await this.tournamentRepository.save(tournament);
     }
-
-    // Mark tournament as having completed draw
-    tournament.drawCompleted = true;
-    await this.tournamentRepository.save(tournament);
 
     return savedGroups;
   }
