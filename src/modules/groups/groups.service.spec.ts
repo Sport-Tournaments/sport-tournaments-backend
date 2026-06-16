@@ -24,6 +24,9 @@ jest.mock('uuid', () => ({
 
 describe('GroupsService', () => {
   let service: GroupsService;
+  let mockBracketGeneratorService: {
+    generateBracket: jest.Mock;
+  };
 
   const mockTournament: Partial<Tournament> = {
     id: 'tournament-1',
@@ -92,6 +95,7 @@ describe('GroupsService', () => {
   const mockTournamentsRepo = {
     findOne: jest.fn(),
     update: jest.fn(),
+    save: jest.fn(),
   };
 
   const mockRegistrationsRepo = {
@@ -101,6 +105,10 @@ describe('GroupsService', () => {
   };
 
   beforeEach(async () => {
+    mockBracketGeneratorService = {
+      generateBracket: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         GroupsService,
@@ -122,7 +130,7 @@ describe('GroupsService', () => {
         },
         {
           provide: BracketGeneratorService,
-          useValue: {},
+          useValue: mockBracketGeneratorService,
         },
       ],
     }).compile();
@@ -315,6 +323,171 @@ describe('GroupsService', () => {
       await expect(service.getBracket('non-existent')).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  describe('resetDraw', () => {
+    it('should clear scoped bracket data when resetting one age group', async () => {
+      mockTournamentsRepo.findOne.mockResolvedValue({
+        ...mockTournament,
+        bracketData: {
+          'age-group-1': { type: 'GROUPS_PLUS_KNOCKOUT', matches: [{ id: 'm1' }] },
+          'age-group-2': { type: 'GROUPS_PLUS_KNOCKOUT', matches: [{ id: 'm2' }] },
+        },
+      });
+      mockGroupsRepo.delete.mockResolvedValue({ affected: 2 });
+      mockRegistrationsRepo.update.mockResolvedValue({ affected: 4 });
+      mockAgeGroupRepo.update.mockResolvedValue({ affected: 1 });
+      mockTournamentsRepo.save.mockImplementation(async (entity: any) => entity);
+
+      await service.resetDraw(
+        'tournament-1',
+        'organizer-1',
+        UserRole.ORGANIZER,
+        'age-group-1',
+      );
+
+      expect(mockGroupsRepo.delete).toHaveBeenCalledWith({
+        tournamentId: 'tournament-1',
+        ageGroupId: 'age-group-1',
+      });
+      expect(mockRegistrationsRepo.update).toHaveBeenCalledWith(
+        { tournamentId: 'tournament-1', ageGroupId: 'age-group-1' },
+        { groupAssignment: undefined },
+      );
+      expect(mockAgeGroupRepo.update).toHaveBeenCalledWith('age-group-1', {
+        drawCompleted: false,
+        drawSeed: undefined,
+      });
+      expect(mockTournamentsRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          bracketData: {
+            'age-group-2': { type: 'GROUPS_PLUS_KNOCKOUT', matches: [{ id: 'm2' }] },
+          },
+        }),
+      );
+    });
+
+    it('should clear all bracket data on full reset', async () => {
+      mockTournamentsRepo.findOne.mockResolvedValue({
+        ...mockTournament,
+        drawCompleted: true,
+        drawSeed: 'seed-1',
+        bracketData: {
+          'age-group-1': { type: 'GROUPS_PLUS_KNOCKOUT', matches: [{ id: 'm1' }] },
+        },
+      });
+      mockGroupsRepo.delete.mockResolvedValue({ affected: 4 });
+      mockRegistrationsRepo.update.mockResolvedValue({ affected: 8 });
+      mockTournamentsRepo.save.mockImplementation(async (entity: any) => entity);
+
+      await service.resetDraw(
+        'tournament-1',
+        'organizer-1',
+        UserRole.ORGANIZER,
+      );
+
+      expect(mockGroupsRepo.delete).toHaveBeenCalledWith({
+        tournamentId: 'tournament-1',
+      });
+      expect(mockTournamentsRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          drawCompleted: false,
+          drawSeed: undefined,
+          bracketData: undefined,
+        }),
+      );
+    });
+  });
+
+  describe('generateBracket', () => {
+    it('should scope group-stage match generation to the requested age group', async () => {
+      mockTournamentsRepo.findOne.mockResolvedValue({
+        ...mockTournament,
+        ageGroups: [
+          {
+            id: 'age-group-1',
+            format: 'GROUPS_PLUS_KNOCKOUT',
+            groupsCount: 2,
+            qualifyingTeamsPerGroup: 2,
+            drawCompleted: true,
+          },
+        ],
+        bracketData: {},
+      });
+      mockRegistrationsRepo.find.mockResolvedValue([
+        {
+          id: 'reg-1',
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          status: RegistrationStatus.APPROVED,
+          club: { name: 'Team 1' },
+        },
+        {
+          id: 'reg-2',
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          status: RegistrationStatus.APPROVED,
+          club: { name: 'Team 2' },
+        },
+        {
+          id: 'reg-3',
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          status: RegistrationStatus.APPROVED,
+          club: { name: 'Team 3' },
+        },
+        {
+          id: 'reg-4',
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          status: RegistrationStatus.APPROVED,
+          club: { name: 'Team 4' },
+        },
+      ]);
+      mockBracketGeneratorService.generateBracket.mockReturnValue({
+        type: 'GROUPS_PLUS_KNOCKOUT',
+        matches: [],
+        playoffRounds: [],
+      });
+      mockGroupsRepo.find.mockResolvedValue([
+        {
+          id: 'legacy-group',
+          tournamentId: 'tournament-1',
+          ageGroupId: undefined,
+          groupLetter: 'A',
+          teams: ['legacy-1', 'legacy-2', 'legacy-3', 'legacy-4'],
+        },
+        {
+          id: 'group-1',
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          groupLetter: 'E',
+          teams: ['reg-1', 'reg-2'],
+        },
+        {
+          id: 'group-2',
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          groupLetter: 'F',
+          teams: ['reg-3', 'reg-4'],
+        },
+      ]);
+      mockTournamentsRepo.update.mockResolvedValue({ affected: 1 });
+
+      const result = await service.generateBracket(
+        'tournament-1',
+        'organizer-1',
+        UserRole.ORGANIZER,
+        'age-group-1',
+      );
+
+      expect(mockGroupsRepo.find).toHaveBeenCalledWith({
+        where: { tournamentId: 'tournament-1', ageGroupId: 'age-group-1' },
+        order: { groupLetter: 'ASC' },
+      });
+      expect(result.matches).toHaveLength(2);
+      expect(result.matches.every((match: any) => ['E', 'F'].includes(match.groupLetter))).toBe(true);
     });
   });
 });

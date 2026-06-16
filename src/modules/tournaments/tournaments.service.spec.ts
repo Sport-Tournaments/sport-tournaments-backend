@@ -11,7 +11,6 @@ import {
 } from '@nestjs/common';
 import {
   TournamentStatus,
-  AgeCategory,
   TournamentLevel,
   UserRole,
   Currency,
@@ -25,7 +24,6 @@ describe('TournamentsService', () => {
     id: 'tournament-1',
     name: 'U12 Test Tournament',
     description: 'Test description',
-    ageCategory: AgeCategory.U12,
     level: TournamentLevel.LEVEL_I,
     gameSystem: '4+1',
     numberOfMatches: 6,
@@ -112,7 +110,6 @@ describe('TournamentsService', () => {
     const createDto: CreateTournamentDto = {
       name: 'U12 Test Tournament',
       description: 'Test tournament',
-      ageCategory: AgeCategory.U12,
       level: TournamentLevel.LEVEL_I,
       gameSystem: '4+1',
       numberOfMatches: 6,
@@ -165,7 +162,7 @@ describe('TournamentsService', () => {
 
     it('should apply filters when provided', async () => {
       const pagination = { page: 1, pageSize: 20 };
-      const filters = { ageCategory: AgeCategory.U12 };
+      const filters = { level: TournamentLevel.LEVEL_I };
 
       await service.findAll(pagination, filters);
 
@@ -214,7 +211,6 @@ describe('TournamentsService', () => {
   describe('update', () => {
     const updateDto: UpdateTournamentDto = {
       name: 'Updated Tournament Name',
-      maxTeams: 20,
     };
 
     it('should update tournament when user is owner', async () => {

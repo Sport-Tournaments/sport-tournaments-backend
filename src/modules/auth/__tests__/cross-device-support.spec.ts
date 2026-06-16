@@ -143,9 +143,7 @@ describe('Cross-Device Token Support (Issue #31)', () => {
       // CRITICAL: Call refreshTokens with token from mobile, but simulating desktop
       const result = await service.refreshTokens({
         refreshToken: mobileRefreshToken,
-        ipAddress: desktopIpAddress,
-        deviceInfo: desktopDeviceInfo,
-      });
+      }, desktopIpAddress, desktopDeviceInfo);
 
       // Verify: Token refresh succeeds (NOT blocked by device change)
       expect(result).toHaveProperty('accessToken');
@@ -188,9 +186,7 @@ describe('Cross-Device Token Support (Issue #31)', () => {
       // This should NOT throw an error because device validation is NOT performed
       const result = await service.refreshTokens({
         refreshToken: 'audit-refresh-token',
-        ipAddress: differentIpAddress,
-        deviceInfo: differentDeviceInfo,
-      });
+      }, differentIpAddress, differentDeviceInfo);
 
       // Verify: Token refresh succeeds despite device/IP change
       expect(result).toBeDefined();
@@ -215,9 +211,7 @@ describe('Cross-Device Token Support (Issue #31)', () => {
       await expect(
         service.refreshTokens({
           refreshToken: 'revoked-refresh-token',
-          ipAddress: '192.168.1.200', // Different IP
-          deviceInfo: 'Mozilla/5.0 (Windows)',
-        }),
+        }, '192.168.1.200', 'Mozilla/5.0 (Windows)'),
       ).rejects.toThrow(UnauthorizedException);
     });
 
@@ -231,9 +225,7 @@ describe('Cross-Device Token Support (Issue #31)', () => {
       await expect(
         service.refreshTokens({
           refreshToken: 'invalid-token-xyz',
-          ipAddress: '192.168.1.100',
-          deviceInfo: 'Mozilla/5.0 (iPhone)',
-        }),
+        }, '192.168.1.100', 'Mozilla/5.0 (iPhone)'),
       ).rejects.toThrow(UnauthorizedException);
     });
 
@@ -272,9 +264,7 @@ describe('Cross-Device Token Support (Issue #31)', () => {
 
         const result = await service.refreshTokens({
           refreshToken: currentRefreshToken,
-          ipAddress: simulation.ip,
-          deviceInfo: `Mozilla/5.0 (${simulation.device})`,
-        });
+        }, simulation.ip, `Mozilla/5.0 (${simulation.device})`);
 
         // All devices should succeed
         expect(result).toHaveProperty('accessToken');
@@ -310,9 +300,7 @@ describe('Cross-Device Token Support (Issue #31)', () => {
       // Call with completely different device
       const result = await service.refreshTokens({
         refreshToken: 'test-token',
-        ipAddress: '9.9.9.9', // Completely different IP
-        deviceInfo: 'Completely Different Device',
-      });
+      }, '9.9.9.9', 'Completely Different Device');
 
       // If device validation exists, this would fail
       expect(result).toBeDefined();
