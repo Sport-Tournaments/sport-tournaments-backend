@@ -7,6 +7,7 @@ import {
   IsOptional,
   ArrayMinSize,
   IsUUID,
+  IsString,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -15,6 +16,7 @@ class GroupTeamCount {
     description: 'Group letter (A, B, C, etc.)',
     example: 'A',
   })
+  @IsString()
   groupLetter: string;
 
   @ApiProperty({
