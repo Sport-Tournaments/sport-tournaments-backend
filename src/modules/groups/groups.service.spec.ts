@@ -402,7 +402,7 @@ describe('GroupsService', () => {
       });
       expect(mockRegistrationsRepo.update).toHaveBeenCalledWith(
         { tournamentId: 'tournament-1', ageGroupId: 'age-group-1' },
-        { groupAssignment: undefined },
+        { groupAssignment: null },
       );
       expect(mockAgeGroupRepo.update).toHaveBeenCalledWith('age-group-1', {
         drawCompleted: false,
@@ -450,6 +450,56 @@ describe('GroupsService', () => {
   });
 
   describe('generateBracket', () => {
+    it('should pass persisted leagueLegs to league bracket generation', async () => {
+      mockTournamentsRepo.findOne.mockResolvedValue({
+        ...mockTournament,
+        ageGroups: [
+          {
+            id: 'age-group-1',
+            format: 'LEAGUE',
+            leagueLegs: 1,
+          },
+        ],
+        bracketData: {},
+      });
+      mockRegistrationsRepo.find.mockResolvedValue([
+        {
+          id: 'reg-1',
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          status: RegistrationStatus.APPROVED,
+          club: { name: 'Team 1' },
+        },
+        {
+          id: 'reg-2',
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          status: RegistrationStatus.APPROVED,
+          club: { name: 'Team 2' },
+        },
+      ]);
+      mockBracketGeneratorService.generateBracket.mockReturnValue({
+        type: 'LEAGUE',
+        matches: [
+          { id: 'leg1_1', round: 1, matchNumber: 1, status: 'PENDING' },
+        ],
+      });
+      mockTournamentsRepo.update.mockResolvedValue({ affected: 1 });
+
+      await service.generateBracket(
+        'tournament-1',
+        'organizer-1',
+        UserRole.ORGANIZER,
+        'age-group-1',
+      );
+
+      expect(mockBracketGeneratorService.generateBracket).toHaveBeenCalledWith(
+        'LEAGUE',
+        2,
+        expect.objectContaining({ leagueLegs: 1 }),
+      );
+    });
+
     it('should scope group-stage match generation to the requested age group', async () => {
       mockTournamentsRepo.findOne.mockResolvedValue({
         ...mockTournament,
@@ -537,6 +587,67 @@ describe('GroupsService', () => {
       });
       expect(result.matches).toHaveLength(2);
       expect(result.matches.every((match: any) => ['E', 'F'].includes(match.groupLetter))).toBe(true);
+    });
+  });
+
+  describe('getBracket', () => {
+    it('should scope bracket groups and draw status to the requested age group', async () => {
+      mockTournamentsRepo.findOne.mockResolvedValue({
+        ...mockTournament,
+        drawCompleted: false,
+        ageGroups: [
+          { id: 'age-group-1', drawCompleted: true },
+          { id: 'age-group-2', drawCompleted: false },
+        ],
+      });
+      mockGroupsRepo.find.mockResolvedValue([
+        { id: 'group-1', tournamentId: 'tournament-1', ageGroupId: 'age-group-1', teams: [] },
+      ]);
+
+      const result = await (service as any).getBracket(
+        'tournament-1',
+        'age-group-1',
+      );
+
+      expect(mockGroupsRepo.find).toHaveBeenCalledWith({
+        where: { tournamentId: 'tournament-1', ageGroupId: 'age-group-1' },
+        order: { groupOrder: 'ASC' },
+      });
+      expect(result.drawCompleted).toBe(true);
+    });
+  });
+
+  describe('getMatches', () => {
+    it('should not return legacy flat bracket matches for a requested age group', async () => {
+      mockTournamentsRepo.findOne.mockResolvedValue({
+        ...mockTournament,
+        bracketData: {
+          type: 'GROUPS_PLUS_KNOCKOUT',
+          matches: [
+            {
+              id: 'stale-match',
+              round: 1,
+              matchNumber: 1,
+              status: 'PENDING',
+              team1Id: 'wrong-age-team-1',
+              team2Id: 'wrong-age-team-2',
+            },
+          ],
+        },
+      });
+      mockRegistrationsRepo.find.mockResolvedValue([
+        {
+          id: 'reg-1',
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          status: RegistrationStatus.APPROVED,
+          club: { name: 'Team 1' },
+        },
+      ]);
+
+      const result = await service.getMatches('tournament-1', 'age-group-1');
+
+      expect(result.matches).toEqual([]);
     });
   });
 });

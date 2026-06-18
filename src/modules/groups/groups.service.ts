@@ -243,25 +243,32 @@ export class GroupsService {
     return groups;
   }
 
-  async getBracket(tournamentId: string): Promise<{
+  async getBracket(
+    tournamentId: string,
+    ageGroupId?: string,
+  ): Promise<{
     groups: Group[];
     tournament: Tournament;
     drawCompleted: boolean;
   }> {
     const tournament = await this.tournamentsRepository.findOne({
       where: { id: tournamentId },
+      relations: ['ageGroups'],
     });
 
     if (!tournament) {
       throw new NotFoundException('Tournament not found');
     }
 
-    const groups = await this.getGroups(tournamentId);
+    const groups = await this.getGroups(tournamentId, ageGroupId);
+    const scopedAgeGroup = ageGroupId
+      ? (tournament.ageGroups ?? []).find((ag) => ag.id === ageGroupId)
+      : undefined;
 
     return {
       groups,
       tournament,
-      drawCompleted: tournament.drawCompleted,
+      drawCompleted: scopedAgeGroup?.drawCompleted ?? tournament.drawCompleted,
     };
   }
 
@@ -370,7 +377,7 @@ export class GroupsService {
       // Clear group assignments only for registrations in this age group
       await this.registrationsRepository.update(
         { tournamentId, ageGroupId } as any,
-        { groupAssignment: undefined as unknown as string },
+        { groupAssignment: null as unknown as string },
       );
       // Reset only this age group's drawCompleted flag
       await this.ageGroupRepository.update(ageGroupId, {
@@ -387,7 +394,7 @@ export class GroupsService {
       await this.groupsRepository.delete({ tournamentId });
       await this.registrationsRepository.update(
         { tournamentId },
-        { groupAssignment: undefined as unknown as string },
+        { groupAssignment: null as unknown as string },
       );
       tournament.drawCompleted = false;
       tournament.drawSeed = undefined;
@@ -542,15 +549,39 @@ export class GroupsService {
       tournament.groupConfigCreatedAt = new Date();
       await this.tournamentsRepository.save(tournament);
 
-      // Create empty groups based on configuration
+      // Create empty groups based on configuration, scoped to the selected age group.
+      const groupWhere: any = { tournamentId };
+      if (dto.ageGroupId) groupWhere.ageGroupId = dto.ageGroupId;
       const existingGroups = await this.groupsRepository.find({
-        where: { tournamentId },
+        where: groupWhere,
       });
 
       // Delete existing groups if any
       if (existingGroups.length > 0) {
-        await this.groupsRepository.delete({ tournamentId });
+        await this.groupsRepository.delete(groupWhere);
       }
+
+      await this.registrationsRepository.update(
+        regCountWhere as any,
+        { groupAssignment: null as unknown as string },
+      );
+
+      if (dto.ageGroupId) {
+        await this.ageGroupRepository.update(dto.ageGroupId, {
+          drawCompleted: false,
+          drawSeed: undefined,
+        });
+        tournament.bracketData = this.clearBracketData(
+          tournament.bracketData,
+          dto.ageGroupId,
+        ) as any;
+      } else {
+        tournament.drawCompleted = false;
+        tournament.drawSeed = undefined;
+        tournament.bracketData = undefined as any;
+      }
+
+      await this.tournamentsRepository.save(tournament);
 
       // Create new groups
       const newGroups = dto.teamsPerGroup.map((config, index) =>
@@ -664,13 +695,17 @@ export class GroupsService {
       throw new NotFoundException('Group not found');
     }
 
-    // Validate teams exist if provided
+    // Validate teams exist if provided. When the group belongs to an age group,
+    // only registrations from that same age group are valid; otherwise a manual
+    // edit can silently mix U10/U14 teams and produce stale matches.
     if (dto.teams && dto.teams.length > 0) {
+      const registrationWhere: any = {
+        tournamentId,
+        status: RegistrationStatus.APPROVED,
+      };
+      if (group.ageGroupId) registrationWhere.ageGroupId = group.ageGroupId;
       const registrations = await this.registrationsRepository.find({
-        where: {
-          tournamentId,
-          status: RegistrationStatus.APPROVED,
-        },
+        where: registrationWhere,
       });
 
       const validRegistrationIds = registrations.map((r) => r.id);
@@ -697,7 +732,19 @@ export class GroupsService {
         }
       }
 
+      const previousTeams = group.teams ?? [];
       group.teams = dto.teams;
+
+      // Clear assignments for teams removed from this group so standings and
+      // subsequent manual edits are based only on the current group contents.
+      const removedTeams = previousTeams.filter(
+        (teamId) => !dto.teams!.includes(teamId),
+      );
+      for (const teamId of removedTeams) {
+        await this.registrationsRepository.update(teamId, {
+          groupAssignment: null as unknown as string,
+        });
+      }
 
       // Update registration.groupAssignment for all teams in this group
       for (const teamId of dto.teams) {
@@ -722,7 +769,85 @@ export class GroupsService {
       group.groupLetter = dto.groupLetter;
     }
 
-    return this.groupsRepository.save(group);
+    const savedGroup = await this.groupsRepository.save(group);
+
+    if (dto.teams) {
+      await this.completeManualDrawAndRegenerateMatchesIfReady(
+        tournamentId,
+        userId,
+        userRole,
+        group.ageGroupId,
+      );
+    }
+
+    return savedGroup;
+  }
+
+  private async completeManualDrawAndRegenerateMatchesIfReady(
+    tournamentId: string,
+    userId: string,
+    userRole: string,
+    ageGroupId?: string,
+  ): Promise<void> {
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id: tournamentId },
+      relations: ['ageGroups'],
+    });
+    if (!tournament) return;
+
+    const ageGroup = ageGroupId
+      ? (tournament.ageGroups ?? []).find((ag) => ag.id === ageGroupId)
+      : null;
+    const bracketType = ageGroup?.format as TournamentFormat | undefined;
+    if (bracketType !== TournamentFormat.GROUPS_PLUS_KNOCKOUT) {
+      return;
+    }
+
+    const regWhere: any = { tournamentId, status: RegistrationStatus.APPROVED };
+    if (ageGroupId) regWhere.ageGroupId = ageGroupId;
+    const registrations = await this.registrationsRepository.find({
+      where: regWhere,
+      relations: ['club', 'team'],
+    });
+    if (registrations.length < 2) return;
+
+    const groupWhere: any = { tournamentId };
+    if (ageGroupId) groupWhere.ageGroupId = ageGroupId;
+    const groups = await this.groupsRepository.find({
+      where: groupWhere,
+      order: { groupLetter: 'ASC' },
+    });
+    if (groups.length === 0) return;
+
+    const validRegistrationIds = new Set(registrations.map((reg) => reg.id));
+    const assignedTeamIds = groups.flatMap((group) =>
+      (group.teams ?? []).filter((teamId) => validRegistrationIds.has(teamId)),
+    );
+    const uniqueAssignedTeamIds = new Set(assignedTeamIds);
+
+    // Generate matches only after every approved team in this age group is
+    // assigned exactly once. This keeps the manual workflow safe while the user
+    // is still moving teams around.
+    if (
+      assignedTeamIds.length !== registrations.length ||
+      uniqueAssignedTeamIds.size !== registrations.length
+    ) {
+      return;
+    }
+
+    if (ageGroupId) {
+      await this.ageGroupRepository.update(ageGroupId, {
+        drawCompleted: true,
+        drawSeed: ageGroup?.drawSeed || tournament.drawSeed || randomUUID(),
+      });
+    } else {
+      await this.tournamentsRepository.update(tournamentId, {
+        drawCompleted: true,
+        drawSeed: tournament.drawSeed || randomUUID(),
+      });
+    }
+
+    await this.generateBracket(tournamentId, userId, userRole, ageGroupId);
   }
 
   // =====================================================
@@ -745,11 +870,12 @@ export class GroupsService {
       return bracketData[ageGroupId];
     }
 
-    // Legacy flat format: has playoffRounds or matches at top level
-    // Return flat data even when ageGroupId is requested – the flat format
-    // pre-dates per-age-group keying and is the only bracket available.
+    // Legacy flat format: has playoffRounds or matches at top level.
+    // Never reuse a flat legacy bracket for a requested age group: in
+    // multi-age tournaments this is exactly how stale U10 matches leak into
+    // U14 (or any other category). Unscoped callers may still read it.
     if (bracketData.playoffRounds || bracketData.matches || bracketData.type) {
-      return bracketData;
+      return ageGroupId ? null : bracketData;
     }
 
     // No ageGroupId requested - return all brackets merged
@@ -1424,8 +1550,8 @@ export class GroupsService {
         groupCount: ageGroup?.groupsCount ?? tournament.numberOfGroups,
         advancingPerGroup: ageGroup?.qualifyingTeamsPerGroup ?? 2,
         thirdPlaceMatch: true,
-        seed: tournament.drawSeed || undefined,
-        leagueLegs: 2, // default; BE-11: will use ageGroup.leagueLegs once column is added
+        seed: ageGroup?.drawSeed || tournament.drawSeed || undefined,
+        leagueLegs: ageGroup?.leagueLegs ?? 2,
       },
     );
 

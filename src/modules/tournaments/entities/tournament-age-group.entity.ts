@@ -159,6 +159,10 @@ export class TournamentAgeGroup {
   @Column({ name: 'pause_between_matches_minutes', nullable: true })
   pauseBetweenMatchesMinutes?: number;
 
+  // Number of round-robin legs for LEAGUE format: 1 = single, 2 = home/away
+  @Column({ name: 'league_legs', nullable: true })
+  leagueLegs?: number;
+
   // Registration closed flag for this age group
   @Column({ name: 'is_registration_closed', default: false })
   isRegistrationClosed: boolean;

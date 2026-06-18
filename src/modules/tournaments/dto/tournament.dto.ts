@@ -322,6 +322,18 @@ export class CreateAgeGroupDto {
   pauseBetweenMatchesMinutes?: number;
 
   @ApiPropertyOptional({
+    example: 1,
+    description:
+      'Number of round-robin legs for LEAGUE format. 1 = single, 2 = home/away.',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(4)
+  leagueLegs?: number;
+
+  @ApiPropertyOptional({
     example: 'Special rules: no sliding tackles',
     description: 'Optional notes or comments for this age category',
   })
@@ -520,6 +532,18 @@ export class UpdateAgeGroupDto {
   @Min(0)
   @Max(120)
   pauseBetweenMatchesMinutes?: number;
+
+  @ApiPropertyOptional({
+    example: 1,
+    description:
+      'Number of round-robin legs for LEAGUE format. 1 = single, 2 = home/away.',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(4)
+  leagueLegs?: number;
 
   @ApiPropertyOptional({
     example: 'Special rules: no sliding tackles',

@@ -510,6 +510,7 @@ describe('TournamentsService', () => {
             numberOfMatches: 5,
             guaranteedMatches: 3,
             participationFee: 300,
+            leagueLegs: 1,
           },
         ];
 
@@ -534,6 +535,7 @@ describe('TournamentsService', () => {
           numberOfMatches: 5,
           guaranteedMatches: 3,
           participationFee: 300,
+          leagueLegs: 1,
         });
       });
 

@@ -80,8 +80,11 @@ export class GroupsController {
   @Public()
   @ApiOperation({ summary: 'Get full bracket/schedule' })
   @ApiResponse({ status: 200, description: 'Bracket retrieved' })
-  getBracket(@Param('tournamentId', ParseUUIDPipe) tournamentId: string) {
-    return this.groupsService.getBracket(tournamentId);
+  getBracket(
+    @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
+    @Query('ageGroupId') ageGroupId?: string,
+  ) {
+    return this.groupsService.getBracket(tournamentId, ageGroupId);
   }
 
   @Patch('bracket')

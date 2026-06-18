@@ -733,6 +733,7 @@ export class TournamentsService {
       halfDurationMinutes?: number;
       halfTimePauseMinutes?: number;
       pauseBetweenMatchesMinutes?: number;
+      leagueLegs?: number;
       startDate?: string;
       endDate?: string;
       locationId?: string;
