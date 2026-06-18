@@ -138,39 +138,15 @@ export class RegistrationsService {
       );
     }
 
-    if (tournament.isRegistrationClosed) {
+    const hasAgeGroups =
+      tournament.ageGroups && tournament.ageGroups.length > 0;
+
+    if (tournament.isRegistrationClosed && !hasAgeGroups) {
       throw new BadRequestException(
         'Registrations are closed for this tournament',
       );
     }
 
-    const now = new Date();
-    const registrationStart = this.getStartOfDay(
-      tournament.registrationStartDate,
-    );
-    const registrationEnd = this.getEndOfDay(tournament.registrationEndDate);
-    const registrationDeadline = this.getEndOfDay(
-      tournament.registrationDeadline,
-    );
-
-    if (registrationStart && now < registrationStart) {
-      throw new BadRequestException('Registration has not started yet');
-    }
-
-    if (registrationEnd && now > registrationEnd) {
-      throw new BadRequestException('Registration period has ended');
-    }
-
-    if (
-      !registrationEnd &&
-      registrationDeadline &&
-      now > registrationDeadline
-    ) {
-      throw new BadRequestException('Registration deadline has passed');
-    }
-
-    const hasAgeGroups =
-      tournament.ageGroups && tournament.ageGroups.length > 0;
     let selectedAgeGroup: TournamentAgeGroup | null = null;
 
     if (hasAgeGroups) {
@@ -215,6 +191,33 @@ export class RegistrationsService {
           throw new BadRequestException('Tournament is full');
         }
       }
+    }
+
+    const now = new Date();
+    const registrationStart = this.getStartOfDay(
+      selectedAgeGroup?.registrationStartDate ?? tournament.registrationStartDate,
+    );
+    const registrationEnd = this.getEndOfDay(
+      selectedAgeGroup?.registrationEndDate ?? tournament.registrationEndDate,
+    );
+    const registrationDeadline = this.getEndOfDay(
+      tournament.registrationDeadline,
+    );
+
+    if (registrationStart && now < registrationStart) {
+      throw new BadRequestException('Registration has not started yet');
+    }
+
+    if (registrationEnd && now > registrationEnd) {
+      throw new BadRequestException('Registration period has ended');
+    }
+
+    if (
+      !registrationEnd &&
+      registrationDeadline &&
+      now > registrationDeadline
+    ) {
+      throw new BadRequestException('Registration deadline has passed');
     }
 
     // Get club and verify ownership

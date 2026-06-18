@@ -48,6 +48,16 @@ export class GroupsService {
     private bracketGeneratorService: BracketGeneratorService,
   ) {}
 
+  private getRegistrationDisplayName(registration?: Registration | null): string {
+    if (!registration) return 'Unknown Team';
+    return (
+      registration.team?.name ||
+      registration.club?.name ||
+      registration.coachName ||
+      'Unknown Team'
+    );
+  }
+
   async executeDraw(
     tournamentId: string,
     userId: string,
@@ -111,7 +121,7 @@ export class GroupsService {
     }
     const registrations = await this.registrationsRepository.find({
       where: regWhere,
-      relations: ['club'],
+      relations: ['club', 'team'],
     });
 
     if (registrations.length < 2) {
@@ -223,7 +233,7 @@ export class GroupsService {
         group.teams.map(async (teamId) => {
           const registration = await this.registrationsRepository.findOne({
             where: { id: teamId },
-            relations: ['club'],
+            relations: ['club', 'team'],
           });
           return registration;
         }),
@@ -746,7 +756,12 @@ export class GroupsService {
     if (!ageGroupId) {
       // If it's a per-age-group map, merge all
       const keys = Object.keys(bracketData);
-      if (keys.length > 0 && bracketData[keys[0]]?.playoffRounds) {
+      if (
+        keys.length > 0 &&
+        (bracketData[keys[0]]?.playoffRounds ||
+          bracketData[keys[0]]?.matches ||
+          bracketData[keys[0]]?.type)
+      ) {
         const allRounds: any[] = [];
         const allMatches: any[] = [];
         let bracketType: string | undefined;
@@ -820,12 +835,12 @@ export class GroupsService {
 
     const registrations = await this.registrationsRepository.find({
       where: regWhere,
-      relations: ['club'],
+      relations: ['club', 'team'],
     });
 
     const teams = registrations.map((r) => ({
       id: r.id,
-      name: r.club?.name || r.coachName || 'Unknown Team',
+      name: this.getRegistrationDisplayName(r),
       clubName: r.club?.name,
     }));
 
@@ -1383,7 +1398,7 @@ export class GroupsService {
 
     const registrations = await this.registrationsRepository.find({
       where: regWhere,
-      relations: ['club'],
+      relations: ['club', 'team'],
     });
 
     if (registrations.length < 2) {
@@ -1480,15 +1495,13 @@ export class GroupsService {
         if (seededRegistrations[team1Index]) {
           match.team1Id = seededRegistrations[team1Index].id;
           match.team1Name =
-            seededRegistrations[team1Index].club?.name ||
-            seededRegistrations[team1Index].coachName ||
+            this.getRegistrationDisplayName(seededRegistrations[team1Index]) ||
             'Team ' + (team1Index + 1);
         }
         if (seededRegistrations[team2Index] && team2Index !== team1Index) {
           match.team2Id = seededRegistrations[team2Index].id;
           match.team2Name =
-            seededRegistrations[team2Index].club?.name ||
-            seededRegistrations[team2Index].coachName ||
+            this.getRegistrationDisplayName(seededRegistrations[team2Index]) ||
             'Team ' + (team2Index + 1);
         }
       });
@@ -1522,11 +1535,10 @@ export class GroupsService {
           const m = bracketData.matches[matchIndex++];
           m.team1Id = shuffled[0].id;
           m.team1Name =
-            shuffled[0].club?.name || shuffled[0].coachName || 'Team 1';
+            this.getRegistrationDisplayName(shuffled[0]) || 'Team 1';
           m.team2Id = shuffled[opp].id;
           m.team2Name =
-            shuffled[opp].club?.name ||
-            shuffled[opp].coachName ||
+            this.getRegistrationDisplayName(shuffled[opp]) ||
             `Team ${opp + 1}`;
         }
 
@@ -1544,13 +1556,11 @@ export class GroupsService {
             const m = bracketData.matches[matchIndex++];
             m.team1Id = shuffled[ta].id;
             m.team1Name =
-              shuffled[ta].club?.name ||
-              shuffled[ta].coachName ||
+              this.getRegistrationDisplayName(shuffled[ta]) ||
               `Team ${ta + 1}`;
             m.team2Id = shuffled[tb].id;
             m.team2Name =
-              shuffled[tb].club?.name ||
-              shuffled[tb].coachName ||
+              this.getRegistrationDisplayName(shuffled[tb]) ||
               `Team ${tb + 1}`;
           }
         }
@@ -1586,11 +1596,10 @@ export class GroupsService {
           const m = firstLegMatches[matchIndex++];
           m.team1Id = shuffled[0].id;
           m.team1Name =
-            shuffled[0].club?.name || shuffled[0].coachName || 'Team 1';
+            this.getRegistrationDisplayName(shuffled[0]) || 'Team 1';
           m.team2Id = shuffled[opp].id;
           m.team2Name =
-            shuffled[opp].club?.name ||
-            shuffled[opp].coachName ||
+            this.getRegistrationDisplayName(shuffled[opp]) ||
             `Team ${opp + 1}`;
         }
 
@@ -1603,13 +1612,11 @@ export class GroupsService {
             const m = firstLegMatches[matchIndex++];
             m.team1Id = shuffled[ta].id;
             m.team1Name =
-              shuffled[ta].club?.name ||
-              shuffled[ta].coachName ||
+              this.getRegistrationDisplayName(shuffled[ta]) ||
               `Team ${ta + 1}`;
             m.team2Id = shuffled[tb].id;
             m.team2Name =
-              shuffled[tb].club?.name ||
-              shuffled[tb].coachName ||
+              this.getRegistrationDisplayName(shuffled[tb]) ||
               `Team ${tb + 1}`;
           }
         }
@@ -1679,14 +1686,8 @@ export class GroupsService {
               groupLetter: group.groupLetter,
               team1Id: t1Id,
               team2Id: t2Id,
-              team1Name:
-                rrRegMap.get(t1Id)?.club?.name ||
-                rrRegMap.get(t1Id)?.coachName ||
-                '',
-              team2Name:
-                rrRegMap.get(t2Id)?.club?.name ||
-                rrRegMap.get(t2Id)?.coachName ||
-                '',
+              team1Name: this.getRegistrationDisplayName(rrRegMap.get(t1Id)),
+              team2Name: this.getRegistrationDisplayName(rrRegMap.get(t2Id)),
             });
           }
         }

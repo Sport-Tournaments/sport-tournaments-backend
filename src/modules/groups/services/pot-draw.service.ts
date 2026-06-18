@@ -123,6 +123,7 @@ export class PotDrawService {
       .createQueryBuilder('pot')
       .leftJoinAndSelect('pot.registration', 'registration')
       .leftJoinAndSelect('registration.club', 'club')
+      .leftJoinAndSelect('registration.team', 'team')
       .where('pot.tournamentId = :tournamentId', { tournamentId });
 
     if (ageGroupId) {

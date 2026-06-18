@@ -381,6 +381,10 @@ export class GroupsController {
         count: teams.length,
         teams: teams.map((t) => ({
           registrationId: t.registrationId,
+          teamName:
+            t.registration?.team?.name ||
+            t.registration?.club?.name ||
+            'Unknown Team',
           clubName: t.registration?.club?.name || 'Unknown Club',
           coachName: t.registration?.coachName || 'Unknown Coach',
         })),

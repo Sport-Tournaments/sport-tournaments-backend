@@ -292,6 +292,55 @@ describe('GroupsService', () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].groupLetter).toBe('A');
+      expect(mockRegistrationsRepo.findOne).toHaveBeenCalledWith({
+        where: { id: 'reg-1' },
+        relations: ['club', 'team'],
+      });
+    });
+
+    it('should prefer team names over club names in matches responses', async () => {
+      mockTournamentsRepo.findOne.mockResolvedValue({
+        ...mockTournament,
+        bracketData: {
+          type: 'GROUPS_PLUS_KNOCKOUT',
+          matches: [
+            {
+              id: 'grp_A_1',
+              round: 1,
+              matchNumber: 1,
+              groupLetter: 'A',
+              team1Id: 'reg-1',
+              team2Id: 'reg-2',
+              team1Name: 'Club A',
+              team2Name: 'Club B',
+              status: 'PENDING',
+            },
+          ],
+        },
+      });
+      mockRegistrationsRepo.find.mockResolvedValue([
+        {
+          id: 'reg-1',
+          club: { name: 'Club A' },
+          team: { name: 'Team A' },
+        },
+        {
+          id: 'reg-2',
+          club: { name: 'Club B' },
+          team: { name: 'Team B' },
+        },
+      ]);
+
+      const result = await service.getMatches('tournament-1');
+
+      expect(result.teams).toEqual([
+        { id: 'reg-1', name: 'Team A', clubName: 'Club A' },
+        { id: 'reg-2', name: 'Team B', clubName: 'Club B' },
+      ]);
+      expect(mockRegistrationsRepo.find).toHaveBeenCalledWith({
+        where: { tournamentId: 'tournament-1', status: RegistrationStatus.APPROVED },
+        relations: ['club', 'team'],
+      });
     });
 
     it('should return empty array if no groups exist', async () => {

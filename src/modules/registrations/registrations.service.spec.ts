@@ -7,6 +7,7 @@ import { Tournament } from '../tournaments/entities/tournament.entity';
 import { TournamentAgeGroup } from '../tournaments/entities/tournament-age-group.entity';
 import { Club } from '../clubs/entities/club.entity';
 import { Team } from '../teams/entities/team.entity';
+import { MailService } from '../mail/mail.service';
 import { CreateRegistrationDto } from './dto';
 import {
   NotFoundException,
@@ -110,6 +111,12 @@ describe('RegistrationsService', () => {
     remove: jest.fn(),
   };
 
+  const mockMailService = {
+    sendRegistrationConfirmation: jest.fn(),
+    sendRegistrationApproved: jest.fn(),
+    sendRegistrationRejected: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -137,6 +144,10 @@ describe('RegistrationsService', () => {
         {
           provide: getRepositoryToken(RegistrationDocument),
           useValue: mockDocumentsRepo,
+        },
+        {
+          provide: MailService,
+          useValue: mockMailService,
         },
       ],
     }).compile();
@@ -170,6 +181,54 @@ describe('RegistrationsService', () => {
       expect(result).toBeDefined();
       expect(mockRegistrationsRepo.save).toHaveBeenCalled();
       expect(mockTournamentsRepo.increment).toHaveBeenCalled();
+    });
+
+    it('should allow an open age group when the tournament-level registration flag is closed', async () => {
+      const ageGroup = {
+        id: 'age-group-u8',
+        tournamentId: 'tournament-1',
+        birthYear: 2018,
+        displayLabel: 'U8',
+        isRegistrationClosed: false,
+        currentTeams: 0,
+        teamCount: 8,
+        registrationStartDate: new Date(Date.now() - 24 * 60 * 60 * 1000),
+        registrationEndDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      };
+      mockTournamentsRepo.findOne.mockResolvedValue({
+        ...mockTournament,
+        isRegistrationClosed: true,
+        registrationDeadline: undefined,
+        ageGroups: [ageGroup],
+      });
+      mockClubsRepo.findOne.mockResolvedValue(mockClub);
+      mockTeamsRepo.findOne.mockResolvedValue({
+        ...mockTeam,
+        birthyear: 2018,
+      });
+      mockRegistrationsRepo.findOne.mockResolvedValue(null);
+      mockRegistrationsRepo.create.mockReturnValue({
+        ...mockRegistration,
+        ageGroupId: ageGroup.id,
+      });
+      mockRegistrationsRepo.save.mockResolvedValue({
+        ...mockRegistration,
+        ageGroupId: ageGroup.id,
+      });
+      mockTournamentsRepo.increment.mockResolvedValue({ affected: 1 });
+      mockAgeGroupsRepo.increment.mockResolvedValue({ affected: 1 });
+
+      const result = await service.create('tournament-1', 'user-1', {
+        ...createDto,
+        ageGroupId: ageGroup.id,
+      });
+
+      expect(result).toBeDefined();
+      expect(mockAgeGroupsRepo.increment).toHaveBeenCalledWith(
+        { id: ageGroup.id },
+        'currentTeams',
+        1,
+      );
     });
 
     it('should throw NotFoundException if tournament not found', async () => {
@@ -335,7 +394,7 @@ describe('RegistrationsService', () => {
       expect(result).toHaveLength(1);
       expect(mockRegistrationsRepo.find).toHaveBeenCalledWith({
         where: { clubId: 'club-1' },
-        relations: ['tournament', 'team'],
+        relations: ['club', 'club.organizer', 'tournament', 'team', 'team.players'],
         order: { registrationDate: 'DESC' },
       });
     });
