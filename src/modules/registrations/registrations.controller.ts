@@ -281,8 +281,11 @@ export class RegistrationsController {
   remove(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
+    @Query('resetDraw') resetDraw?: string,
   ) {
-    return this.registrationsService.remove(id, user.sub, user.role);
+    return this.registrationsService.remove(id, user.sub, user.role, {
+      resetDraw: resetDraw === 'true',
+    });
   }
 
   // Document Upload Endpoints
