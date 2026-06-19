@@ -649,5 +649,92 @@ describe('GroupsService', () => {
 
       expect(result.matches).toEqual([]);
     });
+
+    it('does not return stale second-leg league matches after leagueLegs is reduced to one', async () => {
+      mockTournamentsRepo.findOne.mockResolvedValue({
+        ...mockTournament,
+        ageGroups: [
+          {
+            id: 'age-group-1',
+            format: 'LEAGUE',
+            leagueLegs: 1,
+          },
+        ],
+        bracketData: {
+          'age-group-1': {
+            type: 'LEAGUE',
+            matches: [
+              {
+                id: 'leg1_1',
+                round: 1,
+                matchNumber: 1,
+                status: 'PENDING',
+                team1Id: 'reg-1',
+                team2Id: 'reg-2',
+              },
+              {
+                id: 'leg2_1',
+                round: 2,
+                matchNumber: 1,
+                status: 'PENDING',
+                team1Id: 'reg-2',
+                team2Id: 'reg-1',
+              },
+            ],
+          },
+        },
+      });
+      mockRegistrationsRepo.find.mockResolvedValue([
+        {
+          id: 'reg-1',
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          status: RegistrationStatus.APPROVED,
+          club: { name: 'Team 1' },
+        },
+        {
+          id: 'reg-2',
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          status: RegistrationStatus.APPROVED,
+          club: { name: 'Team 2' },
+        },
+      ]);
+
+      const result = await service.getMatches('tournament-1', 'age-group-1');
+
+      expect(result.matches.map((match) => match.id)).toEqual(['leg1_1']);
+    });
+
+    it('hides stale bracket matches when the age group format changed', async () => {
+      mockTournamentsRepo.findOne.mockResolvedValue({
+        ...mockTournament,
+        ageGroups: [
+          {
+            id: 'age-group-1',
+            format: 'SINGLE_ELIMINATION',
+          },
+        ],
+        bracketData: {
+          'age-group-1': {
+            type: 'LEAGUE',
+            matches: [
+              {
+                id: 'leg1_1',
+                round: 1,
+                matchNumber: 1,
+                status: 'PENDING',
+              },
+            ],
+          },
+        },
+      });
+      mockRegistrationsRepo.find.mockResolvedValue([]);
+
+      const result = await service.getMatches('tournament-1', 'age-group-1');
+
+      expect(result.matches).toEqual([]);
+      expect(result.bracketType).toBe('SINGLE_ELIMINATION');
+    });
   });
 });

@@ -280,6 +280,7 @@ export class GroupsService {
   ): Promise<Group[]> {
     const tournament = await this.tournamentsRepository.findOne({
       where: { id: tournamentId },
+      relations: ['ageGroups'],
     });
 
     if (!tournament) {
@@ -947,6 +948,7 @@ export class GroupsService {
   }> {
     const tournament = await this.tournamentsRepository.findOne({
       where: { id: tournamentId },
+      relations: ['ageGroups'],
     });
 
     if (!tournament) {
@@ -982,6 +984,20 @@ export class GroupsService {
       return { matches: [], teams };
     }
 
+    const currentAgeGroup = ageGroupId
+      ? tournament.ageGroups?.find((ageGroup) => ageGroup.id === ageGroupId)
+      : undefined;
+    const currentFormat = currentAgeGroup?.format as BracketType | undefined;
+
+    if (currentFormat && ageBracket.type && currentFormat !== ageBracket.type) {
+      return {
+        matches: [],
+        bracketType: currentFormat,
+        playoffRounds: [],
+        teams,
+      };
+    }
+
     const allMatches: Match[] = [];
 
     const isGroupFormat =
@@ -1003,8 +1019,14 @@ export class GroupsService {
       allMatches.push(...ageBracket.matches);
     }
 
+    const visibleMatches =
+      ageBracket.type === BracketType.LEAGUE &&
+      (currentAgeGroup?.leagueLegs ?? 2) <= 1
+        ? allMatches.filter((match) => !match.id?.startsWith('leg2_'))
+        : allMatches;
+
     return {
-      matches: allMatches,
+      matches: visibleMatches,
       bracketType: ageBracket.type,
       playoffRounds: ageBracket.playoffRounds,
       teams,
