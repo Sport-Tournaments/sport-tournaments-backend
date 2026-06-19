@@ -229,7 +229,7 @@ export class GroupsService {
     // Populate team details
     for (const group of groups) {
       // Replace team IDs with full registration data
-      (group as any).teamDetails = await Promise.all(
+      const teamDetails = await Promise.all(
         group.teams.map(async (teamId) => {
           const registration = await this.registrationsRepository.findOne({
             where: { id: teamId },
@@ -238,6 +238,7 @@ export class GroupsService {
           return registration;
         }),
       );
+      (group as any).teamDetails = teamDetails.filter(Boolean);
     }
 
     return groups;

@@ -7,10 +7,12 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { Repository, IsNull, In } from 'typeorm';
 import { Registration, RegistrationDocument } from './entities';
 import { Tournament } from '../tournaments/entities/tournament.entity';
 import { TournamentAgeGroup } from '../tournaments/entities/tournament-age-group.entity';
+import { Group } from '../groups/entities/group.entity';
+import { TournamentPot } from '../groups/entities/tournament-pot.entity';
 import { Club } from '../clubs/entities/club.entity';
 import { Team } from '../teams/entities/team.entity';
 import {
@@ -61,6 +63,10 @@ export class RegistrationsService {
     private teamsRepository: Repository<Team>,
     @InjectRepository(RegistrationDocument)
     private documentsRepository: Repository<RegistrationDocument>,
+    @InjectRepository(Group)
+    private groupsRepository: Repository<Group>,
+    @InjectRepository(TournamentPot)
+    private tournamentPotsRepository: Repository<TournamentPot>,
     private mailService: MailService,
   ) {
     // Ensure uploads directory exists
@@ -195,7 +201,8 @@ export class RegistrationsService {
 
     const now = new Date();
     const registrationStart = this.getStartOfDay(
-      selectedAgeGroup?.registrationStartDate ?? tournament.registrationStartDate,
+      selectedAgeGroup?.registrationStartDate ??
+        tournament.registrationStartDate,
     );
     const registrationEnd = this.getEndOfDay(
       selectedAgeGroup?.registrationEndDate ?? tournament.registrationEndDate,
@@ -720,7 +727,12 @@ export class RegistrationsService {
     return this.registrationsRepository.save(registration);
   }
 
-  async remove(id: string, userId: string, userRole: string): Promise<void> {
+  async remove(
+    id: string,
+    userId: string,
+    userRole: string,
+    options: { resetDraw?: boolean } = {},
+  ): Promise<void> {
     const registration = await this.findByIdOrFail(id);
 
     // Check if user owns the club or is tournament organizer
@@ -739,6 +751,23 @@ export class RegistrationsService {
       throw new ForbiddenException(
         'You are not allowed to delete this registration',
       );
+    }
+
+    const approvedDrawImpact =
+      registration.status === RegistrationStatus.APPROVED
+        ? await this.getApprovedRegistrationDrawImpact(registration)
+        : { hasImpact: false };
+
+    if (approvedDrawImpact.hasImpact && !options.resetDraw) {
+      throw new ConflictException({
+        code: 'REGISTRATION_DRAW_RESET_REQUIRED',
+        message:
+          'This approved registration is already included in groups or matches. Confirm removal to reset the affected draw and matches.',
+      });
+    }
+
+    if (approvedDrawImpact.hasImpact && options.resetDraw) {
+      await this.resetDrawReferencesForRemovedRegistration(registration);
     }
 
     // Decrease tournament team count if not already rejected/withdrawn
@@ -762,6 +791,163 @@ export class RegistrationsService {
     }
 
     await this.registrationsRepository.remove(registration);
+  }
+
+  private async getApprovedRegistrationDrawImpact(
+    registration: Registration,
+  ): Promise<{ hasImpact: boolean }> {
+    const groupWhere: any = {
+      tournamentId: registration.tournamentId,
+    };
+    if (registration.ageGroupId) {
+      groupWhere.ageGroupId = registration.ageGroupId;
+    }
+
+    const groups = await this.groupsRepository.find({ where: groupWhere });
+    const isInGroups = groups.some((group) =>
+      (group.teams ?? []).includes(registration.id),
+    );
+
+    const hasPotAssignment = !!(await this.tournamentPotsRepository.findOne({
+      where: {
+        tournamentId: registration.tournamentId,
+        registrationId: registration.id,
+      },
+    }));
+
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id: registration.tournamentId },
+    });
+    const isInMatches = this.bracketDataContainsRegistration(
+      tournament?.bracketData,
+      registration.id,
+      registration.ageGroupId,
+    );
+
+    return { hasImpact: isInGroups || hasPotAssignment || isInMatches };
+  }
+
+  private async resetDrawReferencesForRemovedRegistration(
+    registration: Registration,
+  ): Promise<void> {
+    const groupWhere: any = {
+      tournamentId: registration.tournamentId,
+    };
+    if (registration.ageGroupId) {
+      groupWhere.ageGroupId = registration.ageGroupId;
+    }
+
+    await this.groupsRepository.delete(groupWhere);
+
+    const registrationWhere: any = {
+      tournamentId: registration.tournamentId,
+    };
+    if (registration.ageGroupId) {
+      registrationWhere.ageGroupId = registration.ageGroupId;
+    }
+
+    await this.registrationsRepository.update(registrationWhere, {
+      groupAssignment: null as unknown as string,
+    });
+
+    if (registration.ageGroupId) {
+      const affectedRegistrations = await this.registrationsRepository.find({
+        where: registrationWhere,
+      });
+      const affectedRegistrationIds = affectedRegistrations.map(
+        (reg) => reg.id,
+      );
+      if (affectedRegistrationIds.length > 0) {
+        await this.tournamentPotsRepository.delete({
+          tournamentId: registration.tournamentId,
+          registrationId: In(affectedRegistrationIds),
+        });
+      }
+    } else {
+      await this.tournamentPotsRepository.delete({
+        tournamentId: registration.tournamentId,
+      });
+    }
+
+    if (registration.ageGroupId) {
+      await this.ageGroupsRepository.update(registration.ageGroupId, {
+        drawCompleted: false,
+        drawSeed: undefined,
+      });
+    }
+
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id: registration.tournamentId },
+    });
+    if (!tournament) return;
+
+    tournament.bracketData = this.clearBracketDataForRegistrationRemoval(
+      tournament.bracketData,
+      registration.ageGroupId,
+    ) as any;
+
+    if (!registration.ageGroupId) {
+      tournament.drawCompleted = false;
+      tournament.drawSeed = undefined;
+    }
+
+    await this.tournamentsRepository.save(tournament);
+  }
+
+  private bracketDataContainsRegistration(
+    bracketData: unknown,
+    registrationId: string,
+    ageGroupId?: string,
+  ): boolean {
+    if (!bracketData) return false;
+
+    const scopedBracketData =
+      ageGroupId &&
+      typeof bracketData === 'object' &&
+      !Array.isArray(bracketData) &&
+      bracketData !== null &&
+      (bracketData as Record<string, unknown>)[ageGroupId]
+        ? (bracketData as Record<string, unknown>)[ageGroupId]
+        : bracketData;
+
+    return this.valueContainsRegistrationId(scopedBracketData, registrationId);
+  }
+
+  private valueContainsRegistrationId(value: unknown, registrationId: string) {
+    if (value === registrationId) return true;
+    if (Array.isArray(value)) {
+      return value.some((item) =>
+        this.valueContainsRegistrationId(item, registrationId),
+      );
+    }
+    if (value && typeof value === 'object') {
+      return Object.values(value).some((item) =>
+        this.valueContainsRegistrationId(item, registrationId),
+      );
+    }
+    return false;
+  }
+
+  private clearBracketDataForRegistrationRemoval(
+    bracketData: unknown,
+    ageGroupId?: string,
+  ) {
+    if (!bracketData) return undefined;
+    if (!ageGroupId) return undefined;
+
+    const bracketRecord = bracketData as Record<string, unknown>;
+    const hasFlatBracketShape =
+      bracketRecord.playoffRounds ||
+      bracketRecord.matches ||
+      bracketRecord.type;
+    if (hasFlatBracketShape) return undefined;
+
+    const nextBracketData = { ...bracketRecord };
+    delete nextBracketData[ageGroupId];
+
+    return Object.keys(nextBracketData).length > 0
+      ? nextBracketData
+      : undefined;
   }
 
   async getStatusStatistics(tournamentId: string): Promise<{
@@ -896,7 +1082,10 @@ export class RegistrationsService {
       if (status === 'pending_payment') {
         groupStats.pendingPayment = parseInt(stat.count, 10);
       } else {
-        groupStats[status as keyof typeof groupStats] = parseInt(stat.count, 10);
+        groupStats[status as keyof typeof groupStats] = parseInt(
+          stat.count,
+          10,
+        );
       }
     }
 
@@ -929,7 +1118,11 @@ export class RegistrationsService {
         ageGroupId: ageGroup.id,
         ageGroupLabel,
         total:
-          stats.pending + stats.pendingPayment + stats.approved + stats.rejected + stats.withdrawn,
+          stats.pending +
+          stats.pendingPayment +
+          stats.approved +
+          stats.rejected +
+          stats.withdrawn,
         pendingPayment: stats.pendingPayment,
         pending: stats.pending,
         approved: stats.approved,

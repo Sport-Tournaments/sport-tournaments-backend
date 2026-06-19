@@ -7,6 +7,8 @@ import { Tournament } from '../tournaments/entities/tournament.entity';
 import { TournamentAgeGroup } from '../tournaments/entities/tournament-age-group.entity';
 import { Club } from '../clubs/entities/club.entity';
 import { Team } from '../teams/entities/team.entity';
+import { Group } from '../groups/entities/group.entity';
+import { TournamentPot } from '../groups/entities/tournament-pot.entity';
 import { MailService } from '../mail/mail.service';
 import { CreateRegistrationDto } from './dto';
 import {
@@ -85,6 +87,7 @@ describe('RegistrationsService', () => {
     findOne: jest.fn(),
     increment: jest.fn(),
     decrement: jest.fn(),
+    save: jest.fn(),
   };
 
   const mockAgeGroupsRepo = {
@@ -92,6 +95,7 @@ describe('RegistrationsService', () => {
     find: jest.fn(),
     increment: jest.fn(),
     decrement: jest.fn(),
+    update: jest.fn(),
   };
 
   const mockClubsRepo = {
@@ -109,6 +113,17 @@ describe('RegistrationsService', () => {
     findOne: jest.fn(),
     find: jest.fn(),
     remove: jest.fn(),
+  };
+
+  const mockGroupsRepo = {
+    find: jest.fn(),
+    save: jest.fn(),
+    delete: jest.fn(),
+  };
+
+  const mockTournamentPotsRepo = {
+    findOne: jest.fn(),
+    delete: jest.fn(),
   };
 
   const mockMailService = {
@@ -144,6 +159,14 @@ describe('RegistrationsService', () => {
         {
           provide: getRepositoryToken(RegistrationDocument),
           useValue: mockDocumentsRepo,
+        },
+        {
+          provide: getRepositoryToken(Group),
+          useValue: mockGroupsRepo,
+        },
+        {
+          provide: getRepositoryToken(TournamentPot),
+          useValue: mockTournamentPotsRepo,
         },
         {
           provide: MailService,
@@ -394,7 +417,13 @@ describe('RegistrationsService', () => {
       expect(result).toHaveLength(1);
       expect(mockRegistrationsRepo.find).toHaveBeenCalledWith({
         where: { clubId: 'club-1' },
-        relations: ['club', 'club.organizer', 'tournament', 'team', 'team.players'],
+        relations: [
+          'club',
+          'club.organizer',
+          'tournament',
+          'team',
+          'team.players',
+        ],
         order: { registrationDate: 'DESC' },
       });
     });
@@ -531,6 +560,118 @@ describe('RegistrationsService', () => {
       );
 
       expect(result.status).toBe(RegistrationStatus.WITHDRAWN);
+    });
+  });
+
+  describe('remove', () => {
+    it('should require explicit draw reset when approved registration is assigned to a group', async () => {
+      const approvedRegistration = {
+        ...mockRegistration,
+        status: RegistrationStatus.APPROVED,
+        ageGroupId: 'age-group-1',
+      };
+      mockRegistrationsRepo.findOne.mockResolvedValue(approvedRegistration);
+      mockClubsRepo.findOne.mockResolvedValue(mockClub);
+      mockTournamentsRepo.findOne.mockResolvedValue(mockTournament);
+      mockGroupsRepo.find.mockResolvedValue([
+        {
+          id: 'group-1',
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          groupLetter: 'A',
+          teams: ['registration-1', 'registration-2'],
+        },
+      ]);
+      mockTournamentPotsRepo.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.remove('registration-1', 'organizer-1', UserRole.ORGANIZER),
+      ).rejects.toThrow(ConflictException);
+      expect(mockRegistrationsRepo.remove).not.toHaveBeenCalled();
+    });
+
+    it('should remove an approved registration and reset affected draw when explicitly confirmed', async () => {
+      const approvedRegistration = {
+        ...mockRegistration,
+        status: RegistrationStatus.APPROVED,
+        ageGroupId: 'age-group-1',
+      };
+      const group = {
+        id: 'group-1',
+        tournamentId: 'tournament-1',
+        ageGroupId: 'age-group-1',
+        groupLetter: 'A',
+        teams: ['registration-1', 'registration-2'],
+        tieBreakOrder: ['registration-1', 'registration-2'],
+      };
+      mockRegistrationsRepo.findOne.mockResolvedValue(approvedRegistration);
+      mockClubsRepo.findOne.mockResolvedValue(mockClub);
+      mockTournamentsRepo.findOne.mockResolvedValue({
+        ...mockTournament,
+        bracketData: {
+          'age-group-1': {
+            type: 'GROUPS_PLUS_KNOCKOUT',
+            matches: [{ team1Id: 'registration-1' }],
+          },
+          'age-group-2': { type: 'ROUND_ROBIN', matches: [] },
+        },
+      });
+      mockGroupsRepo.find.mockResolvedValue([group]);
+      mockGroupsRepo.delete.mockResolvedValue({ affected: 1 });
+      mockTournamentPotsRepo.findOne.mockResolvedValue({
+        id: 'pot-1',
+        tournamentId: 'tournament-1',
+        registrationId: 'registration-1',
+      });
+      mockTournamentPotsRepo.delete.mockResolvedValue({ affected: 1 });
+      mockAgeGroupsRepo.update.mockResolvedValue({ affected: 1 });
+      mockRegistrationsRepo.update.mockResolvedValue({ affected: 1 });
+      mockRegistrationsRepo.find.mockResolvedValue([approvedRegistration]);
+      mockTournamentsRepo.save.mockResolvedValue(mockTournament);
+      mockTournamentsRepo.decrement.mockResolvedValue({ affected: 1 });
+      mockAgeGroupsRepo.decrement.mockResolvedValue({ affected: 1 });
+      mockRegistrationsRepo.remove.mockResolvedValue(approvedRegistration);
+
+      await service.remove(
+        'registration-1',
+        'organizer-1',
+        UserRole.ORGANIZER,
+        {
+          resetDraw: true,
+        },
+      );
+
+      expect(mockGroupsRepo.delete).toHaveBeenCalledWith({
+        tournamentId: 'tournament-1',
+        ageGroupId: 'age-group-1',
+      });
+      expect(mockTournamentPotsRepo.delete).toHaveBeenCalledWith({
+        tournamentId: 'tournament-1',
+        registrationId: expect.any(Object),
+      });
+      expect(mockRegistrationsRepo.update).toHaveBeenCalledWith(
+        {
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+        },
+        {
+          groupAssignment: null,
+        },
+      );
+      expect(mockAgeGroupsRepo.update).toHaveBeenCalledWith('age-group-1', {
+        drawCompleted: false,
+        drawSeed: undefined,
+      });
+      expect(mockTournamentsRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          bracketData: {
+            'age-group-2': { type: 'ROUND_ROBIN', matches: [] },
+          },
+        }),
+      );
+      expect(mockRegistrationsRepo.remove).toHaveBeenCalledWith(
+        approvedRegistration,
+      );
     });
   });
 });
