@@ -115,11 +115,18 @@ export class TeamsService {
     await this.verifyClubAccess(dto.clubId, user);
 
     const existing = await this.teamsRepository.findOne({
-      where: { clubId: dto.clubId, name: dto.name },
+      where: {
+        clubId: dto.clubId,
+        name: dto.name,
+        ageCategory: dto.ageCategory,
+        birthyear: dto.birthyear,
+      },
     });
 
     if (existing) {
-      throw new ConflictException('Team with this name already exists');
+      throw new ConflictException(
+        'Team with this name already exists for this age category',
+      );
     }
 
     const team = this.teamsRepository.create({
@@ -147,6 +154,8 @@ export class TeamsService {
 
     const targetClubId = dto.clubId ?? team.clubId;
     const targetName = dto.name ?? team.name;
+    const targetAgeCategory = dto.ageCategory ?? team.ageCategory;
+    const targetBirthyear = dto.birthyear ?? team.birthyear;
 
     if (dto.clubId && dto.clubId !== team.clubId) {
       await this.verifyClubAccess(dto.clubId, user);
@@ -156,12 +165,16 @@ export class TeamsService {
       where: {
         clubId: targetClubId,
         name: targetName,
+        ageCategory: targetAgeCategory,
+        birthyear: targetBirthyear,
         id: Not(team.id),
       },
     });
 
     if (existing) {
-      throw new ConflictException('Team with this name already exists');
+      throw new ConflictException(
+        'Team with this name already exists for this age category',
+      );
     }
 
     if (dto.clubId !== undefined) {

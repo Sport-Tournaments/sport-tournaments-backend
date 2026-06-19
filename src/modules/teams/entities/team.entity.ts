@@ -16,7 +16,7 @@ import { Registration } from '../../registrations/entities/registration.entity';
 import { Player } from '../../players/entities';
 
 @Entity('teams')
-@Index(['clubId', 'name'], { unique: true })
+@Index(['clubId', 'name', 'ageCategory', 'birthyear'], { unique: true })
 export class Team {
   @PrimaryGeneratedColumn('uuid')
   id: string;
