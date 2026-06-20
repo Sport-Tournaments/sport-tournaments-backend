@@ -5,6 +5,7 @@ export { BracketType } from '../../../common/interfaces/bracket.interface';
 export type {
   Match,
   PlayoffRound,
+  PlacementBracket,
   BracketData,
   GroupStanding,
 } from '../../../common/interfaces/bracket.interface';
@@ -12,6 +13,7 @@ import { BracketType } from '../../../common/interfaces/bracket.interface';
 import type {
   Match,
   PlayoffRound,
+  PlacementBracket,
   BracketData,
   GroupStanding,
 } from '../../../common/interfaces/bracket.interface';
