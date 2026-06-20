@@ -26,6 +26,8 @@ describe('GroupsService', () => {
   let service: GroupsService;
   let mockBracketGeneratorService: {
     generateBracket: jest.Mock;
+    calculateGroupStandings: jest.Mock;
+    seedTeamsIntoBracket: jest.Mock;
   };
 
   const mockTournament: Partial<Tournament> = {
@@ -107,6 +109,8 @@ describe('GroupsService', () => {
   beforeEach(async () => {
     mockBracketGeneratorService = {
       generateBracket: jest.fn(),
+      calculateGroupStandings: jest.fn(),
+      seedTeamsIntoBracket: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -338,7 +342,10 @@ describe('GroupsService', () => {
         { id: 'reg-2', name: 'Team B', clubName: 'Club B' },
       ]);
       expect(mockRegistrationsRepo.find).toHaveBeenCalledWith({
-        where: { tournamentId: 'tournament-1', status: RegistrationStatus.APPROVED },
+        where: {
+          tournamentId: 'tournament-1',
+          status: RegistrationStatus.APPROVED,
+        },
         relations: ['club', 'team'],
       });
     });
@@ -380,14 +387,22 @@ describe('GroupsService', () => {
       mockTournamentsRepo.findOne.mockResolvedValue({
         ...mockTournament,
         bracketData: {
-          'age-group-1': { type: 'GROUPS_PLUS_KNOCKOUT', matches: [{ id: 'm1' }] },
-          'age-group-2': { type: 'GROUPS_PLUS_KNOCKOUT', matches: [{ id: 'm2' }] },
+          'age-group-1': {
+            type: 'GROUPS_PLUS_KNOCKOUT',
+            matches: [{ id: 'm1' }],
+          },
+          'age-group-2': {
+            type: 'GROUPS_PLUS_KNOCKOUT',
+            matches: [{ id: 'm2' }],
+          },
         },
       });
       mockGroupsRepo.delete.mockResolvedValue({ affected: 2 });
       mockRegistrationsRepo.update.mockResolvedValue({ affected: 4 });
       mockAgeGroupRepo.update.mockResolvedValue({ affected: 1 });
-      mockTournamentsRepo.save.mockImplementation(async (entity: any) => entity);
+      mockTournamentsRepo.save.mockImplementation(
+        async (entity: any) => entity,
+      );
 
       await service.resetDraw(
         'tournament-1',
@@ -411,7 +426,10 @@ describe('GroupsService', () => {
       expect(mockTournamentsRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({
           bracketData: {
-            'age-group-2': { type: 'GROUPS_PLUS_KNOCKOUT', matches: [{ id: 'm2' }] },
+            'age-group-2': {
+              type: 'GROUPS_PLUS_KNOCKOUT',
+              matches: [{ id: 'm2' }],
+            },
           },
         }),
       );
@@ -423,12 +441,17 @@ describe('GroupsService', () => {
         drawCompleted: true,
         drawSeed: 'seed-1',
         bracketData: {
-          'age-group-1': { type: 'GROUPS_PLUS_KNOCKOUT', matches: [{ id: 'm1' }] },
+          'age-group-1': {
+            type: 'GROUPS_PLUS_KNOCKOUT',
+            matches: [{ id: 'm1' }],
+          },
         },
       });
       mockGroupsRepo.delete.mockResolvedValue({ affected: 4 });
       mockRegistrationsRepo.update.mockResolvedValue({ affected: 8 });
-      mockTournamentsRepo.save.mockImplementation(async (entity: any) => entity);
+      mockTournamentsRepo.save.mockImplementation(
+        async (entity: any) => entity,
+      );
 
       await service.resetDraw(
         'tournament-1',
@@ -586,7 +609,645 @@ describe('GroupsService', () => {
         order: { groupLetter: 'ASC' },
       });
       expect(result.matches).toHaveLength(2);
-      expect(result.matches.every((match: any) => ['E', 'F'].includes(match.groupLetter))).toBe(true);
+      expect(
+        result.matches.every((match: any) =>
+          ['E', 'F'].includes(match.groupLetter),
+        ),
+      ).toBe(true);
+    });
+
+    it('should keep the knockout shell visible for groups plus knockout brackets', async () => {
+      mockTournamentsRepo.findOne.mockResolvedValue({
+        ...mockTournament,
+        ageGroups: [
+          {
+            id: 'age-group-1',
+            format: 'GROUPS_PLUS_KNOCKOUT',
+            groupsCount: 2,
+            qualifyingTeamsPerGroup: 1,
+            drawCompleted: true,
+          },
+        ],
+        bracketData: {},
+      });
+      mockRegistrationsRepo.find.mockResolvedValue([
+        {
+          id: 'reg-1',
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          status: RegistrationStatus.APPROVED,
+          club: { name: 'Team 1' },
+        },
+        {
+          id: 'reg-2',
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          status: RegistrationStatus.APPROVED,
+          club: { name: 'Team 2' },
+        },
+        {
+          id: 'reg-3',
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          status: RegistrationStatus.APPROVED,
+          club: { name: 'Team 3' },
+        },
+        {
+          id: 'reg-4',
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          status: RegistrationStatus.APPROVED,
+          club: { name: 'Team 4' },
+        },
+      ]);
+      const playoffRounds = [
+        {
+          roundNumber: 1,
+          roundName: 'Final',
+          matches: [
+            { id: 'ko-1', round: 1, matchNumber: 1, status: 'PENDING' },
+          ],
+        },
+      ];
+      mockBracketGeneratorService.generateBracket.mockReturnValue({
+        type: 'GROUPS_PLUS_KNOCKOUT',
+        advancingTeamsPerGroup: 1,
+        matches: [],
+        playoffRounds,
+      });
+      mockGroupsRepo.find.mockResolvedValue([
+        {
+          id: 'group-1',
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          groupLetter: 'A',
+          teams: ['reg-1', 'reg-2'],
+        },
+        {
+          id: 'group-2',
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          groupLetter: 'B',
+          teams: ['reg-3', 'reg-4'],
+        },
+      ]);
+      mockTournamentsRepo.update.mockResolvedValue({ affected: 1 });
+
+      const result = await service.generateBracket(
+        'tournament-1',
+        'organizer-1',
+        UserRole.ORGANIZER,
+        'age-group-1',
+      );
+
+      expect(result.playoffRounds).toBe(playoffRounds);
+      expect(mockTournamentsRepo.update).toHaveBeenLastCalledWith(
+        'tournament-1',
+        {
+          bracketData: expect.objectContaining({
+            'age-group-1': expect.objectContaining({ playoffRounds }),
+          }),
+        },
+      );
+    });
+
+    it('should create recursive placement bracket tabs for all group positions', async () => {
+      mockTournamentsRepo.findOne.mockResolvedValue({
+        ...mockTournament,
+        ageGroups: [
+          {
+            id: 'age-group-1',
+            format: 'GROUPS_PLUS_KNOCKOUT',
+            groupsCount: 4,
+            qualifyingTeamsPerGroup: 2,
+            drawCompleted: true,
+          },
+        ],
+        bracketData: {},
+      });
+      mockRegistrationsRepo.find.mockResolvedValue(
+        Array.from({ length: 16 }, (_, index) => ({
+          id: `reg-${index + 1}`,
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          status: RegistrationStatus.APPROVED,
+          club: { name: `Team ${index + 1}` },
+        })),
+      );
+      mockBracketGeneratorService.generateBracket.mockReturnValue({
+        type: 'GROUPS_PLUS_KNOCKOUT',
+        advancingTeamsPerGroup: 2,
+        matches: [],
+        playoffRounds: [],
+      });
+      mockGroupsRepo.find.mockResolvedValue(
+        ['A', 'B', 'C', 'D'].map((groupLetter, groupIndex) => ({
+          id: `group-${groupLetter}`,
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          groupLetter,
+          teams: Array.from(
+            { length: 4 },
+            (_, teamIndex) => `reg-${groupIndex * 4 + teamIndex + 1}`,
+          ),
+        })),
+      );
+      mockTournamentsRepo.update.mockResolvedValue({ affected: 1 });
+
+      const result = await service.generateBracket(
+        'tournament-1',
+        'organizer-1',
+        UserRole.ORGANIZER,
+        'age-group-1',
+      );
+
+      expect(result.placementBrackets.map((bracket: any) => bracket.label)).toEqual([
+        '1-8',
+        '9-16',
+      ]);
+      expect(result.placementBrackets[0].children.winners.label).toBe('1-4');
+      expect(result.placementBrackets[0].children.losers.label).toBe('5-8');
+      expect(result.placementBrackets[0].playoffRounds[0].matches[0]).toEqual(
+        expect.objectContaining({
+          team1SourceSlot: 'A1',
+          team2SourceSlot: 'D2',
+          nextMatchId: 'placement-1-4-r1-m1',
+          loserNextMatchId: 'placement-5-8-r1-m1',
+        }),
+      );
+    });
+
+    it('should build placement ranges from qualifying teams per group without odd zero-match branches', async () => {
+      mockTournamentsRepo.findOne.mockResolvedValue({
+        ...mockTournament,
+        ageGroups: [
+          {
+            id: 'age-group-1',
+            format: 'GROUPS_PLUS_KNOCKOUT',
+            groupsCount: 2,
+            teamsPerGroup: 5,
+            qualifyingTeamsPerGroup: 2,
+            drawCompleted: true,
+          },
+        ],
+        bracketData: {},
+      });
+      mockRegistrationsRepo.find.mockResolvedValue(
+        Array.from({ length: 10 }, (_, index) => ({
+          id: `reg-${index + 1}`,
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          status: RegistrationStatus.APPROVED,
+          club: { name: `Team ${index + 1}` },
+        })),
+      );
+      mockBracketGeneratorService.generateBracket.mockReturnValue({
+        type: 'GROUPS_PLUS_KNOCKOUT',
+        advancingTeamsPerGroup: 2,
+        matches: [],
+        playoffRounds: [],
+      });
+      mockGroupsRepo.find.mockResolvedValue(
+        ['A', 'B'].map((groupLetter, groupIndex) => ({
+          id: `group-${groupLetter}`,
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          groupLetter,
+          teams: Array.from(
+            { length: 5 },
+            (_, teamIndex) => `reg-${groupIndex * 5 + teamIndex + 1}`,
+          ),
+        })),
+      );
+      mockTournamentsRepo.update.mockResolvedValue({ affected: 1 });
+
+      const result = await service.generateBracket(
+        'tournament-1',
+        'organizer-1',
+        UserRole.ORGANIZER,
+        'age-group-1',
+      );
+
+      const walk = (bracket: any): any[] => [
+        bracket,
+        ...(bracket.children?.winners ? walk(bracket.children.winners) : []),
+        ...(bracket.children?.losers ? walk(bracket.children.losers) : []),
+      ];
+      const allPlacementNodes = result.placementBrackets.flatMap((bracket: any) =>
+        walk(bracket),
+      );
+
+      expect(result.placementBrackets.map((bracket: any) => bracket.label)).toEqual([
+        '1-4',
+        '5-8',
+        '9-10',
+      ]);
+      expect(
+        allPlacementNodes.every(
+          (bracket: any) => bracket.playoffRounds[0].matches.length > 0,
+        ),
+      ).toBe(true);
+      expect(result.placementBrackets[0].children.winners.label).toBe('1-2');
+      expect(result.placementBrackets[0].children.losers.label).toBe('3-4');
+      expect(result.placementBrackets[2].children).toBeUndefined();
+    });
+  });
+
+  describe('generateKnockoutBracket', () => {
+    it('should create a provisional knockout shell before group matches are completed', async () => {
+      const bracketData: any = {
+        type: 'GROUPS_PLUS_KNOCKOUT',
+        advancingTeamsPerGroup: 1,
+        matches: [
+          {
+            id: 'grp_A_1',
+            round: 1,
+            matchNumber: 1,
+            groupLetter: 'A',
+            team1Id: 'reg-1',
+            team1Name: 'Team 1',
+            team2Id: 'reg-2',
+            team2Name: 'Team 2',
+            status: 'PENDING',
+          },
+          {
+            id: 'grp_B_1',
+            round: 1,
+            matchNumber: 1,
+            groupLetter: 'B',
+            team1Id: 'reg-3',
+            team1Name: 'Team 3',
+            team2Id: 'reg-4',
+            team2Name: 'Team 4',
+            status: 'PENDING',
+          },
+        ],
+      };
+      const playoffRounds = [
+        {
+          roundNumber: 1,
+          roundName: 'Final',
+          matches: [
+            { id: 'ko-1', round: 1, matchNumber: 1, status: 'PENDING' },
+          ],
+        },
+      ];
+      mockTournamentsRepo.findOne.mockResolvedValue({
+        ...mockTournament,
+        ageGroups: [{ id: 'age-group-1', format: 'GROUPS_PLUS_KNOCKOUT' }],
+        bracketData: { 'age-group-1': bracketData },
+      });
+      mockGroupsRepo.find.mockResolvedValue([
+        {
+          id: 'group-1',
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          groupLetter: 'A',
+          teams: ['reg-1', 'reg-2'],
+        },
+        {
+          id: 'group-2',
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          groupLetter: 'B',
+          teams: ['reg-3', 'reg-4'],
+        },
+      ]);
+      mockBracketGeneratorService.generateBracket.mockReturnValue({
+        type: 'SINGLE_ELIMINATION',
+        playoffRounds,
+      });
+      mockTournamentsRepo.update.mockResolvedValue({ affected: 1 });
+
+      const result = await service.generateKnockoutBracket(
+        'tournament-1',
+        'organizer-1',
+        UserRole.ORGANIZER,
+        'age-group-1',
+      );
+
+      expect(result.playoffRounds).toBe(playoffRounds);
+      expect(mockBracketGeneratorService.seedTeamsIntoBracket).not.toHaveBeenCalled();
+      expect(mockTournamentsRepo.update).toHaveBeenCalledWith('tournament-1', {
+        bracketData: {
+          'age-group-1': expect.objectContaining({ playoffRounds }),
+        },
+      });
+    });
+
+    it('should seed an existing knockout shell and preserve scheduled match details', async () => {
+      const scheduledAt = new Date('2026-06-22T10:00:00.000Z');
+      const bracketData = {
+        type: 'GROUPS_PLUS_KNOCKOUT',
+        advancingTeamsPerGroup: 1,
+        matches: [
+          {
+            id: 'grp_A_1',
+            round: 1,
+            matchNumber: 1,
+            groupLetter: 'A',
+            team1Id: 'reg-1',
+            team1Name: 'Team 1',
+            team1Score: 2,
+            team2Id: 'reg-2',
+            team2Name: 'Team 2',
+            team2Score: 0,
+            status: 'COMPLETED',
+          },
+          {
+            id: 'grp_B_1',
+            round: 1,
+            matchNumber: 1,
+            groupLetter: 'B',
+            team1Id: 'reg-3',
+            team1Name: 'Team 3',
+            team1Score: 3,
+            team2Id: 'reg-4',
+            team2Name: 'Team 4',
+            team2Score: 1,
+            status: 'COMPLETED',
+          },
+        ],
+        playoffRounds: [
+          {
+            roundNumber: 1,
+            roundName: 'Final',
+            matches: [
+              {
+                id: 'ko-1',
+                round: 1,
+                matchNumber: 1,
+                status: 'PENDING',
+                scheduledAt,
+                fieldName: 'Pitch 2',
+              },
+            ],
+          },
+        ],
+      };
+      mockTournamentsRepo.findOne.mockResolvedValue({
+        ...mockTournament,
+        ageGroups: [{ id: 'age-group-1', format: 'GROUPS_PLUS_KNOCKOUT' }],
+        bracketData: { 'age-group-1': bracketData },
+      });
+      mockGroupsRepo.find.mockResolvedValue([
+        {
+          id: 'group-1',
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          groupLetter: 'A',
+          teams: ['reg-1', 'reg-2'],
+        },
+        {
+          id: 'group-2',
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          groupLetter: 'B',
+          teams: ['reg-3', 'reg-4'],
+        },
+      ]);
+      mockBracketGeneratorService.calculateGroupStandings
+        .mockReturnValueOnce([{ teamId: 'reg-1', position: 1 }])
+        .mockReturnValueOnce([{ teamId: 'reg-3', position: 1 }]);
+      mockBracketGeneratorService.seedTeamsIntoBracket.mockImplementation(
+        (_standings, _advancing, data) => {
+          data.playoffRounds[0].matches[0].team1Id = 'reg-1';
+          data.playoffRounds[0].matches[0].team2Id = 'reg-3';
+          return data;
+        },
+      );
+      mockTournamentsRepo.update.mockResolvedValue({ affected: 1 });
+
+      const result = await service.generateKnockoutBracket(
+        'tournament-1',
+        'organizer-1',
+        UserRole.ORGANIZER,
+        'age-group-1',
+      );
+
+      expect(mockGroupsRepo.find).toHaveBeenCalledWith({
+        where: { tournamentId: 'tournament-1', ageGroupId: 'age-group-1' },
+        order: { groupLetter: 'ASC' },
+      });
+      expect(result.playoffRounds[0].matches[0]).toEqual(
+        expect.objectContaining({
+          team1Id: 'reg-1',
+          team1Name: 'Team 1',
+          team2Id: 'reg-3',
+          team2Name: 'Team 3',
+          scheduledAt,
+          fieldName: 'Pitch 2',
+        }),
+      );
+      expect(mockTournamentsRepo.update).toHaveBeenCalledWith('tournament-1', {
+        bracketData: { 'age-group-1': result },
+      });
+    });
+
+    it('should seed placement brackets from completed group standings', async () => {
+      const bracketData = {
+        type: 'GROUPS_PLUS_KNOCKOUT',
+        advancingTeamsPerGroup: 1,
+        matches: [
+          {
+            id: 'grp_A_1',
+            round: 1,
+            matchNumber: 1,
+            groupLetter: 'A',
+            team1Id: 'reg-1',
+            team1Name: 'Team 1',
+            team1Score: 2,
+            team2Id: 'reg-2',
+            team2Name: 'Team 2',
+            team2Score: 0,
+            status: 'COMPLETED',
+          },
+          {
+            id: 'grp_B_1',
+            round: 1,
+            matchNumber: 1,
+            groupLetter: 'B',
+            team1Id: 'reg-3',
+            team1Name: 'Team 3',
+            team1Score: 3,
+            team2Id: 'reg-4',
+            team2Name: 'Team 4',
+            team2Score: 1,
+            status: 'COMPLETED',
+          },
+        ],
+        playoffRounds: [
+          {
+            roundNumber: 1,
+            roundName: 'Final',
+            matches: [
+              { id: 'ko-1', round: 1, matchNumber: 1, status: 'PENDING' },
+            ],
+          },
+        ],
+      };
+      mockTournamentsRepo.findOne.mockResolvedValue({
+        ...mockTournament,
+        ageGroups: [{ id: 'age-group-1', format: 'GROUPS_PLUS_KNOCKOUT' }],
+        bracketData: { 'age-group-1': bracketData },
+      });
+      mockGroupsRepo.find.mockResolvedValue([
+        {
+          id: 'group-1',
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          groupLetter: 'A',
+          teams: ['reg-1', 'reg-2'],
+        },
+        {
+          id: 'group-2',
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          groupLetter: 'B',
+          teams: ['reg-3', 'reg-4'],
+        },
+      ]);
+      mockBracketGeneratorService.calculateGroupStandings.mockImplementation(
+        (teams: string[]) =>
+          teams.map((teamId, index) => ({ teamId, position: index + 1 })),
+      );
+      mockBracketGeneratorService.seedTeamsIntoBracket.mockImplementation(
+        (_standings, _advancing, data) => data,
+      );
+      mockTournamentsRepo.update.mockResolvedValue({ affected: 1 });
+
+      const result = await service.generateKnockoutBracket(
+        'tournament-1',
+        'organizer-1',
+        UserRole.ORGANIZER,
+        'age-group-1',
+      );
+
+      expect(result.placementBrackets[0].playoffRounds[0].matches[0]).toEqual(
+        expect.objectContaining({
+          team1SourceSlot: 'A1',
+          team1Id: 'reg-1',
+          team1Name: 'Team 1',
+          team2SourceSlot: 'B1',
+          team2Id: 'reg-3',
+          team2Name: 'Team 3',
+        }),
+      );
+      expect(result.placementBrackets[1].playoffRounds[0].matches[0]).toEqual(
+        expect.objectContaining({
+          team1SourceSlot: 'A2',
+          team1Id: 'reg-2',
+          team2SourceSlot: 'B2',
+          team2Id: 'reg-4',
+        }),
+      );
+    });
+  });
+
+  describe('updateMatchScore', () => {
+    it('should propagate placement winners and losers into the next nested tabs', async () => {
+      const bracketData: any = {
+        type: 'GROUPS_PLUS_KNOCKOUT',
+        matches: [],
+        playoffRounds: [],
+        placementBrackets: [
+          {
+            key: 'placement-1-4',
+            label: '1-4',
+            rangeStart: 1,
+            rangeEnd: 4,
+            playoffRounds: [
+              {
+                roundNumber: 1,
+                roundName: '1-4',
+                matches: [
+                  {
+                    id: 'placement-1-4-r1-m1',
+                    round: 1,
+                    matchNumber: 1,
+                    status: 'PENDING',
+                    team1Id: 'reg-1',
+                    team1Name: 'Team 1',
+                    team2Id: 'reg-4',
+                    team2Name: 'Team 4',
+                    nextMatchId: 'placement-1-2-r1-m1',
+                    loserNextMatchId: 'placement-3-4-r1-m1',
+                  },
+                ],
+              },
+            ],
+            children: {
+              winners: {
+                key: 'placement-1-2',
+                label: '1-2',
+                rangeStart: 1,
+                rangeEnd: 2,
+                playoffRounds: [
+                  {
+                    roundNumber: 1,
+                    roundName: '1-2',
+                    matches: [
+                      {
+                        id: 'placement-1-2-r1-m1',
+                        round: 1,
+                        matchNumber: 1,
+                        status: 'PENDING',
+                      },
+                    ],
+                  },
+                ],
+              },
+              losers: {
+                key: 'placement-3-4',
+                label: '3-4',
+                rangeStart: 3,
+                rangeEnd: 4,
+                playoffRounds: [
+                  {
+                    roundNumber: 1,
+                    roundName: '3-4',
+                    matches: [
+                      {
+                        id: 'placement-3-4-r1-m1',
+                        round: 1,
+                        matchNumber: 1,
+                        status: 'PENDING',
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      };
+      mockTournamentsRepo.findOne.mockResolvedValue({
+        ...mockTournament,
+        bracketData: { 'age-group-1': bracketData },
+      });
+      mockTournamentsRepo.update.mockResolvedValue({ affected: 1 });
+
+      const result = await service.updateMatchScore(
+        'tournament-1',
+        'placement-1-4-r1-m1',
+        'organizer-1',
+        UserRole.ORGANIZER,
+        { team1Score: 2, team2Score: 1 },
+        'age-group-1',
+      );
+
+      expect(result.bracketUpdated).toBe(true);
+      expect(
+        bracketData.placementBrackets[0].children.winners.playoffRounds[0]
+          .matches[0].team1Id,
+      ).toBe('reg-1');
+      expect(
+        bracketData.placementBrackets[0].children.losers.playoffRounds[0]
+          .matches[0].team1Id,
+      ).toBe('reg-4');
+      expect(mockTournamentsRepo.update).toHaveBeenCalledWith('tournament-1', {
+        bracketData: { 'age-group-1': bracketData },
+      });
     });
   });
 
@@ -601,7 +1262,12 @@ describe('GroupsService', () => {
         ],
       });
       mockGroupsRepo.find.mockResolvedValue([
-        { id: 'group-1', tournamentId: 'tournament-1', ageGroupId: 'age-group-1', teams: [] },
+        {
+          id: 'group-1',
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          teams: [],
+        },
       ]);
 
       const result = await (service as any).getBracket(
@@ -618,6 +1284,94 @@ describe('GroupsService', () => {
   });
 
   describe('getMatches', () => {
+    it('backfills provisional knockout and placement brackets for existing group bracket data', async () => {
+      const ageBracket: any = {
+        type: 'GROUPS_PLUS_KNOCKOUT',
+        advancingTeamsPerGroup: 1,
+        matches: [
+          {
+            id: 'grp_A_1',
+            round: 1,
+            matchNumber: 1,
+            groupLetter: 'A',
+            team1Id: 'reg-1',
+            team2Id: 'reg-2',
+            status: 'PENDING',
+          },
+          {
+            id: 'grp_B_1',
+            round: 1,
+            matchNumber: 1,
+            groupLetter: 'B',
+            team1Id: 'reg-3',
+            team2Id: 'reg-4',
+            status: 'PENDING',
+          },
+        ],
+      };
+      const bracketData = { 'age-group-1': ageBracket };
+      const playoffRounds = [
+        {
+          roundNumber: 1,
+          roundName: 'Final',
+          matches: [
+            { id: 'ko-1', round: 1, matchNumber: 1, status: 'PENDING' },
+          ],
+        },
+      ];
+      mockTournamentsRepo.findOne.mockResolvedValue({
+        ...mockTournament,
+        ageGroups: [
+          {
+            id: 'age-group-1',
+            format: 'GROUPS_PLUS_KNOCKOUT',
+          },
+        ],
+        bracketData,
+      });
+      mockRegistrationsRepo.find.mockResolvedValue([
+        {
+          id: 'reg-1',
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          status: RegistrationStatus.APPROVED,
+          club: { name: 'Team 1' },
+        },
+      ]);
+      mockGroupsRepo.find.mockResolvedValue([
+        {
+          id: 'group-1',
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          groupLetter: 'A',
+          teams: ['reg-1', 'reg-2'],
+        },
+        {
+          id: 'group-2',
+          tournamentId: 'tournament-1',
+          ageGroupId: 'age-group-1',
+          groupLetter: 'B',
+          teams: ['reg-3', 'reg-4'],
+        },
+      ]);
+      mockBracketGeneratorService.generateBracket.mockReturnValue({
+        type: 'SINGLE_ELIMINATION',
+        playoffRounds,
+      });
+      mockTournamentsRepo.update.mockResolvedValue({ affected: 1 });
+
+      const result = await service.getMatches('tournament-1', 'age-group-1');
+
+      expect(result.playoffRounds).toBe(playoffRounds);
+      expect(result.placementBrackets?.map((bracket) => bracket.label)).toEqual([
+        '1-2',
+        '3-4',
+      ]);
+      expect(mockTournamentsRepo.update).toHaveBeenCalledWith('tournament-1', {
+        bracketData,
+      });
+    });
+
     it('should not return legacy flat bracket matches for a requested age group', async () => {
       mockTournamentsRepo.findOne.mockResolvedValue({
         ...mockTournament,

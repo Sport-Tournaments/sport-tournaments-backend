@@ -301,7 +301,7 @@ export class GroupsController {
 
   @Post('bracket/generate-knockout')
   @ApiOperation({
-    summary: 'Generate knockout bracket after all group matches completed',
+    summary: 'Generate or seed the knockout bracket for group tournaments',
   })
   @ApiResponse({ status: 201, description: 'Knockout bracket generated' })
   @ApiResponse({

@@ -50,6 +50,8 @@ export interface Match {
   loserNextMatchId?: string;
   autoAdvance?: boolean;
   groupLetter?: string;
+  team1SourceSlot?: string;
+  team2SourceSlot?: string;
 }
 
 export interface PlayoffRound {
@@ -59,12 +61,25 @@ export interface PlayoffRound {
   bracket?: 'winners' | 'losers' | 'grand_final' | 'third_place';
 }
 
+export interface PlacementBracket {
+  key: string;
+  label: string;
+  rangeStart: number;
+  rangeEnd: number;
+  playoffRounds: PlayoffRound[];
+  children?: {
+    winners?: PlacementBracket;
+    losers?: PlacementBracket;
+  };
+}
+
 export interface BracketData {
   type: BracketType;
   groupCount?: number;
   teamsPerGroup?: number;
   advancingTeamsPerGroup?: number;
   playoffRounds?: PlayoffRound[];
+  placementBrackets?: PlacementBracket[];
   matches?: Match[];
   thirdPlaceMatch?: boolean;
   seed?: string;
