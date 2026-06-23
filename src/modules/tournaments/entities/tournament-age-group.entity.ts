@@ -12,7 +12,14 @@ import { DateOnlyTransformer } from '../../../common/transformers';
 import { TournamentFormat, TournamentLevel } from '../../../common/enums';
 
 // Game systems available per age category
-export type GameSystem = '5+1' | '6+1' | '7+1' | '8+1' | '9+1' | '10+1';
+export type GameSystem =
+  | '4+1'
+  | '5+1'
+  | '6+1'
+  | '7+1'
+  | '8+1'
+  | '9+1'
+  | '10+1';
 
 @Entity('tournament_age_groups')
 @Index(['tournamentId', 'birthYear'], { unique: true })
@@ -53,7 +60,7 @@ export class TournamentAgeGroup {
   @Column({ name: 'display_label', nullable: true })
   displayLabel?: string;
 
-  // Game system format (e.g., "7+1", "8+1", "10+1")
+  // Game system format (e.g., "4+1", "7+1", "10+1")
   @Column({ name: 'game_system' })
   gameSystem: string;
 
