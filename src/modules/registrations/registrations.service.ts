@@ -336,10 +336,7 @@ export class RegistrationsService {
     const queryBuilder = this.registrationsRepository
       .createQueryBuilder('registration')
       .leftJoinAndSelect('registration.club', 'club')
-      .leftJoinAndSelect('club.organizer', 'clubOrganizer')
       .leftJoinAndSelect('registration.team', 'team')
-      .leftJoinAndSelect('team.players', 'teamPlayers')
-      .leftJoinAndSelect('registration.tournament', 'tournament')
       .leftJoinAndSelect('registration.ageGroup', 'ageGroup')
       .where('registration.tournamentId = :tournamentId', { tournamentId });
 

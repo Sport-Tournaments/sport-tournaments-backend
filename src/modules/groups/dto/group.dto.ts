@@ -8,6 +8,7 @@ import {
   IsISO8601,
   ValidateIf,
   IsBoolean,
+  IsIn,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
@@ -162,6 +163,25 @@ export class UpdateMatchScoreDto {
   @IsOptional()
   @IsString()
   status?: string;
+}
+
+
+export class SwapMatchTeamsDto {
+  @ApiProperty({ description: 'Source match ID' })
+  @IsString()
+  sourceMatchId: string;
+
+  @ApiProperty({ description: 'Source team slot', enum: ['team1', 'team2'] })
+  @IsIn(['team1', 'team2'])
+  sourceSlot: 'team1' | 'team2';
+
+  @ApiProperty({ description: 'Target match ID' })
+  @IsString()
+  targetMatchId: string;
+
+  @ApiProperty({ description: 'Target team slot', enum: ['team1', 'team2'] })
+  @IsIn(['team1', 'team2'])
+  targetSlot: 'team1' | 'team2';
 }
 
 /** BE-07 — Schedule a match (set date/time and optional court number) */
