@@ -544,6 +544,22 @@ export class TournamentsService {
     return this.enrichTournamentData(normalized);
   }
 
+  async findDetailsByIdOrFail(id: string): Promise<Tournament> {
+    await this.syncPastTournamentsAsCompleted();
+
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id },
+      relations: ['organizer', 'ageGroups'],
+    });
+
+    if (!tournament) {
+      throw new NotFoundException(`Tournament with ID ${id} not found`);
+    }
+
+    const normalized = await this.normalizeDraftStatus(tournament);
+    return this.enrichTournamentDetails(normalized);
+  }
+
   async findBySlug(slug: string): Promise<Tournament | null> {
     await this.syncPastTournamentsAsCompleted();
 
@@ -554,14 +570,19 @@ export class TournamentsService {
   }
 
   async findBySlugOrFail(slug: string): Promise<Tournament> {
-    const tournament = await this.findBySlug(slug);
+    await this.syncPastTournamentsAsCompleted();
+
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { urlSlug: slug },
+      relations: ['organizer', 'ageGroups'],
+    });
 
     if (!tournament) {
       throw new NotFoundException(`Tournament with slug ${slug} not found`);
     }
 
     const normalized = await this.normalizeDraftStatus(tournament);
-    return this.enrichTournamentData(normalized);
+    return this.enrichTournamentDetails(normalized);
   }
 
   async findByOrganizer(organizerId: string): Promise<Tournament[]> {
@@ -604,6 +625,33 @@ export class TournamentsService {
         .sort()[0] ?? null;
 
     return Object.assign(tournament, { confirmedTeams, effectiveStartDate });
+  }
+
+  private async enrichTournamentDetails(
+    tournament: Tournament,
+  ): Promise<Tournament> {
+    const [{ count } = { count: '0' }] = await this.tournamentsRepository
+      .createQueryBuilder('tournament')
+      .leftJoin(
+        'tournament.registrations',
+        'registration',
+        'registration.status = :status',
+        { status: RegistrationStatus.APPROVED },
+      )
+      .select('COUNT(registration.id)', 'count')
+      .where('tournament.id = :id', { id: tournament.id })
+      .getRawMany<{ count: string }>();
+
+    const effectiveStartDate =
+      tournament.ageGroups
+        ?.map((ag) => ag.startDate)
+        .filter(Boolean)
+        .sort()[0] ?? null;
+
+    return Object.assign(tournament, {
+      confirmedTeams: parseInt(count, 10) || 0,
+      effectiveStartDate,
+    });
   }
 
   async update(

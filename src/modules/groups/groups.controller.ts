@@ -28,6 +28,7 @@ import {
   UpdateMatchAdvancementDto,
   UpdateMatchScoreDto,
   ScheduleMatchDto,
+  SwapMatchTeamsDto,
 } from './dto';
 import {
   AssignTeamToPotDto,
@@ -209,6 +210,27 @@ export class GroupsController {
     @Query('ageGroupId') ageGroupId?: string,
   ) {
     return this.groupsService.getMatches(tournamentId, ageGroupId);
+  }
+
+  @Patch('matches/swap-teams')
+  @ApiOperation({ summary: 'Swap two teams between pending knockout match slots' })
+  @ApiResponse({ status: 200, description: 'Match teams swapped' })
+  @ApiResponse({ status: 400, description: 'Invalid swap' })
+  @ApiResponse({ status: 403, description: 'Not authorized' })
+  @ApiResponse({ status: 404, description: 'Match not found' })
+  swapMatchTeams(
+    @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: SwapMatchTeamsDto,
+    @Query('ageGroupId') ageGroupId?: string,
+  ) {
+    return this.groupsService.swapMatchTeams(
+      tournamentId,
+      user.sub,
+      user.role,
+      dto,
+      ageGroupId,
+    );
   }
 
   @Patch('matches/:matchId/advance')

@@ -128,7 +128,7 @@ export class TournamentsController {
   @ApiResponse({ status: 200, description: 'Tournament details' })
   @ApiResponse({ status: 404, description: 'Tournament not found' })
   findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.tournamentsService.findByIdOrFail(id);
+    return this.tournamentsService.findDetailsByIdOrFail(id);
   }
 
   @Patch(':id')

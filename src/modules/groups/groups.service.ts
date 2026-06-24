@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { Group } from './entities/group.entity';
 import { Tournament } from '../tournaments/entities/tournament.entity';
@@ -20,6 +20,7 @@ import {
   GroupConfigurationResponseDto,
   UpdateMatchAdvancementDto,
   UpdateMatchScoreDto,
+  SwapMatchTeamsDto,
 } from './dto';
 import {
   TournamentStatus,
@@ -611,19 +612,24 @@ export class GroupsService {
       order: { groupOrder: 'ASC' },
     });
 
-    // Populate team details
+    const registrationIds = Array.from(
+      new Set(groups.flatMap((group) => group.teams || [])),
+    );
+    const registrations = registrationIds.length
+      ? await this.registrationsRepository.find({
+          where: { id: In(registrationIds) },
+          relations: ['club', 'team'],
+        })
+      : [];
+    const registrationById = new Map(
+      registrations.map((registration) => [registration.id, registration]),
+    );
+
+    // Populate team details while preserving the group team order.
     for (const group of groups) {
-      // Replace team IDs with full registration data
-      const teamDetails = await Promise.all(
-        group.teams.map(async (teamId) => {
-          const registration = await this.registrationsRepository.findOne({
-            where: { id: teamId },
-            relations: ['club', 'team'],
-          });
-          return registration;
-        }),
-      );
-      (group as any).teamDetails = teamDetails.filter(Boolean);
+      (group as any).teamDetails = (group.teams || [])
+        .map((teamId) => registrationById.get(teamId))
+        .filter(Boolean);
     }
 
     return groups;
@@ -1460,6 +1466,152 @@ export class GroupsService {
       teams,
       advancingTeamsPerGroup: ageBracket.advancingTeamsPerGroup ?? undefined,
     };
+  }
+
+
+  private getTeamSlot(
+    match: Match,
+    slot: 'team1' | 'team2',
+  ): { teamId?: string; teamName?: string; sourceSlot?: string } {
+    return slot === 'team1'
+      ? {
+          teamId: match.team1Id,
+          teamName: match.team1Name,
+          sourceSlot: match.team1SourceSlot,
+        }
+      : {
+          teamId: match.team2Id,
+          teamName: match.team2Name,
+          sourceSlot: match.team2SourceSlot,
+        };
+  }
+
+  private setTeamSlot(
+    match: Match,
+    slot: 'team1' | 'team2',
+    team: { teamId?: string; teamName?: string; sourceSlot?: string },
+  ) {
+    if (slot === 'team1') {
+      match.team1Id = team.teamId;
+      match.team1Name = team.teamName;
+      match.team1SourceSlot = team.sourceSlot;
+      return;
+    }
+
+    match.team2Id = team.teamId;
+    match.team2Name = team.teamName;
+    match.team2SourceSlot = team.sourceSlot;
+  }
+
+  private isMatchLockedForTeamSwap(match: Match): boolean {
+    return (
+      match.status !== 'PENDING' ||
+      match.team1Score != null ||
+      match.team2Score != null ||
+      match.leg1Team1Score != null ||
+      match.leg1Team2Score != null ||
+      match.leg2Team1Score != null ||
+      match.leg2Team2Score != null ||
+      match.winnerId != null ||
+      match.loserId != null ||
+      match.manualWinnerId != null ||
+      match.hasPenalties === true ||
+      match.penaltyTeam1Score != null ||
+      match.penaltyTeam2Score != null
+    );
+  }
+
+  private assertMatchCanSwapTeams(match: Match) {
+    if (this.isMatchLockedForTeamSwap(match)) {
+      throw new BadRequestException(
+        'Teams can only be swapped before a match has started or received a score',
+      );
+    }
+  }
+
+
+  async swapMatchTeams(
+    tournamentId: string,
+    userId: string,
+    userRole: string,
+    dto: SwapMatchTeamsDto,
+    ageGroupId?: string,
+  ): Promise<{ sourceMatch: Match; targetMatch: Match; bracketUpdated: boolean }> {
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id: tournamentId },
+    });
+
+    if (!tournament) {
+      throw new NotFoundException('Tournament not found');
+    }
+
+    if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException(
+        'You are not allowed to manage matches for this tournament',
+      );
+    }
+
+    if (!tournament.bracketData) {
+      throw new BadRequestException(
+        'No bracket data found for this tournament',
+      );
+    }
+
+    if (
+      dto.sourceMatchId === dto.targetMatchId &&
+      dto.sourceSlot === dto.targetSlot
+    ) {
+      throw new BadRequestException('Choose two different team slots to swap');
+    }
+
+    const fullBracketData = tournament.bracketData as any;
+    const bracketData =
+      this.getBracketForAgeGroup(fullBracketData, ageGroupId) ||
+      fullBracketData;
+
+    const sourceMatch = this.findMatchInBracket(
+      bracketData,
+      dto.sourceMatchId,
+    ) as Match | null;
+    const targetMatch = this.findMatchInBracket(
+      bracketData,
+      dto.targetMatchId,
+    ) as Match | null;
+
+    if (!sourceMatch) {
+      throw new NotFoundException(`Match ${dto.sourceMatchId} not found`);
+    }
+    if (!targetMatch) {
+      throw new NotFoundException(`Match ${dto.targetMatchId} not found`);
+    }
+
+    this.assertMatchCanSwapTeams(sourceMatch);
+    if (targetMatch !== sourceMatch) {
+      this.assertMatchCanSwapTeams(targetMatch);
+    }
+
+    const sourceTeam = this.getTeamSlot(sourceMatch, dto.sourceSlot);
+    const targetTeam = this.getTeamSlot(targetMatch, dto.targetSlot);
+
+    const sourceHasValue =
+      !!sourceTeam.teamId || !!sourceTeam.sourceSlot || !!sourceTeam.teamName;
+    const targetHasValue =
+      !!targetTeam.teamId || !!targetTeam.sourceSlot || !!targetTeam.teamName;
+
+    if (!sourceHasValue || !targetHasValue) {
+      throw new BadRequestException(
+        'Both selected slots must contain teams or provisional source slots',
+      );
+    }
+
+    this.setTeamSlot(sourceMatch, dto.sourceSlot, targetTeam);
+    this.setTeamSlot(targetMatch, dto.targetSlot, sourceTeam);
+
+    await this.tournamentsRepository.update(tournamentId, {
+      bracketData: fullBracketData,
+    });
+
+    return { sourceMatch, targetMatch, bracketUpdated: true };
   }
 
   async setMatchAdvancement(

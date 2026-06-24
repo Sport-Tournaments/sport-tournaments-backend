@@ -23,6 +23,7 @@ import { LocationsModule } from './modules/locations/locations.module';
 import { MailModule } from './modules/mail/mail.module';
 import { TeamsModule } from './modules/teams/teams.module';
 import { PlayersModule } from './modules/players/players.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { PlayersModule } from './modules/players/players.module';
     LocationsModule,
     TeamsModule,
     PlayersModule,
+    DashboardModule,
   ],
   controllers: [],
   providers: [],
