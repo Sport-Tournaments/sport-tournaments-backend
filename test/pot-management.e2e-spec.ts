@@ -7,10 +7,9 @@ import {
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { DataSource } from 'typeorm';
-import { createOrganizerFixture, createUserFixture } from './fixtures';
+import { createOrganizerFixture } from './fixtures';
 import { TransformInterceptor } from '../src/common/interceptors/transform.interceptor';
 import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
-import { UserRole } from '../src/common/enums';
 
 /**
  * E2E Test Suite: Pot Management System
@@ -27,7 +26,7 @@ describe('Pot Management (e2e)', () => {
 
   // Organizer who owns the tournament
   let organizerToken: string;
-  let organizerId: string;
+  let _organizerId: string;
 
   // Another organizer (should be denied access)
   let otherOrganizerToken: string;
@@ -96,7 +95,7 @@ describe('Pot Management (e2e)', () => {
       .send({ email: orgFixture.email, password: orgFixture.password });
 
     organizerToken = loginRes.body.data.accessToken;
-    organizerId = loginRes.body.data.user?.id;
+    _organizerId = loginRes.body.data.user?.id;
 
     // ---- Create another organizer ----
     const otherOrgFixture = createOrganizerFixture({

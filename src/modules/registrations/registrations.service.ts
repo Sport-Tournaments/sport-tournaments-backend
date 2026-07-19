@@ -620,7 +620,7 @@ export class RegistrationsService {
     registration.paymentStatus = PaymentStatus.COMPLETED;
     registration.paid = true;
     registration.paidAmount =
-      dto?.paidAmount ?? Number(registration.priceAmount) ?? 0;
+      dto?.paidAmount ?? (Number(registration.priceAmount) || 0);
     if (dto?.reviewNotes) {
       registration.reviewNotes = dto.reviewNotes;
     }

@@ -47,7 +47,7 @@ export class PotDrawService {
     userRole?: string,
   ): Promise<TournamentPot> {
     // Validate tournament exists and check authorization
-    const tournament = await this.validateTournamentAccess(
+    await this.validateTournamentAccess(
       tournamentId,
       userId,
       userRole,

@@ -780,7 +780,7 @@ export class GroupsService {
       tournament.bracketData = this.clearBracketData(
         tournament.bracketData,
         ageGroupId,
-      ) as any;
+      );
       await this.tournamentsRepository.save(tournament);
     } else {
       // Full tournament reset
@@ -955,7 +955,7 @@ export class GroupsService {
       }
 
       await this.registrationsRepository.update(
-        regCountWhere as any,
+        regCountWhere,
         { groupAssignment: null as unknown as string },
       );
 
@@ -967,7 +967,7 @@ export class GroupsService {
         tournament.bracketData = this.clearBracketData(
           tournament.bracketData,
           dto.ageGroupId,
-        ) as any;
+        );
       } else {
         tournament.drawCompleted = false;
         tournament.drawSeed = undefined;
@@ -1191,7 +1191,7 @@ export class GroupsService {
     const ageGroup = ageGroupId
       ? (tournament.ageGroups ?? []).find((ag) => ag.id === ageGroupId)
       : null;
-    const bracketType = ageGroup?.format as TournamentFormat | undefined;
+    const bracketType = ageGroup?.format;
     if (bracketType !== TournamentFormat.GROUPS_PLUS_KNOCKOUT) {
       return;
     }
@@ -1255,7 +1255,7 @@ export class GroupsService {
   private getBracketForAgeGroup(
     bracketData: any,
     ageGroupId?: string,
-  ): any | null {
+  ): any {
     if (!bracketData) return null;
 
     // New format: keyed by ageGroupId
@@ -1307,7 +1307,7 @@ export class GroupsService {
    * match with the given matchId. Returns the match object reference so callers
    * can mutate it in-place.
    */
-  private findMatchInBracket(bracketData: any, matchId: string): any | null {
+  private findMatchInBracket(bracketData: any, matchId: string): any {
     if (!bracketData) return null;
 
     // Search inside playoffRounds

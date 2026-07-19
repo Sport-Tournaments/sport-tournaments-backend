@@ -7,7 +7,6 @@ import { User } from '../../users/entities/user.entity';
 import { RefreshToken } from '../entities/refresh-token.entity';
 import { UnauthorizedException } from '@nestjs/common';
 import { UserRole } from '../../../common/enums';
-import * as bcrypt from 'bcrypt';
 
 jest.mock('bcrypt');
 jest.mock('uuid', () => ({
@@ -23,7 +22,7 @@ jest.mock('uuid', () => ({
  */
 describe('Cross-Device Token Support (Issue #31)', () => {
   let service: AuthService;
-  let refreshTokenRepository: any;
+  let _refreshTokenRepository: any;
 
   const mockUser: Partial<User> = {
     id: 'user-1',
@@ -95,7 +94,7 @@ describe('Cross-Device Token Support (Issue #31)', () => {
     }).compile();
 
     service = module.get<AuthService>(AuthService);
-    refreshTokenRepository = module.get(getRepositoryToken(RefreshToken));
+    _refreshTokenRepository = module.get(getRepositoryToken(RefreshToken));
   });
 
   afterEach(() => {

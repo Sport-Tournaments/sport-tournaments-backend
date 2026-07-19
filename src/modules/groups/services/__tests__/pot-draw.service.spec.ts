@@ -207,7 +207,7 @@ describe('PotDrawService (Issue #34)', () => {
 
       const dto = { registrationId: 'registration-1', potNumber: 2 };
 
-      const result = await service.assignTeamToPot(
+      await service.assignTeamToPot(
         mockTournamentId,
         dto,
         mockOrganizerId,
@@ -236,7 +236,7 @@ describe('PotDrawService (Issue #34)', () => {
 
       const dto = { registrationId: 'registration-1', potNumber: 3 };
 
-      const result = await service.assignTeamToPot(
+      await service.assignTeamToPot(
         mockTournamentId,
         dto,
         mockOrganizerId,
