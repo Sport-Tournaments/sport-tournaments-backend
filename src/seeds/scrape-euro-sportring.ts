@@ -19,14 +19,31 @@
  *   pnpm seed:eurosportring -- --delay=2000  # 2s between requests
  */
 import 'reflect-metadata';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, QueryRunner, Repository } from 'typeorm';
 import { join } from 'path';
+import { randomUUID } from 'crypto';
 import { writeFileSync } from 'fs';
 import { config } from 'dotenv';
+import * as bcrypt from 'bcrypt';
 import { TournamentStatus, Currency, UserRole } from '../common/enums';
-import { generateUUID, hashPassword, toDateString } from './utils/helpers';
 
 config();
+
+// Local copies of seed helpers: src/seeds/utils/helpers re-exports faker,
+// which is a devDependency and unavailable in production images. This script
+// must run compiled (`node dist/seeds/scrape-euro-sportring.js`) on deploy
+// with production dependencies only.
+function generateUUID(): string {
+  return randomUUID();
+}
+
+function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, 10);
+}
+
+function toDateString(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
 
 // ── Configuration ─────────────────────────────────────────
 
@@ -51,7 +68,14 @@ interface CliOptions {
   limit?: number;
   delayMs: number;
   outFile?: string;
+  // Deploy mode: never exit non-zero (a failed scrape must not fail the
+  // deploy) and serialize concurrent replicas via a Postgres advisory lock.
+  onDeploy: boolean;
 }
+
+// Arbitrary constant key identifying "the Euro-Sportring seed" for
+// pg_advisory_lock, so only one replica seeds at a time.
+const ADVISORY_LOCK_KEY = 727270001;
 
 // ── Scraped data shape ────────────────────────────────────
 
@@ -546,9 +570,14 @@ async function seedTournament(
 // ── Entry point ───────────────────────────────────────────
 
 function parseCli(argv: string[]): CliOptions {
-  const options: CliOptions = { dryRun: false, delayMs: DEFAULTS.delayMs };
+  const options: CliOptions = {
+    dryRun: false,
+    delayMs: DEFAULTS.delayMs,
+    onDeploy: false,
+  };
   for (const arg of argv) {
     if (arg === '--dry-run') options.dryRun = true;
+    else if (arg === '--on-deploy') options.onDeploy = true;
     else if (arg.startsWith('--limit='))
       options.limit = parseInt(arg.slice(8), 10);
     else if (arg.startsWith('--delay='))
@@ -585,69 +614,97 @@ async function connect(): Promise<DataSource> {
   return dataSource;
 }
 
-async function main(): Promise<void> {
-  const options = parseCli(process.argv.slice(2));
-
+async function main(options: CliOptions): Promise<void> {
   console.log('🌍 Scraping Euro-Sportring youth football tournaments');
   console.log(
-    `   throttle: ${options.delayMs}ms/request${options.dryRun ? ' | DRY RUN (no DB writes)' : ''}`,
+    `   throttle: ${options.delayMs}ms/request${options.dryRun ? ' | DRY RUN (no DB writes)' : ''}${options.onDeploy ? ' | deploy mode' : ''}`,
   );
   console.log('');
 
-  // 1. Crawl all listing pages for detail URLs
-  let paths = await crawlListing(options);
-  if (options.limit) paths = paths.slice(0, options.limit);
-  console.log(`\n🔗 ${paths.length} tournament pages to scrape\n`);
+  // Connect (and take the advisory lock) BEFORE scraping so a concurrent
+  // replica bails out immediately instead of scraping the site twice.
+  let dataSource: DataSource | undefined;
+  let lockRunner: QueryRunner | undefined;
+  if (!options.dryRun) {
+    dataSource = await connect();
+    lockRunner = dataSource.createQueryRunner();
+    await lockRunner.connect();
+    const [{ locked }] = (await lockRunner.query(
+      'SELECT pg_try_advisory_lock($1) AS locked',
+      [ADVISORY_LOCK_KEY],
+    )) as [{ locked: boolean }];
+    if (!locked) {
+      console.log(
+        '🔒 Another instance is already running the Euro-Sportring seed — skipping.',
+      );
+      await lockRunner.release();
+      await dataSource.destroy();
+      return;
+    }
+  }
 
-  // 2. Scrape each detail page (sequential + throttled)
-  const scraped: ScrapedTournament[] = [];
-  for (let i = 0; i < paths.length; i++) {
-    try {
-      const t = await scrapeTournament(paths[i], options);
-      if (t) {
-        scraped.push(t);
-        console.log(
-          `  [${i + 1}/${paths.length}] ${t.name} — ${t.startDate ?? 'no date'} — ${t.locality ?? '?'}, ${t.countryCode ?? '?'} — ${t.ageCategories.join('/') || 'no categories'}`,
+  try {
+    // 1. Crawl all listing pages for detail URLs
+    let paths = await crawlListing(options);
+    if (options.limit) paths = paths.slice(0, options.limit);
+    console.log(`\n🔗 ${paths.length} tournament pages to scrape\n`);
+
+    // 2. Scrape each detail page (sequential + throttled)
+    const scraped: ScrapedTournament[] = [];
+    for (let i = 0; i < paths.length; i++) {
+      try {
+        const t = await scrapeTournament(paths[i], options);
+        if (t) {
+          scraped.push(t);
+          console.log(
+            `  [${i + 1}/${paths.length}] ${t.name} — ${t.startDate ?? 'no date'} — ${t.locality ?? '?'}, ${t.countryCode ?? '?'} — ${t.ageCategories.join('/') || 'no categories'}`,
+          );
+        }
+      } catch (error) {
+        console.warn(
+          `  ⚠ [${i + 1}/${paths.length}] Skipping ${paths[i]}: ${(error as Error).message}`,
         );
       }
-    } catch (error) {
-      console.warn(
-        `  ⚠ [${i + 1}/${paths.length}] Skipping ${paths[i]}: ${(error as Error).message}`,
+    }
+    console.log(`\n✅ Scraped ${scraped.length}/${paths.length} tournaments`);
+
+    // Optionally persist the raw scrape result
+    if (options.outFile || options.dryRun) {
+      const out = options.outFile ?? 'euro-sportring-scraped.json';
+      writeFileSync(out, JSON.stringify(scraped, null, 2));
+      console.log(`💾 Raw data written to ${out}`);
+    }
+
+    // 3. Insert / update in the database
+    if (dataSource) {
+      const organizerId = await ensureOrganizer(dataSource);
+      let inserted = 0;
+      let updated = 0;
+      for (const t of scraped) {
+        const action = await seedTournament(dataSource, organizerId, t);
+        if (action === 'inserted') inserted++;
+        else updated++;
+      }
+      console.log('');
+      console.log(
+        `🏆 Done: ${inserted} tournaments inserted, ${updated} updated`,
       );
+      console.log(`   Organizer: ${ORGANIZER_EMAIL}`);
     }
-  }
-  console.log(`\n✅ Scraped ${scraped.length}/${paths.length} tournaments`);
-
-  // Optionally persist the raw scrape result
-  if (options.outFile || options.dryRun) {
-    const out = options.outFile ?? 'euro-sportring-scraped.json';
-    writeFileSync(out, JSON.stringify(scraped, null, 2));
-    console.log(`💾 Raw data written to ${out}`);
-  }
-  if (options.dryRun) return;
-
-  // 3. Insert / update in the database
-  const dataSource = await connect();
-  try {
-    const organizerId = await ensureOrganizer(dataSource);
-    let inserted = 0;
-    let updated = 0;
-    for (const t of scraped) {
-      const action = await seedTournament(dataSource, organizerId, t);
-      if (action === 'inserted') inserted++;
-      else updated++;
-    }
-    console.log('');
-    console.log(
-      `🏆 Done: ${inserted} tournaments inserted, ${updated} updated`,
-    );
-    console.log(`   Organizer: ${ORGANIZER_EMAIL}`);
   } finally {
-    await dataSource.destroy();
+    if (lockRunner) {
+      await lockRunner.query('SELECT pg_advisory_unlock($1)', [
+        ADVISORY_LOCK_KEY,
+      ]);
+      await lockRunner.release();
+    }
+    if (dataSource) await dataSource.destroy();
   }
 }
 
-main().catch((error) => {
+const cliOptions = parseCli(process.argv.slice(2));
+main(cliOptions).catch((error) => {
   console.error('❌ Import failed:', error);
-  process.exit(1);
+  // In deploy mode a failed import must never fail the deployment/start-up.
+  process.exit(cliOptions.onDeploy ? 0 : 1);
 });

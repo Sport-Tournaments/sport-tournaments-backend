@@ -15,7 +15,7 @@ cmds = [
 ]
 
 [start]
-cmd = "node dist/main"
+cmd = "sh scripts/start-prod.sh"
 
 [variables]
 NODE_ENV = "production"

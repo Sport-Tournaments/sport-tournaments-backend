@@ -207,6 +207,22 @@ re-running refreshes existing rows (and replaces their age groups/locations)
 instead of duplicating them. It does **not** clear any other data — it composes
 with `pnpm seed` or an empty database alike.
 
+### Automatic run on production deploy
+
+Production starts through `scripts/start-prod.sh` (wired into `nixpacks.toml`
+and the `Dockerfile` CMD), which launches the compiled seeder
+(`node dist/seeds/scrape-euro-sportring.js --on-deploy`) **in the background**
+before starting the API. On every deploy the database is refreshed with the
+current Euro-Sportring data. Safety properties in deploy mode:
+
+- **Non-blocking**: the API starts immediately; the seed (~2 min) runs
+  concurrently and a failed scrape can never fail the deployment (always
+  exits 0).
+- **Single-flight**: a Postgres advisory lock ensures only one replica seeds
+  at a time; others skip.
+- **Opt-out**: set `SEED_EUROSPORTRING_ON_DEPLOY=false` in the environment to
+  disable it.
+
 ## Related Documentation
 
 - [Getting Started](./GETTING_STARTED.md)
