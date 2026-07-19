@@ -39,6 +39,9 @@ RUN pnpm install --frozen-lockfile --prod
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
 
+# Copy runtime scripts (production start-up with background seeding)
+COPY --from=builder /app/scripts ./scripts
+
 # Change ownership to non-root user
 RUN chown -R nestjs:nodejs /app
 
@@ -55,5 +58,6 @@ ENV NODE_ENV=production
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
 
-# Start the application
-CMD ["node", "dist/main.js"]
+# Start the application (runs the Euro-Sportring seed in the background first;
+# opt out with SEED_EUROSPORTRING_ON_DEPLOY=false)
+CMD ["sh", "scripts/start-prod.sh"]
