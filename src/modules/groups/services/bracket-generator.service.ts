@@ -13,7 +13,6 @@ import { BracketType } from '../../../common/interfaces/bracket.interface';
 import type {
   Match,
   PlayoffRound,
-  PlacementBracket,
   BracketData,
   GroupStanding,
 } from '../../../common/interfaces/bracket.interface';
@@ -531,9 +530,6 @@ export class BracketGeneratorService {
       (r) => r.roundName === 'Third Place',
     );
     const thirdPlaceMatchId = thirdPlaceRound?.matches?.[0]?.id;
-
-    // Find the semi-finals round (the round right before the Final)
-    const finalRound = playoffRounds.find((r) => r.roundName === 'Final');
 
     for (let i = 0; i < playoffRounds.length - 1; i++) {
       const currentRound = playoffRounds[i];

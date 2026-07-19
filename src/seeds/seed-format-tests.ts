@@ -16,7 +16,7 @@ config();
 // ───────── Constants ─────────
 const ORGANIZER_ID = '5f3ce9b6-b4ef-4cb4-8a20-114bb540c823'; // cahangeorge@gmail.com
 
-const FORMATS = [
+const _FORMATS = [
   'SINGLE_ELIMINATION',
   'DOUBLE_ELIMINATION',
   'ROUND_ROBIN',
@@ -24,7 +24,7 @@ const FORMATS = [
   'LEAGUE',
 ] as const;
 
-type FormatType = (typeof FORMATS)[number];
+type FormatType = (typeof _FORMATS)[number];
 
 const TOURNAMENT_DEFS: {
   name: string;

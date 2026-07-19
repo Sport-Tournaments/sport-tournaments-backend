@@ -3,8 +3,6 @@ import {
   IsOptional,
   IsNumber,
   IsEnum,
-  IsArray,
-  IsBoolean,
   Min,
   Max,
   IsUUID,
@@ -14,7 +12,6 @@ import { Type } from 'class-transformer';
 import {
   RegistrationStatus,
   PaymentStatus,
-  Currency,
 } from '../../../common/enums';
 import { PaginationDto } from '../../../common/dto';
 

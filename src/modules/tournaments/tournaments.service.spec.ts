@@ -637,7 +637,7 @@ describe('TournamentsService', () => {
 
     describe('data integrity validation', () => {
       it('should throw error when maxTeams is less than minTeams', async () => {
-        const createDto: CreateTournamentDto = {
+        const _createDto: CreateTournamentDto = {
           name: 'Invalid Tournament',
           description: 'Tournament with invalid age group constraints',
           startDate: '2025-07-01',

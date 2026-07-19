@@ -1,5 +1,5 @@
 import { DataSource } from 'typeorm';
-import { faker, generateUUID, seedDate } from '../utils/helpers';
+import { generateUUID, seedDate } from '../utils/helpers';
 
 export interface SeededGroup {
   id: string;

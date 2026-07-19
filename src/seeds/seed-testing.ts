@@ -22,7 +22,7 @@
  */
 import 'reflect-metadata';
 import * as bcrypt from 'bcrypt';
-import { DataSource, QueryRunner } from 'typeorm';
+import { DataSource } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { join } from 'path';
 import { config } from 'dotenv';
