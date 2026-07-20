@@ -5,9 +5,10 @@ import {
   BadRequestException,
   Inject,
   forwardRef,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThanOrEqual } from 'typeorm';
+import { Repository, MoreThanOrEqual, DeepPartial } from 'typeorm';
 import { Tournament } from './entities/tournament.entity';
 import { TournamentAgeGroup } from './entities/tournament-age-group.entity';
 import {
@@ -18,11 +19,17 @@ import {
 } from './dto';
 import { PaginationDto } from '../../common/dto';
 import { PaginatedResponse } from '../../common/interfaces';
-import { TournamentStatus, UserRole } from '../../common/enums';
+import {
+  TournamentStatus,
+  UserRole,
+  RegistrationStatus,
+} from '../../common/enums';
 import { FilesService } from '../files/files.service';
 
 @Injectable()
 export class TournamentsService {
+  private readonly logger = new Logger(TournamentsService.name);
+
   constructor(
     @InjectRepository(Tournament)
     private tournamentsRepository: Repository<Tournament>,
@@ -32,39 +39,222 @@ export class TournamentsService {
     private ageGroupsRepository: Repository<TournamentAgeGroup>,
   ) {}
 
+  private slugify(value: string): string {
+    return value
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/[\s_-]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
+  private async generateUniqueSlug(
+    baseValue: string,
+    excludeId?: string,
+  ): Promise<string> {
+    const baseSlug = this.slugify(baseValue);
+    if (!baseSlug) {
+      throw new BadRequestException('Slug cannot be empty');
+    }
+
+    let candidate = baseSlug;
+    let suffix = 1;
+
+    // Loop until we find a unique slug (or the existing one for the same record)
+    while (true) {
+      const existing = await this.tournamentsRepository.findOne({
+        where: { urlSlug: candidate },
+        select: ['id', 'urlSlug'],
+      });
+
+      if (!existing || existing.id === excludeId) {
+        return candidate;
+      }
+
+      suffix += 1;
+      candidate = `${baseSlug}-${suffix}`;
+    }
+  }
+
+  private normalizeDateOnly(value?: Date | string | null): Date | null {
+    if (!value) return null;
+
+    if (typeof value === 'string') {
+      const [year, month, day] = value.split('-').map(Number);
+      if (
+        Number.isFinite(year) &&
+        Number.isFinite(month) &&
+        Number.isFinite(day)
+      ) {
+        return new Date(year, month - 1, day);
+      }
+      return new Date(value);
+    }
+
+    const date = value instanceof Date ? value : new Date(value);
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  }
+
+  private getStartOfDay(value?: Date | string | null): Date | null {
+    const date = this.normalizeDateOnly(value);
+    if (!date) return null;
+    return new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      0,
+      0,
+      0,
+      0,
+    );
+  }
+
+  private getEndOfDay(value?: Date | string | null): Date | null {
+    const date = this.normalizeDateOnly(value);
+    if (!date) return null;
+    return new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      23,
+      59,
+      59,
+      999,
+    );
+  }
+
+  private async syncPastTournamentsAsCompleted(): Promise<void> {
+    await this.tournamentsRepository
+      .createQueryBuilder()
+      .update(Tournament)
+      .set({ status: TournamentStatus.COMPLETED })
+      .where('status IN (:...activeStatuses)', {
+        activeStatuses: [TournamentStatus.PUBLISHED, TournamentStatus.ONGOING],
+      })
+      .andWhere('end_date IS NOT NULL')
+      .andWhere('end_date < CURRENT_DATE')
+      .execute();
+  }
+
   async create(
     organizerId: string,
     createTournamentDto: CreateTournamentDto,
   ): Promise<Tournament> {
-    // Validate dates - compare as strings in YYYY-MM-DD format
-    if (createTournamentDto.endDate < createTournamentDto.startDate) {
+    // Validate dates only if both are provided - dates are now optional and managed per age group
+    if (
+      createTournamentDto.startDate &&
+      createTournamentDto.endDate &&
+      createTournamentDto.endDate < createTournamentDto.startDate
+    ) {
       throw new BadRequestException('End date must be after start date');
+    }
+
+    // Validate registration dates if provided
+    if (
+      createTournamentDto.startDate &&
+      createTournamentDto.registrationStartDate &&
+      createTournamentDto.registrationStartDate >= createTournamentDto.startDate
+    ) {
+      throw new BadRequestException(
+        'Registration start date must be before tournament start date',
+      );
+    }
+
+    if (
+      createTournamentDto.startDate &&
+      createTournamentDto.registrationEndDate &&
+      createTournamentDto.registrationEndDate >= createTournamentDto.startDate
+    ) {
+      throw new BadRequestException(
+        'Registration must close before the tournament starts',
+      );
+    }
+
+    if (
+      createTournamentDto.registrationStartDate &&
+      createTournamentDto.registrationEndDate &&
+      createTournamentDto.registrationEndDate <
+        createTournamentDto.registrationStartDate
+    ) {
+      throw new BadRequestException(
+        'Registration end date must be after registration start date',
+      );
     }
 
     // Extract nested DTO arrays to handle separately (not stored in tournament entity)
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { ageGroups, locations, ...tournamentData } = createTournamentDto;
 
+    if (createTournamentDto.urlSlug || createTournamentDto.name) {
+      const slugSource =
+        createTournamentDto.urlSlug || createTournamentDto.name;
+      if (slugSource) {
+        tournamentData.urlSlug = await this.generateUniqueSlug(slugSource);
+      }
+    }
+
     // Pass date strings directly - the transformer will handle conversion
     const tournament = this.tournamentsRepository.create({
       ...tournamentData,
       organizerId,
-      status: TournamentStatus.DRAFT,
+      status: TournamentStatus.PUBLISHED,
+      isPublished: true,
+      isPrivate: tournamentData.isPrivate ?? false,
     });
 
     const savedTournament = await this.tournamentsRepository.save(tournament);
 
     // Save age groups if provided
     if (ageGroups && ageGroups.length > 0) {
-      const ageGroupEntities = ageGroups.map((ag) =>
-        this.ageGroupsRepository.create({
-          ...ag,
-          tournamentId: savedTournament.id,
-          startDate: ag.startDate || createTournamentDto.startDate,
-          endDate: ag.endDate || createTournamentDto.endDate,
-        }),
+      const ageGroupEntities: DeepPartial<TournamentAgeGroup>[] = ageGroups.map(
+        (ag) => {
+          const {
+            minTeams,
+            maxTeams,
+            guaranteedMatches,
+            participationFee,
+            qualifyingTeamsPerGroup,
+            ...rest
+          } = ag as any;
+
+          return {
+            ...rest,
+            tournamentId: savedTournament.id,
+            startDate: ag.startDate || createTournamentDto.startDate,
+            endDate: ag.endDate || createTournamentDto.endDate,
+            minTeams: minTeams ?? undefined,
+            maxTeams: maxTeams ?? undefined,
+            guaranteedMatches: guaranteedMatches ?? undefined,
+            participationFee: participationFee ?? undefined,
+            qualifyingTeamsPerGroup: qualifyingTeamsPerGroup ?? undefined,
+          };
+        },
       );
       await this.ageGroupsRepository.save(ageGroupEntities);
+
+      // Derive and persist tournament-level dates from age groups when not explicitly provided
+      if (!savedTournament.startDate) {
+        const startDates = ageGroupEntities
+          .map((ag) => ag.startDate as string)
+          .filter(Boolean)
+          .sort();
+        if (startDates.length > 0) {
+          savedTournament.startDate = startDates[0] as any;
+        }
+      }
+      if (!savedTournament.endDate) {
+        const endDates = ageGroupEntities
+          .map((ag) => ag.endDate as string)
+          .filter(Boolean)
+          .sort()
+          .reverse();
+        if (endDates.length > 0) {
+          savedTournament.endDate = endDates[0] as any;
+        }
+      }
+      if (savedTournament.startDate || savedTournament.endDate) {
+        await this.tournamentsRepository.save(savedTournament);
+      }
     }
 
     return savedTournament;
@@ -74,12 +264,15 @@ export class TournamentsService {
     pagination: PaginationDto,
     filters?: TournamentFilterDto,
   ): Promise<PaginatedResponse<Tournament>> {
+    await this.syncPastTournamentsAsCompleted();
+
     const { page = 1, pageSize = 20 } = pagination;
     const skip = (page - 1) * pageSize;
 
     const queryBuilder = this.tournamentsRepository
       .createQueryBuilder('tournament')
-      .leftJoinAndSelect('tournament.organizer', 'organizer');
+      .leftJoinAndSelect('tournament.organizer', 'organizer')
+      .leftJoinAndSelect('tournament.ageGroups', 'ageGroups');
 
     // By default, only show published tournaments for public queries
     if (!filters?.status) {
@@ -92,12 +285,6 @@ export class TournamentsService {
       });
     }
 
-    if (filters?.ageCategory) {
-      queryBuilder.andWhere('tournament.ageCategory = :ageCategory', {
-        ageCategory: filters.ageCategory,
-      });
-    }
-
     if (filters?.level) {
       queryBuilder.andWhere('tournament.level = :level', {
         level: filters.level,
@@ -105,9 +292,13 @@ export class TournamentsService {
     }
 
     if (filters?.country) {
-      queryBuilder.andWhere('tournament.country = :country', {
-        country: filters.country,
-      });
+      queryBuilder.andWhere(
+        '(LOWER(tournament.country) = LOWER(:country) OR LOWER(tournament.location) LIKE LOWER(:countryLike))',
+        {
+          country: filters.country,
+          countryLike: `%${filters.country}%`,
+        },
+      );
     }
 
     if (filters?.startDateFrom && filters?.startDateTo) {
@@ -159,7 +350,25 @@ export class TournamentsService {
     }
 
     if (filters?.hasAvailableSpots) {
-      queryBuilder.andWhere('tournament.currentTeams < tournament.maxTeams');
+      // Effective capacity may live on the tournament row OR be derived from age groups
+      // (tournament.max_teams is nullable; many records have it on tournament_age_groups
+      //  via max_teams or team_count). Match if any source shows available spots.
+      queryBuilder.andWhere(
+        `(
+          (tournament.max_teams IS NOT NULL AND tournament.current_teams < tournament.max_teams)
+          OR EXISTS (
+            SELECT 1 FROM tournament_age_groups ag
+            WHERE ag.tournament_id = tournament.id
+              AND ag.current_teams < COALESCE(ag.max_teams, ag.team_count, 0)
+          )
+        )`,
+      );
+    }
+
+    if (filters?.isPrivate !== undefined) {
+      queryBuilder.andWhere('tournament.isPrivate = :isPrivate', {
+        isPrivate: filters.isPrivate,
+      });
     }
 
     if (filters?.search) {
@@ -172,7 +381,8 @@ export class TournamentsService {
     // Distance filter using Haversine formula (approximate)
     // Default to 50km radius when user location is provided but no maxDistance specified
     const hasUserLocation = filters?.userLatitude && filters?.userLongitude;
-    const effectiveMaxDistance = filters?.maxDistance ?? (hasUserLocation ? 50 : undefined);
+    const effectiveMaxDistance =
+      filters?.maxDistance ?? (hasUserLocation ? 50 : undefined);
 
     if (hasUserLocation && effectiveMaxDistance) {
       // Add distance calculation as a select expression for potential sorting
@@ -242,6 +452,67 @@ export class TournamentsService {
       .take(pageSize)
       .getManyAndCount();
 
+    // Enrich list results with effective dates/maxTeams from age groups and team counts
+    if (tournaments.length > 0) {
+      const tournamentIds = tournaments.map((t) => t.id);
+      const placeholders = tournamentIds.map((_, i) => `$${i + 1}`).join(',');
+      const countRows: Array<{
+        tournament_id: string;
+        confirmedteams: string;
+        registeredteams: string;
+      }> = await this.tournamentsRepository.manager.query(
+        `SELECT tournament_id,
+           SUM(CASE WHEN status = 'APPROVED' THEN 1 ELSE 0 END) AS confirmedteams,
+           COUNT(*) AS registeredteams
+         FROM registrations
+         WHERE tournament_id IN (${placeholders})
+         GROUP BY tournament_id`,
+        tournamentIds,
+      );
+
+      const countMap = new Map(countRows.map((r) => [r.tournament_id, r]));
+
+      for (const tournament of tournaments) {
+        const counts = countMap.get(tournament.id);
+        (tournament as any).confirmedTeams = parseInt(
+          counts?.confirmedteams ?? '0',
+          10,
+        );
+        (tournament as any).registeredTeams = parseInt(
+          counts?.registeredteams ?? '0',
+          10,
+        );
+
+        // Derive effective startDate from age groups when not set at tournament level
+        if (!tournament.startDate && tournament.ageGroups?.length) {
+          const sorted = tournament.ageGroups
+            .map((ag) => ag.startDate)
+            .filter(Boolean)
+            .sort();
+          if (sorted.length) tournament.startDate = sorted[0];
+        }
+
+        // Derive effective endDate from age groups when not set at tournament level
+        if (!tournament.endDate && tournament.ageGroups?.length) {
+          const sorted = tournament.ageGroups
+            .map((ag) => ag.endDate)
+            .filter(Boolean)
+            .sort();
+          if (sorted.length) tournament.endDate = sorted[sorted.length - 1];
+        }
+
+        // Derive effective maxTeams from age groups when not set at tournament level
+        // Use maxTeams if set, otherwise fall back to teamCount (the target/guaranteed capacity)
+        if (!tournament.maxTeams && tournament.ageGroups?.length) {
+          const total = tournament.ageGroups.reduce(
+            (sum, ag) => sum + (ag.maxTeams ?? ag.teamCount ?? 0),
+            0,
+          );
+          if (total > 0) tournament.maxTeams = total;
+        }
+      }
+    }
+
     return {
       data: tournaments,
       meta: {
@@ -254,6 +525,8 @@ export class TournamentsService {
   }
 
   async findById(id: string): Promise<Tournament | null> {
+    await this.syncPastTournamentsAsCompleted();
+
     return this.tournamentsRepository.findOne({
       where: { id },
       relations: ['organizer', 'registrations', 'groups', 'ageGroups'],
@@ -267,13 +540,117 @@ export class TournamentsService {
       throw new NotFoundException(`Tournament with ID ${id} not found`);
     }
 
-    return tournament;
+    const normalized = await this.normalizeDraftStatus(tournament);
+    return this.enrichTournamentData(normalized);
+  }
+
+  async findDetailsByIdOrFail(id: string): Promise<Tournament> {
+    await this.syncPastTournamentsAsCompleted();
+
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id },
+      relations: ['organizer', 'ageGroups'],
+    });
+
+    if (!tournament) {
+      throw new NotFoundException(`Tournament with ID ${id} not found`);
+    }
+
+    const normalized = await this.normalizeDraftStatus(tournament);
+    return this.enrichTournamentDetails(normalized);
+  }
+
+  async findBySlug(slug: string): Promise<Tournament | null> {
+    await this.syncPastTournamentsAsCompleted();
+
+    return this.tournamentsRepository.findOne({
+      where: { urlSlug: slug },
+      relations: ['organizer', 'registrations', 'groups', 'ageGroups'],
+    });
+  }
+
+  async findBySlugOrFail(slug: string): Promise<Tournament> {
+    await this.syncPastTournamentsAsCompleted();
+
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { urlSlug: slug },
+      relations: ['organizer', 'ageGroups'],
+    });
+
+    if (!tournament) {
+      throw new NotFoundException(`Tournament with slug ${slug} not found`);
+    }
+
+    const normalized = await this.normalizeDraftStatus(tournament);
+    return this.enrichTournamentDetails(normalized);
   }
 
   async findByOrganizer(organizerId: string): Promise<Tournament[]> {
-    return this.tournamentsRepository.find({
+    await this.syncPastTournamentsAsCompleted();
+
+    const tournaments = await this.tournamentsRepository.find({
       where: { organizerId },
+      relations: ['ageGroups'],
       order: { startDate: 'DESC' },
+    });
+
+    return Promise.all(
+      tournaments.map((tournament) => this.normalizeDraftStatus(tournament)),
+    );
+  }
+
+  private async normalizeDraftStatus(
+    tournament: Tournament,
+  ): Promise<Tournament> {
+    if (tournament.status !== TournamentStatus.DRAFT) {
+      return tournament;
+    }
+
+    tournament.status = TournamentStatus.PUBLISHED;
+    tournament.isPublished = true;
+
+    return this.tournamentsRepository.save(tournament);
+  }
+
+  private enrichTournamentData(tournament: Tournament): Tournament {
+    const confirmedTeams =
+      tournament.registrations?.filter(
+        (r) => r.status === RegistrationStatus.APPROVED,
+      ).length ?? 0;
+
+    const effectiveStartDate =
+      tournament.ageGroups
+        ?.map((ag) => ag.startDate)
+        .filter(Boolean)
+        .sort()[0] ?? null;
+
+    return Object.assign(tournament, { confirmedTeams, effectiveStartDate });
+  }
+
+  private async enrichTournamentDetails(
+    tournament: Tournament,
+  ): Promise<Tournament> {
+    const [{ count } = { count: '0' }] = await this.tournamentsRepository
+      .createQueryBuilder('tournament')
+      .leftJoin(
+        'tournament.registrations',
+        'registration',
+        'registration.status = :status',
+        { status: RegistrationStatus.APPROVED },
+      )
+      .select('COUNT(registration.id)', 'count')
+      .where('tournament.id = :id', { id: tournament.id })
+      .getRawMany<{ count: string }>();
+
+    const effectiveStartDate =
+      tournament.ageGroups
+        ?.map((ag) => ag.startDate)
+        .filter(Boolean)
+        .sort()[0] ?? null;
+
+    return Object.assign(tournament, {
+      confirmedTeams: parseInt(count, 10) || 0,
+      effectiveStartDate,
     });
   }
 
@@ -284,11 +661,15 @@ export class TournamentsService {
     updateTournamentDto: UpdateTournamentDto,
   ): Promise<Tournament> {
     const tournament = await this.findByIdOrFail(id);
+    const previousStatus = tournament.status;
 
     // Only the organizer or admin can update the tournament
     if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
+      this.logger.warn(
+        `Unauthorized update attempt: User ${userId} (role: ${userRole}) tried to update tournament ${id} owned by ${tournament.organizerId}`,
+      );
       throw new ForbiddenException(
-        'You are not allowed to update this tournament',
+        'You are not allowed to update this tournament. Only the tournament organizer can make changes.',
       );
     }
 
@@ -307,14 +688,77 @@ export class TournamentsService {
       const startDate = updateTournamentDto.startDate || tournament.startDate;
       const endDate = updateTournamentDto.endDate || tournament.endDate;
 
-      // Compare as strings in YYYY-MM-DD format
-      if (endDate < startDate) {
+      // Compare as strings in YYYY-MM-DD format - only if both dates exist
+      if (startDate && endDate && endDate < startDate) {
         throw new BadRequestException('End date must be after start date');
       }
     }
 
+    // Validate registration dates if being updated and tournament has a start date
+    const startDate = updateTournamentDto.startDate || tournament.startDate;
+    if (
+      startDate &&
+      updateTournamentDto.registrationStartDate &&
+      updateTournamentDto.registrationStartDate >= startDate
+    ) {
+      throw new BadRequestException(
+        'Registration start date must be before tournament start date',
+      );
+    }
+
+    if (
+      startDate &&
+      updateTournamentDto.registrationEndDate &&
+      updateTournamentDto.registrationEndDate >= startDate
+    ) {
+      throw new BadRequestException(
+        'Registration must close before the tournament starts',
+      );
+    }
+
+    if (
+      updateTournamentDto.registrationStartDate &&
+      updateTournamentDto.registrationEndDate &&
+      updateTournamentDto.registrationEndDate <
+        updateTournamentDto.registrationStartDate
+    ) {
+      throw new BadRequestException(
+        'Registration end date must be after registration start date',
+      );
+    }
+
+    // Also check against existing registration dates if not being updated
+
+    // Handle slug updates (user can modify; auto-generate if missing)
+    if (updateTournamentDto.urlSlug !== undefined) {
+      const slugSource =
+        updateTournamentDto.urlSlug || updateTournamentDto.name || '';
+      tournament.urlSlug = await this.generateUniqueSlug(
+        slugSource,
+        tournament.id,
+      );
+    } else if (!tournament.urlSlug && updateTournamentDto.name) {
+      tournament.urlSlug = await this.generateUniqueSlug(
+        updateTournamentDto.name,
+        tournament.id,
+      );
+    }
+
     // Pass values directly - the transformer will handle conversion
     Object.assign(tournament, updateTournamentDto);
+
+    if (tournament.status === TournamentStatus.DRAFT) {
+      tournament.status = TournamentStatus.PUBLISHED;
+      tournament.isPublished = true;
+      tournament.isRegistrationClosed = false;
+    }
+
+    if (tournament.status === TournamentStatus.PUBLISHED) {
+      tournament.isPublished = true;
+      if (previousStatus !== TournamentStatus.PUBLISHED) {
+        tournament.isRegistrationClosed = false;
+      }
+    }
 
     return this.tournamentsRepository.save(tournament);
   }
@@ -323,7 +767,31 @@ export class TournamentsService {
     tournamentId: string,
     userId: string,
     userRole: string,
-    ageGroups: { id?: string; birthYear: number; displayLabel?: string; gameSystem?: string; teamCount?: number; minTeams?: number; startDate?: string; endDate?: string; locationId?: string; participationFee?: number; groupsCount?: number; teamsPerGroup?: number }[],
+    ageGroups: {
+      id?: string;
+      birthYear: number;
+      displayLabel?: string;
+      level?: string;
+      format?: string;
+      gameSystem?: string;
+      teamCount?: number;
+      minTeams?: number;
+      numberOfMatches?: number;
+      matchPeriodType?: 'ONE_HALF' | 'TWO_HALVES';
+      halfDurationMinutes?: number;
+      halfTimePauseMinutes?: number;
+      pauseBetweenMatchesMinutes?: number;
+      leagueLegs?: number;
+      startDate?: string;
+      endDate?: string;
+      locationId?: string;
+      locationAddress?: string;
+      participationFee?: number;
+      groupsCount?: number;
+      fieldsCount?: number;
+      teamsPerGroup?: number;
+      qualifyingTeamsPerGroup?: number;
+    }[],
   ): Promise<TournamentAgeGroup[]> {
     const tournament = await this.findByIdOrFail(tournamentId);
 
@@ -362,24 +830,70 @@ export class TournamentsService {
     // Upsert age groups
     const result: TournamentAgeGroup[] = [];
     for (const ag of ageGroups) {
+      const {
+        minTeams,
+        maxTeams,
+        guaranteedMatches,
+        participationFee,
+        qualifyingTeamsPerGroup,
+        ...rest
+      } = ag as any;
+
       if (ag.id) {
         // Update existing
         const existing = existingAgeGroups.find((e) => e.id === ag.id);
         if (existing) {
           // Pass values directly - transformer handles conversion
-          Object.assign(existing, ag);
+          Object.assign(existing, rest);
+          if (minTeams !== undefined) existing.minTeams = minTeams;
+          if (maxTeams !== undefined) existing.maxTeams = maxTeams;
+          if (guaranteedMatches !== undefined)
+            existing.guaranteedMatches = guaranteedMatches;
+          if (participationFee !== undefined) {
+            existing.participationFee = participationFee;
+          }
+          existing.qualifyingTeamsPerGroup =
+            qualifyingTeamsPerGroup ?? (null as any);
           result.push(await this.ageGroupsRepository.save(existing));
         }
       } else {
         // Create new - pass date strings directly
-        const newAgeGroup = this.ageGroupsRepository.create({
-          ...ag,
+        const newAgeGroup: DeepPartial<TournamentAgeGroup> = {
+          ...rest,
           tournamentId,
           startDate: ag.startDate || tournament.startDate,
           endDate: ag.endDate || tournament.endDate,
-        });
+          minTeams: minTeams ?? undefined,
+          maxTeams: maxTeams ?? undefined,
+          guaranteedMatches: guaranteedMatches ?? undefined,
+          participationFee: participationFee ?? undefined,
+          qualifyingTeamsPerGroup: qualifyingTeamsPerGroup ?? undefined,
+        };
         result.push(await this.ageGroupsRepository.save(newAgeGroup));
       }
+    }
+
+    // Sync tournament-level dates from the final set of age groups
+    const allAgeGroups = await this.ageGroupsRepository.find({
+      where: { tournamentId },
+    });
+    const startDates = allAgeGroups
+      .map((ag) => ag.startDate as unknown as string)
+      .filter(Boolean)
+      .sort();
+    const endDates = allAgeGroups
+      .map((ag) => ag.endDate as unknown as string)
+      .filter(Boolean)
+      .sort()
+      .reverse();
+    if (startDates.length > 0) {
+      tournament.startDate = startDates[0] as any;
+    }
+    if (endDates.length > 0) {
+      tournament.endDate = endDates[0] as any;
+    }
+    if (startDates.length > 0 || endDates.length > 0) {
+      await this.tournamentsRepository.save(tournament);
     }
 
     return result;
@@ -390,8 +904,22 @@ export class TournamentsService {
     adminUpdateTournamentDto: AdminUpdateTournamentDto,
   ): Promise<Tournament> {
     const tournament = await this.findByIdOrFail(id);
+    const previousStatus = tournament.status;
 
     Object.assign(tournament, adminUpdateTournamentDto);
+
+    if (tournament.status === TournamentStatus.DRAFT) {
+      tournament.status = TournamentStatus.PUBLISHED;
+      tournament.isPublished = true;
+      tournament.isRegistrationClosed = false;
+    }
+
+    if (
+      tournament.status === TournamentStatus.PUBLISHED &&
+      previousStatus !== TournamentStatus.PUBLISHED
+    ) {
+      tournament.isRegistrationClosed = false;
+    }
 
     return this.tournamentsRepository.save(tournament);
   }
@@ -409,12 +937,18 @@ export class TournamentsService {
       );
     }
 
-    if (tournament.status !== TournamentStatus.DRAFT) {
-      throw new BadRequestException('Only draft tournaments can be published');
+    if (
+      tournament.status === TournamentStatus.CANCELLED ||
+      tournament.status === TournamentStatus.COMPLETED
+    ) {
+      throw new BadRequestException(
+        'Cannot publish cancelled or completed tournaments',
+      );
     }
 
     tournament.status = TournamentStatus.PUBLISHED;
     tournament.isPublished = true;
+    tournament.isRegistrationClosed = false;
 
     return this.tournamentsRepository.save(tournament);
   }
@@ -437,30 +971,7 @@ export class TournamentsService {
     }
 
     tournament.status = TournamentStatus.CANCELLED;
-
-    return this.tournamentsRepository.save(tournament);
-  }
-
-  async start(
-    id: string,
-    userId: string,
-    userRole: string,
-  ): Promise<Tournament> {
-    const tournament = await this.findByIdOrFail(id);
-
-    if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
-      throw new ForbiddenException(
-        'You are not allowed to start this tournament',
-      );
-    }
-
-    if (tournament.status !== TournamentStatus.PUBLISHED) {
-      throw new BadRequestException(
-        'Only published tournaments can be started',
-      );
-    }
-
-    tournament.status = TournamentStatus.ONGOING;
+    tournament.isPublished = false;
 
     return this.tournamentsRepository.save(tournament);
   }
@@ -485,6 +996,7 @@ export class TournamentsService {
     }
 
     tournament.status = TournamentStatus.COMPLETED;
+    // Keep isPublished true for completed tournaments - they remain publicly visible for history
 
     return this.tournamentsRepository.save(tournament);
   }
@@ -511,6 +1023,33 @@ export class TournamentsService {
     await this.tournamentsRepository.remove(tournament);
   }
 
+  async setAgeGroupRegistrationClosed(
+    tournamentId: string,
+    ageGroupId: string,
+    isRegistrationClosed: boolean,
+    userId: string,
+    userRole: string,
+  ): Promise<TournamentAgeGroup> {
+    const tournament = await this.findByIdOrFail(tournamentId);
+
+    if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException(
+        'You are not allowed to update this tournament',
+      );
+    }
+
+    const ageGroup = await this.ageGroupsRepository.findOne({
+      where: { id: ageGroupId, tournamentId },
+    });
+
+    if (!ageGroup) {
+      throw new NotFoundException('Age group not found');
+    }
+
+    ageGroup.isRegistrationClosed = isRegistrationClosed;
+    return this.ageGroupsRepository.save(ageGroup);
+  }
+
   async incrementRegulationsDownload(id: string): Promise<void> {
     await this.tournamentsRepository.increment(
       { id },
@@ -525,10 +1064,13 @@ export class TournamentsService {
     ongoingTournaments: number;
     completedTournaments: number;
     tournamentsByStatus: Record<string, number>;
-    tournamentsByAgeCategory: Record<string, number>;
     tournamentsByCountry: Record<string, number>;
     upcomingTournaments: number;
   }> {
+    await this.syncPastTournamentsAsCompleted();
+
+    const today = this.normalizeDateOnly(new Date()) || new Date();
+
     const totalTournaments = await this.tournamentsRepository.count();
     const publishedTournaments = await this.tournamentsRepository.count({
       where: { status: TournamentStatus.PUBLISHED },
@@ -543,7 +1085,7 @@ export class TournamentsService {
     const upcomingTournaments = await this.tournamentsRepository.count({
       where: {
         status: TournamentStatus.PUBLISHED,
-        startDate: MoreThanOrEqual(new Date()),
+        startDate: MoreThanOrEqual(today),
       },
     });
 
@@ -552,13 +1094,6 @@ export class TournamentsService {
       .select('tournament.status', 'status')
       .addSelect('COUNT(*)', 'count')
       .groupBy('tournament.status')
-      .getRawMany();
-
-    const ageCategoryStats = await this.tournamentsRepository
-      .createQueryBuilder('tournament')
-      .select('tournament.ageCategory', 'ageCategory')
-      .addSelect('COUNT(*)', 'count')
-      .groupBy('tournament.ageCategory')
       .getRawMany();
 
     const countryStats = await this.tournamentsRepository
@@ -581,13 +1116,6 @@ export class TournamentsService {
         (acc, item) => ({ ...acc, [item.status]: parseInt(item.count, 10) }),
         {},
       ),
-      tournamentsByAgeCategory: ageCategoryStats.reduce(
-        (acc, item) => ({
-          ...acc,
-          [item.ageCategory]: parseInt(item.count, 10),
-        }),
-        {},
-      ),
       tournamentsByCountry: countryStats.reduce(
         (acc, item) => ({ ...acc, [item.country]: parseInt(item.count, 10) }),
         {},
@@ -596,12 +1124,16 @@ export class TournamentsService {
   }
 
   async getFeaturedTournaments(limit: number = 6): Promise<Tournament[]> {
+    await this.syncPastTournamentsAsCompleted();
+
+    const today = this.normalizeDateOnly(new Date()) || new Date();
+
     return this.tournamentsRepository.find({
       where: {
         isPublished: true,
         isFeatured: true,
         status: TournamentStatus.PUBLISHED,
-        startDate: MoreThanOrEqual(new Date()),
+        startDate: MoreThanOrEqual(today),
       },
       relations: ['organizer'],
       order: { startDate: 'ASC' },
@@ -610,11 +1142,15 @@ export class TournamentsService {
   }
 
   async getUpcomingTournaments(limit: number = 10): Promise<Tournament[]> {
+    await this.syncPastTournamentsAsCompleted();
+
+    const today = this.normalizeDateOnly(new Date()) || new Date();
+
     return this.tournamentsRepository.find({
       where: {
         isPublished: true,
         status: TournamentStatus.PUBLISHED,
-        startDate: MoreThanOrEqual(new Date()),
+        startDate: MoreThanOrEqual(today),
       },
       relations: ['organizer'],
       order: { startDate: 'ASC' },
@@ -647,11 +1183,15 @@ export class TournamentsService {
 
     // Check authorization
     if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
-      throw new ForbiddenException('Only the tournament organizer can regenerate invitation codes');
+      throw new ForbiddenException(
+        'Only the tournament organizer can regenerate invitation codes',
+      );
     }
 
     if (!tournament.isPrivate) {
-      throw new BadRequestException('Invitation codes are only available for private tournaments');
+      throw new BadRequestException(
+        'Invitation codes are only available for private tournaments',
+      );
     }
 
     // Generate new unique code
@@ -667,7 +1207,9 @@ export class TournamentsService {
     } while (attempts < 10);
 
     if (attempts >= 10) {
-      throw new BadRequestException('Failed to generate unique invitation code. Please try again.');
+      throw new BadRequestException(
+        'Failed to generate unique invitation code. Please try again.',
+      );
     }
 
     // Calculate expiration date
@@ -700,7 +1242,10 @@ export class TournamentsService {
     }
 
     // Check if code has expired
-    if (tournament.invitationCodeExpiresAt && tournament.invitationCodeExpiresAt < new Date()) {
+    if (
+      tournament.invitationCodeExpiresAt &&
+      tournament.invitationCodeExpiresAt < new Date()
+    ) {
       return { valid: false, message: 'Invitation code has expired' };
     }
 
@@ -713,7 +1258,35 @@ export class TournamentsService {
       return { valid: false, message: 'Tournament has already ended' };
     }
 
-    if (tournament.registrationDeadline && tournament.registrationDeadline < new Date()) {
+    if (tournament.isRegistrationClosed) {
+      return {
+        valid: false,
+        message: 'Registrations are closed for this tournament',
+      };
+    }
+
+    const now = new Date();
+    const registrationStart = this.getStartOfDay(
+      tournament.registrationStartDate,
+    );
+    const registrationEnd = this.getEndOfDay(tournament.registrationEndDate);
+    const registrationDeadline = this.getEndOfDay(
+      tournament.registrationDeadline,
+    );
+
+    if (registrationStart && now < registrationStart) {
+      return { valid: false, message: 'Registration has not started yet' };
+    }
+
+    if (registrationEnd && now > registrationEnd) {
+      return { valid: false, message: 'Registration period has ended' };
+    }
+
+    if (
+      !registrationEnd &&
+      registrationDeadline &&
+      now > registrationDeadline
+    ) {
       return { valid: false, message: 'Registration deadline has passed' };
     }
 
@@ -732,7 +1305,9 @@ export class TournamentsService {
 
     // Check authorization
     if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
-      throw new ForbiddenException('Only the tournament organizer can view invitation codes');
+      throw new ForbiddenException(
+        'Only the tournament organizer can view invitation codes',
+      );
     }
 
     return {

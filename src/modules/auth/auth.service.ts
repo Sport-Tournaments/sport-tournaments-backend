@@ -22,6 +22,7 @@ import {
   ChangePasswordDto,
 } from './dto';
 import { UserRole } from '../../common/enums';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class AuthService {
@@ -34,6 +35,7 @@ export class AuthService {
     private refreshTokenRepository: Repository<RefreshToken>,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private mailService: MailService,
   ) {}
 
   async register(
@@ -65,9 +67,7 @@ export class AuthService {
       false,
     );
 
-    // Generate email verification token only if verification is required
-    const emailVerificationToken = crypto.randomUUID();
-
+    const emailVerificationToken = randomUUID();
 
     // Create user
     const user = this.usersRepository.create({
@@ -86,10 +86,19 @@ export class AuthService {
 
     // Send verification email only if required
     if (requireEmailVerification) {
-      // TODO: Send verification email
-      this.logger.log(
-        `User registered: ${email}, verification token: ${emailVerificationToken}`,
-      );
+      try {
+        await this.mailService.sendWelcomeEmail(
+          email,
+          firstName,
+          emailVerificationToken,
+        );
+        this.logger.log(`Verification email sent to ${email}`);
+      } catch (error) {
+        this.logger.error(
+          `Failed to send verification email to ${email}:`,
+          error,
+        );
+      }
     } else {
       this.logger.log(
         `User registered and auto-verified: ${email} (email verification disabled)`,
@@ -257,7 +266,7 @@ export class AuthService {
 
     if (user) {
       // Generate reset token
-      const resetToken = crypto.randomUUID();
+      const resetToken = randomUUID();
       const resetExpires = new Date();
       resetExpires.setHours(resetExpires.getHours() + 1); // 1 hour expiry
 
@@ -266,8 +275,21 @@ export class AuthService {
         passwordResetExpires: resetExpires,
       });
 
-      // TODO: Send password reset email
-      this.logger.log(`Password reset token for ${email}: ${resetToken}`);
+      // Send password reset email
+      try {
+        await this.mailService.sendPasswordResetEmail(
+          user.email,
+          resetToken,
+          user.firstName,
+        );
+        this.logger.log(`Password reset email sent to ${email}`);
+      } catch (error) {
+        this.logger.error(
+          `Failed to send password reset email to ${email}:`,
+          error,
+        );
+        // Still return success to prevent email enumeration
+      }
     }
 
     // Always return success to prevent email enumeration
@@ -376,15 +398,22 @@ export class AuthService {
     const jwtRefreshSecret =
       this.configService.get<string>('jwt.refreshSecret') ||
       'default-refresh-secret';
+    // 60 days in seconds (2 months)
+    const jwtExpiresIn =
+      this.configService.get<number>('jwt.expiresInSeconds') ||
+      60 * 24 * 60 * 60;
+    const jwtRefreshExpiresIn =
+      this.configService.get<number>('jwt.refreshExpiresInSeconds') ||
+      60 * 24 * 60 * 60;
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         secret: jwtSecret,
-        expiresIn: '15m',
+        expiresIn: jwtExpiresIn,
       }),
       this.jwtService.signAsync(payload, {
         secret: jwtRefreshSecret,
-        expiresIn: '7d',
+        expiresIn: jwtRefreshExpiresIn,
       }),
     ]);
 
@@ -397,34 +426,12 @@ export class AuthService {
     ipAddress?: string,
     deviceInfo?: string,
   ): Promise<void> {
-    const expiresIn =
-      this.configService.get<string>('jwt.refreshExpiresIn') || '7d';
+    // 60 days in seconds (2 months) as default
+    const expiresInSeconds =
+      this.configService.get<number>('jwt.refreshExpiresInSeconds') ||
+      60 * 24 * 60 * 60;
     const expiresAt = new Date();
-
-    // Parse expiry time
-    const match = expiresIn.match(/(\d+)([dhms])/);
-    if (match) {
-      const value = parseInt(match[1], 10);
-      const unit = match[2];
-
-      switch (unit) {
-        case 'd':
-          expiresAt.setDate(expiresAt.getDate() + value);
-          break;
-        case 'h':
-          expiresAt.setHours(expiresAt.getHours() + value);
-          break;
-        case 'm':
-          expiresAt.setMinutes(expiresAt.getMinutes() + value);
-          break;
-        case 's':
-          expiresAt.setSeconds(expiresAt.getSeconds() + value);
-          break;
-      }
-    } else {
-      // Default to 7 days
-      expiresAt.setDate(expiresAt.getDate() + 7);
-    }
+    expiresAt.setSeconds(expiresAt.getSeconds() + expiresInSeconds);
 
     const refreshToken = this.refreshTokenRepository.create({
       userId,

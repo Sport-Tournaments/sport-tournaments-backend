@@ -1,60 +1,21 @@
 import { Injectable } from '@nestjs/common';
 
-export enum BracketType {
-  GROUPS_ONLY = 'GROUPS_ONLY',
-  SINGLE_ELIMINATION = 'SINGLE_ELIMINATION',
-  DOUBLE_ELIMINATION = 'DOUBLE_ELIMINATION',
-  ROUND_ROBIN = 'ROUND_ROBIN',
-  GROUPS_PLUS_KNOCKOUT = 'GROUPS_PLUS_KNOCKOUT',
-}
-
-export interface Match {
-  id: string;
-  round: number;
-  matchNumber: number;
-  team1Id?: string;
-  team2Id?: string;
-  team1Score?: number;
-  team2Score?: number;
-  winnerId?: string;
-  loserId?: string;
-  scheduledAt?: Date;
-  locationId?: string;
-  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
-  nextMatchId?: string;
-  loserNextMatchId?: string; // For double elimination
-}
-
-export interface PlayoffRound {
-  roundNumber: number;
-  roundName: string;
-  matches: Match[];
-}
-
-export interface BracketData {
-  type: BracketType;
-  groupCount?: number;
-  teamsPerGroup?: number;
-  advancingTeamsPerGroup?: number;
-  playoffRounds?: PlayoffRound[];
-  matches?: Match[];
-  thirdPlaceMatch?: boolean;
-  seed?: string;
-  generatedAt?: Date;
-}
-
-export interface GroupStanding {
-  teamId: string;
-  played: number;
-  won: number;
-  drawn: number;
-  lost: number;
-  goalsFor: number;
-  goalsAgainst: number;
-  goalDifference: number;
-  points: number;
-  position: number;
-}
+// Re-export bracket interfaces from shared location
+export { BracketType } from '../../../common/interfaces/bracket.interface';
+export type {
+  Match,
+  PlayoffRound,
+  PlacementBracket,
+  BracketData,
+  GroupStanding,
+} from '../../../common/interfaces/bracket.interface';
+import { BracketType } from '../../../common/interfaces/bracket.interface';
+import type {
+  Match,
+  PlayoffRound,
+  BracketData,
+  GroupStanding,
+} from '../../../common/interfaces/bracket.interface';
 
 @Injectable()
 export class BracketGeneratorService {
@@ -70,6 +31,7 @@ export class BracketGeneratorService {
       advancingPerGroup?: number;
       thirdPlaceMatch?: boolean;
       seed?: string;
+      leagueLegs?: number;
     } = {},
   ): BracketData {
     const seed = options.seed || this.generateSeed();
@@ -94,6 +56,13 @@ export class BracketGeneratorService {
 
       case BracketType.ROUND_ROBIN:
         return this.generateRoundRobinBracket(teamCount, seed);
+
+      case BracketType.LEAGUE:
+        return this.generateLeagueBracket(
+          teamCount,
+          options.leagueLegs ?? 2,
+          seed,
+        );
 
       case BracketType.GROUPS_PLUS_KNOCKOUT:
         return this.generateGroupsWithKnockoutBracket(
@@ -134,16 +103,17 @@ export class BracketGeneratorService {
   }
 
   /**
-   * Single elimination bracket
+   * Single elimination bracket — supports non-power-of-2 team counts via BYE slots (BE-SE-01)
    */
   private generateSingleEliminationBracket(
     teamCount: number,
     thirdPlaceMatch?: boolean,
     seed?: string,
   ): BracketData {
-    // Calculate number of rounds needed
+    // Next power of 2 ≥ teamCount; extra slots become BYE matches in round 1
     const roundsNeeded = Math.ceil(Math.log2(teamCount));
     const bracketSize = Math.pow(2, roundsNeeded);
+    const byeCount = bracketSize - teamCount; // number of first-round BYEs
 
     const playoffRounds: PlayoffRound[] = [];
     let matchId = 1;
@@ -154,11 +124,14 @@ export class BracketGeneratorService {
 
       const matches: Match[] = [];
       for (let i = 0; i < matchesInRound; i++) {
+        const isByeMatch = round === 1 && i < byeCount;
         matches.push({
           id: `match_${matchId++}`,
           round,
           matchNumber: i + 1,
           status: 'PENDING',
+          // BYE: top-seeded team (team1) auto-advances — no real opponent
+          ...(isByeMatch ? { team2Id: 'BYE', autoAdvance: true } : {}),
         });
       }
 
@@ -166,6 +139,7 @@ export class BracketGeneratorService {
         roundNumber: round,
         roundName,
         matches,
+        bracket: 'winners',
       });
     }
 
@@ -182,6 +156,7 @@ export class BracketGeneratorService {
             status: 'PENDING',
           },
         ],
+        bracket: 'third_place',
       };
       playoffRounds.push(thirdPlaceRound);
     }
@@ -199,23 +174,34 @@ export class BracketGeneratorService {
   }
 
   /**
-   * Double elimination bracket
+   * Double elimination bracket — wires loserNextMatchId from winners rounds into
+   * the corresponding losers rounds (BE-DE-01).
+   *
+   * Structure for N teams (roundsNeeded = ceil(log2(N))):
+   *   playoffRounds[0..roundsNeeded-1]               = Winners bracket rounds
+   *   playoffRounds[roundsNeeded..roundsNeeded+LR-1]  = Losers bracket rounds (LR = 2*roundsNeeded-2)
+   *   playoffRounds[roundsNeeded+LR]                  = Grand Final
+   *
+   * Loser routing:
+   *   WR round 0   → LR round 0 (losers play each other, pairs of 2 per LR match)
+   *   WR round r>0 → LR round r (1:1 match index)
+   *   WR final     → last LR round (WF loser faces LR survivor)
    */
   private generateDoubleEliminationBracket(
     teamCount: number,
     seed?: string,
   ): BracketData {
-    // Winners bracket
     const roundsNeeded = Math.ceil(Math.log2(teamCount));
     const bracketSize = Math.pow(2, roundsNeeded);
 
     const playoffRounds: PlayoffRound[] = [];
     let matchId = 1;
 
-    // Winners bracket rounds
+    // ── Winners bracket rounds ──────────────────────────────────────────────
     for (let round = 1; round <= roundsNeeded; round++) {
       const matchesInRound = bracketSize / Math.pow(2, round);
-      const roundName = `Winners Round ${round}`;
+      const roundName =
+        round === roundsNeeded ? 'Winners Final' : `Winners Round ${round}`;
 
       const matches: Match[] = [];
       for (let i = 0; i < matchesInRound; i++) {
@@ -231,16 +217,18 @@ export class BracketGeneratorService {
         roundNumber: round,
         roundName,
         matches,
+        bracket: 'winners',
       });
     }
 
-    // Losers bracket rounds (2 * roundsNeeded - 1 rounds)
+    // ── Losers bracket rounds ───────────────────────────────────────────────
     const loserRounds = 2 * roundsNeeded - 2;
     for (let round = 1; round <= loserRounds; round++) {
       const matchesInRound = Math.ceil(
         bracketSize / Math.pow(2, Math.ceil(round / 2) + 1),
       );
-      const roundName = `Losers Round ${round}`;
+      const roundName =
+        round === loserRounds ? 'Losers Final' : `Losers Round ${round}`;
 
       const matches: Match[] = [];
       for (let i = 0; i < matchesInRound; i++) {
@@ -256,10 +244,11 @@ export class BracketGeneratorService {
         roundNumber: round + roundsNeeded,
         roundName,
         matches,
+        bracket: 'losers',
       });
     }
 
-    // Grand finals
+    // ── Grand Final ─────────────────────────────────────────────────────────
     playoffRounds.push({
       roundNumber: roundsNeeded + loserRounds + 1,
       roundName: 'Grand Finals',
@@ -271,7 +260,82 @@ export class BracketGeneratorService {
           status: 'PENDING',
         },
       ],
+      bracket: 'grand_final',
     });
+
+    // ── Wire loserNextMatchId on winners-bracket matches (BE-DE-01) ─────────
+    // WR round r (0-indexed) → LR round at playoffRounds[roundsNeeded + lrOffset(r)]
+    // WR round 0: losers pair up (2 losers per LR match)  → LR round 0
+    // WR round r (0 < r < roundsNeeded-1): losers enter 1:1 → LR round r
+    // WR final (r = roundsNeeded-1): loser → last LR round
+    for (let r = 0; r < roundsNeeded; r++) {
+      const wrRound = playoffRounds[r];
+
+      let lrArrayIdx: number;
+      if (r === roundsNeeded - 1) {
+        // WF loser → last LR round (Losers Final)
+        lrArrayIdx = roundsNeeded + loserRounds - 1;
+      } else {
+        lrArrayIdx = roundsNeeded + r;
+      }
+
+      const lrRound = playoffRounds[lrArrayIdx];
+      if (!lrRound) continue;
+
+      // WR round 0: pairs of losers feed into each LR match (factor = 2)
+      // All other WR rounds: 1:1 mapping (factor = 1)
+      const factor = r === 0 ? 2 : 1;
+
+      wrRound.matches.forEach((match, i) => {
+        const targetIdx = Math.floor(i / factor);
+        if (lrRound.matches[targetIdx]) {
+          match.loserNextMatchId = lrRound.matches[targetIdx].id;
+        }
+      });
+    }
+
+    // ── Wire nextMatchId for winner advancement within each bracket ─────────
+    // Winners bracket: each round feeds the next (halving each time)
+    const winnersRounds = playoffRounds.filter((r) => r.bracket === 'winners');
+    const losersRounds = playoffRounds.filter((r) => r.bracket === 'losers');
+    const grandFinalRound = playoffRounds.find(
+      (r) => r.bracket === 'grand_final',
+    );
+
+    // Within WR: match[i] → match[⌊i/2⌋] in next WR round; WR final → Grand Final
+    for (let i = 0; i < winnersRounds.length; i++) {
+      const cur = winnersRounds[i];
+      const next = winnersRounds[i + 1] ?? null;
+      const gfTarget = i === winnersRounds.length - 1 ? grandFinalRound : null;
+      cur.matches.forEach((match, mi) => {
+        if (next) {
+          const targetIdx = Math.floor(mi / 2);
+          if (next.matches[targetIdx]) {
+            match.nextMatchId = next.matches[targetIdx].id;
+          }
+        } else if (gfTarget?.matches[0]) {
+          match.nextMatchId = gfTarget.matches[0].id;
+        }
+      });
+    }
+
+    // Within LR: same count → 1:1; fewer → halving; LR final → Grand Final
+    for (let i = 0; i < losersRounds.length; i++) {
+      const cur = losersRounds[i];
+      const next = losersRounds[i + 1] ?? null;
+      const gfTarget = i === losersRounds.length - 1 ? grandFinalRound : null;
+      cur.matches.forEach((match, mi) => {
+        if (next) {
+          const targetIdx =
+            next.matches.length < cur.matches.length ? Math.floor(mi / 2) : mi;
+          if (next.matches[targetIdx]) {
+            match.nextMatchId = next.matches[targetIdx].id;
+          }
+        } else if (gfTarget?.matches[0]) {
+          match.nextMatchId = gfTarget.matches[0].id;
+        }
+      });
+    }
 
     return {
       type: BracketType.DOUBLE_ELIMINATION,
@@ -282,31 +346,59 @@ export class BracketGeneratorService {
   }
 
   /**
-   * Round robin - every team plays every other team
+   * Round-robin using the circle/wheel rotation algorithm (Berger tables) — PM-01.
+   *
+   * For N teams the schedule contains N-1 rounds (N even) or N rounds (N odd,
+   * where a dummy "BYE" team is added).  Each round has ⌊N/2⌋ matches and no
+   * team plays more than once per round.
+   *
+   * Algorithm (0-indexed teams):
+   *   fix team 0; rotating = [1, 2, ..., n-1]
+   *   round r (0..n-2):
+   *     match 0: team 0 vs rotating[(r + n/2 - 1) % (n-1)]
+   *     match i (i=1..n/2-1): rotating[(r+i-1) % (n-1)] vs rotating[(r+n-2-i) % (n-1)]
+   *
+   * Matches involving the BYE dummy (index ≥ teamCount) are filtered out.
    */
   private generateRoundRobinBracket(
     teamCount: number,
     seed?: string,
   ): BracketData {
+    // n must be even; if odd, add one dummy slot
+    const n = teamCount % 2 === 0 ? teamCount : teamCount + 1;
     const matches: Match[] = [];
     let matchId = 1;
-    let round = 1;
-    let matchInRound = 0;
 
-    // Generate all pairs
-    for (let i = 0; i < teamCount; i++) {
-      for (let j = i + 1; j < teamCount; j++) {
+    for (let r = 0; r < n - 1; r++) {
+      const round = r + 1;
+      let matchInRound = 0;
+
+      // Pair: fixed team (0) vs rotating slot (r + n/2 - 1) % (n-1)
+      const oppRotIdx = (r + n / 2 - 1) % (n - 1);
+      const opp = oppRotIdx + 1; // actual team index (rotating = teams 1..n-1)
+      if (opp < teamCount) {
+        // 0 is fixed team, always a real team
         matches.push({
-          id: `match_${matchId++}`,
+          id: `rr_${matchId++}`,
           round,
           matchNumber: ++matchInRound,
           status: 'PENDING',
         });
+      }
 
-        // Max matches per round = floor(teamCount / 2)
-        if (matchInRound >= Math.floor(teamCount / 2)) {
-          round++;
-          matchInRound = 0;
+      // Remaining pairs
+      for (let i = 1; i < n / 2; i++) {
+        const rIdx1 = (r + i - 1 + (n - 1)) % (n - 1);
+        const rIdx2 = (r + n - 2 - i + (n - 1)) % (n - 1);
+        const ta = rIdx1 + 1;
+        const tb = rIdx2 + 1;
+        if (ta < teamCount && tb < teamCount) {
+          matches.push({
+            id: `rr_${matchId++}`,
+            round,
+            matchNumber: ++matchInRound,
+            status: 'PENDING',
+          });
         }
       }
     }
@@ -314,6 +406,81 @@ export class BracketGeneratorService {
     return {
       type: BracketType.ROUND_ROBIN,
       matches,
+      seed,
+      generatedAt: new Date(),
+    };
+  }
+
+  /**
+   * League format — full round-robin with configurable number of legs (BE-11).
+   *
+   * A single-leg league uses the wheel-rotation schedule (see generateRoundRobinBracket).
+   * For a two-leg (home/away) league the fixtures are repeated with teams swapped,
+   * placed in the subsequent rounds.
+   */
+  private generateLeagueBracket(
+    teamCount: number,
+    legs: number = 2,
+    seed?: string,
+  ): BracketData {
+    // Build one-leg schedule using the wheel rotation algorithm
+    const n = teamCount % 2 === 0 ? teamCount : teamCount + 1;
+    const firstLegMatches: Match[] = [];
+    let matchId = 1;
+
+    for (let r = 0; r < n - 1; r++) {
+      const round = r + 1;
+      let matchInRound = 0;
+
+      const oppRotIdx = (r + n / 2 - 1) % (n - 1);
+      const opp = oppRotIdx + 1;
+      if (opp < teamCount) {
+        firstLegMatches.push({
+          id: `leg1_${matchId++}`,
+          round,
+          matchNumber: ++matchInRound,
+          status: 'PENDING',
+        });
+      }
+
+      for (let i = 1; i < n / 2; i++) {
+        const rIdx1 = (r + i - 1 + (n - 1)) % (n - 1);
+        const rIdx2 = (r + n - 2 - i + (n - 1)) % (n - 1);
+        const ta = rIdx1 + 1;
+        const tb = rIdx2 + 1;
+        if (ta < teamCount && tb < teamCount) {
+          firstLegMatches.push({
+            id: `leg1_${matchId++}`,
+            round,
+            matchNumber: ++matchInRound,
+            status: 'PENDING',
+          });
+        }
+      }
+    }
+
+    let allMatches: Match[] = firstLegMatches;
+
+    if (legs > 1) {
+      // Second leg: swap home/away, offset rounds by first-leg round count
+      const firstLegRoundCount = firstLegMatches.reduce(
+        (max, m) => Math.max(max, m.round),
+        0,
+      );
+      const secondLegMatches = firstLegMatches.map((m, idx) => ({
+        ...m,
+        id: `leg2_${idx + 1}`,
+        round: m.round + firstLegRoundCount,
+        // team1/team2 are assigned at draw time; preserve slot swap via metadata
+        team1Id: m.team2Id,
+        team2Id: m.team1Id,
+      }));
+      allMatches = [...firstLegMatches, ...secondLegMatches];
+    }
+
+    return {
+      type: BracketType.LEAGUE,
+      matches: allMatches,
       seed,
       generatedAt: new Date(),
     };
@@ -358,17 +525,28 @@ export class BracketGeneratorService {
    * Link matches for single elimination (winner advances)
    */
   private linkSingleEliminationMatches(playoffRounds: PlayoffRound[]): void {
+    // Find the third place round if it exists
+    const thirdPlaceRound = playoffRounds.find(
+      (r) => r.roundName === 'Third Place',
+    );
+    const thirdPlaceMatchId = thirdPlaceRound?.matches?.[0]?.id;
+
     for (let i = 0; i < playoffRounds.length - 1; i++) {
       const currentRound = playoffRounds[i];
       const nextRound = playoffRounds[i + 1];
 
-      // Skip third place match round if it exists
+      // Skip third place match round for winner linking
       if (nextRound.roundName === 'Third Place') continue;
 
       currentRound.matches.forEach((match, index) => {
         const nextMatchIndex = Math.floor(index / 2);
         if (nextRound.matches[nextMatchIndex]) {
           match.nextMatchId = nextRound.matches[nextMatchIndex].id;
+        }
+
+        // Link semi-final losers to third place match
+        if (thirdPlaceMatchId && nextRound.roundName === 'Final') {
+          match.loserNextMatchId = thirdPlaceMatchId;
         }
       });
     }
@@ -407,11 +585,14 @@ export class BracketGeneratorService {
   }
 
   /**
-   * Calculate group standings from match results
+   * Calculate group standings from match results.
+   * @param tieBreakOrder optional ordered list of teamIds — when two teams are
+   *   perfectly equal on pts/GD/GF the one appearing earlier in this array wins.
    */
   calculateGroupStandings(
     groupTeamIds: string[],
     matches: Match[],
+    tieBreakOrder?: string[] | null,
   ): GroupStanding[] {
     const standings: Map<string, GroupStanding> = new Map();
 
@@ -470,20 +651,41 @@ export class BracketGeneratorService {
         team2.goalDifference = team2.goalsFor - team2.goalsAgainst;
       });
 
-    // Sort standings
-    const sortedStandings = Array.from(standings.values()).sort((a, b) => {
-      // Points
-      if (b.points !== a.points) return b.points - a.points;
-      // Goal difference
-      if (b.goalDifference !== a.goalDifference)
-        return b.goalDifference - a.goalDifference;
-      // Goals for
-      if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
-      // Default
-      return 0;
-    });
+    const teamIds = Array.from(standings.keys());
+    const isFullOverride =
+      tieBreakOrder &&
+      tieBreakOrder.length === teamIds.length &&
+      teamIds.every((id) => tieBreakOrder.includes(id));
 
-    // Update positions
+    let sortedStandings: GroupStanding[];
+
+    if (isFullOverride) {
+      // Complete manual override — use tieBreakOrder as the authoritative rank order
+      const orderMap = new Map(tieBreakOrder.map((id, i) => [id, i]));
+      sortedStandings = teamIds
+        .map((id) => standings.get(id)!)
+        .sort(
+          (a, b) =>
+            (orderMap.get(a.teamId) ?? 999) - (orderMap.get(b.teamId) ?? 999),
+        );
+    } else {
+      // Sort standings: Pts → GD → GF → tieBreakOrder → draw position
+      sortedStandings = Array.from(standings.values()).sort((a, b) => {
+        if (b.points !== a.points) return b.points - a.points;
+        if (b.goalDifference !== a.goalDifference)
+          return b.goalDifference - a.goalDifference;
+        if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
+        if (tieBreakOrder && tieBreakOrder.length > 0) {
+          const ia = tieBreakOrder.indexOf(a.teamId);
+          const ib = tieBreakOrder.indexOf(b.teamId);
+          if (ia !== -1 && ib !== -1) return ia - ib;
+          if (ia !== -1) return -1;
+          if (ib !== -1) return 1;
+        }
+        return 0;
+      });
+    }
+
     sortedStandings.forEach((standing, index) => {
       standing.position = index + 1;
     });
@@ -492,48 +694,66 @@ export class BracketGeneratorService {
   }
 
   /**
-   * Seed teams into bracket based on group standings
+   * Seed advancing teams into the knockout bracket using adjacent-group pairing.
+   *
+   * Groups are paired in order: (A,B), (C,D), (E,F), ...
+   * Within each pair, same-position teams face each other:
+   *   Match 1: 1A vs 1B   Match 2: 1C vs 1D   (winners of each pair)
+   *   Match 3: 2A vs 2B   Match 4: 2C vs 2D   (runners-up, only if advancingPerGroup >= 2)
+   *
+   * Total first-round matches = (numGroups / 2) * advancingPerGroup.
+   * Falls back to position-based seeding when the group count is odd or < 2.
    */
   seedTeamsIntoBracket(
     groupStandings: Map<string, GroupStanding[]>,
     advancingPerGroup: number,
     bracketData: BracketData,
   ): BracketData {
-    const advancingTeams: {
-      teamId: string;
-      groupId: string;
-      position: number;
-    }[] = [];
+    const groupKeys = Array.from(groupStandings.keys());
+    const numGroups = groupKeys.length;
 
-    // Collect advancing teams
-    groupStandings.forEach((standings, groupId) => {
-      standings.slice(0, advancingPerGroup).forEach((standing) => {
-        advancingTeams.push({
-          teamId: standing.teamId,
-          groupId,
-          position: standing.position,
-        });
+    // Collect advancing teams grouped by their standing position (1-based)
+    const byPosition = new Map<number, { teamId: string; groupId: string }[]>();
+
+    groupKeys.forEach((groupId) => {
+      const standings = groupStandings.get(groupId) ?? [];
+      standings.slice(0, advancingPerGroup).forEach((s) => {
+        if (!byPosition.has(s.position)) byPosition.set(s.position, []);
+        byPosition.get(s.position)!.push({ teamId: s.teamId, groupId });
       });
     });
 
-    // Sort by position for seeding
-    advancingTeams.sort((a, b) => a.position - b.position);
+    // Build match seeds: for each position level (1st, 2nd, ...) pair adjacent groups
+    const matchSeeds: Array<[string | undefined, string | undefined]> = [];
 
-    // Seed into first round matches
+    if (numGroups >= 2 && numGroups % 2 === 0) {
+      // For each position, pair groups (0,1), (2,3), (4,5) ...
+      // 1st pass → 1A vs 1B, 1C vs 1D ...
+      // 2nd pass → 2A vs 2B, 2C vs 2D ... (when advancingPerGroup >= 2)
+      for (let pos = 1; pos <= advancingPerGroup; pos++) {
+        const teamsAtPos = byPosition.get(pos) ?? [];
+        for (let i = 0; i + 1 < teamsAtPos.length; i += 2) {
+          matchSeeds.push([teamsAtPos[i]?.teamId, teamsAtPos[i + 1]?.teamId]);
+        }
+      }
+    } else {
+      // Fallback for odd group counts: seed best vs worst across all advancing teams
+      const all: { teamId: string; groupId: string }[] = [];
+      for (let pos = 1; pos <= advancingPerGroup; pos++) {
+        all.push(...(byPosition.get(pos) ?? []));
+      }
+      for (let i = 0; i < Math.floor(all.length / 2); i++) {
+        matchSeeds.push([all[i]?.teamId, all[all.length - 1 - i]?.teamId]);
+      }
+    }
+
+    // Apply seeds to first knockout round
     if (bracketData.playoffRounds && bracketData.playoffRounds.length > 0) {
       const firstRound = bracketData.playoffRounds[0];
-
-      // Standard seeding: 1st place teams vs 2nd place teams from different groups
-      // This is a simplified version - real tournaments have more complex seeding rules
       firstRound.matches.forEach((match, index) => {
-        const team1Index = index;
-        const team2Index = advancingTeams.length - 1 - index;
-
-        if (advancingTeams[team1Index]) {
-          match.team1Id = advancingTeams[team1Index].teamId;
-        }
-        if (advancingTeams[team2Index]) {
-          match.team2Id = advancingTeams[team2Index].teamId;
+        if (matchSeeds[index]) {
+          if (matchSeeds[index][0]) match.team1Id = matchSeeds[index][0];
+          if (matchSeeds[index][1]) match.team2Id = matchSeeds[index][1];
         }
       });
     }

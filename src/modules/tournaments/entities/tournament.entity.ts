@@ -13,8 +13,8 @@ import {
   TournamentStatus,
   TournamentLevel,
   Currency,
-  AgeCategory,
 } from '../../../common/enums';
+import { BracketData } from '../../../common/interfaces/bracket.interface';
 import { DateOnlyTransformer } from '../../../common/transformers';
 import { User } from '../../users/entities/user.entity';
 import { Registration } from '../../registrations/entities/registration.entity';
@@ -47,16 +47,26 @@ export class Tournament {
   @Column({
     type: 'enum',
     enum: TournamentStatus,
-    default: TournamentStatus.DRAFT,
+    default: TournamentStatus.PUBLISHED,
   })
   status: TournamentStatus;
 
   @Index()
-  @Column({ name: 'start_date', type: 'date', transformer: new DateOnlyTransformer() })
-  startDate: Date | string;
+  @Column({
+    name: 'start_date',
+    type: 'date',
+    nullable: true,
+    transformer: new DateOnlyTransformer(),
+  })
+  startDate?: Date | string;
 
-  @Column({ name: 'end_date', type: 'date', transformer: new DateOnlyTransformer() })
-  endDate: Date | string;
+  @Column({
+    name: 'end_date',
+    type: 'date',
+    nullable: true,
+    transformer: new DateOnlyTransformer(),
+  })
+  endDate?: Date | string;
 
   @Column()
   location: string;
@@ -69,20 +79,11 @@ export class Tournament {
 
   @Index()
   @Column({
-    name: 'age_category',
-    type: 'enum',
-    enum: AgeCategory,
-    nullable: true,
-  })
-  ageCategory: AgeCategory;
-
-  @Index()
-  @Column({
     type: 'enum',
     enum: TournamentLevel,
-    default: TournamentLevel.LEVEL_II,
+    nullable: true,
   })
-  level: TournamentLevel;
+  level?: TournamentLevel;
 
   @Column({ name: 'game_system', nullable: true })
   gameSystem: string;
@@ -105,6 +106,9 @@ export class Tournament {
   @Column({ name: 'regulations_download_count', default: 0 })
   regulationsDownloadCount: number;
 
+  @Column({ name: 'is_registration_closed', default: false })
+  isRegistrationClosed: boolean;
+
   @Column({
     type: 'enum',
     enum: Currency,
@@ -124,7 +128,7 @@ export class Tournament {
   @Column({ name: 'is_premium', default: false })
   isPremium: boolean;
 
-  @Column({ name: 'is_published', default: false })
+  @Column({ name: 'is_published', default: true })
   isPublished: boolean;
 
   @Column({ name: 'is_featured', default: false })
@@ -133,13 +137,28 @@ export class Tournament {
   @Column({ type: 'json', nullable: true })
   tags?: string[];
 
-  @Column({ name: 'registration_deadline', type: 'date', nullable: true, transformer: new DateOnlyTransformer() })
+  @Column({
+    name: 'registration_deadline',
+    type: 'date',
+    nullable: true,
+    transformer: new DateOnlyTransformer(),
+  })
   registrationDeadline?: Date | string;
 
-  @Column({ name: 'registration_start_date', type: 'date', nullable: true, transformer: new DateOnlyTransformer() })
+  @Column({
+    name: 'registration_start_date',
+    type: 'date',
+    nullable: true,
+    transformer: new DateOnlyTransformer(),
+  })
   registrationStartDate?: Date | string;
 
-  @Column({ name: 'registration_end_date', type: 'date', nullable: true, transformer: new DateOnlyTransformer() })
+  @Column({
+    name: 'registration_end_date',
+    type: 'date',
+    nullable: true,
+    transformer: new DateOnlyTransformer(),
+  })
   registrationEndDate?: Date | string;
 
   @Column({ name: 'contact_email', nullable: true })
@@ -147,6 +166,9 @@ export class Tournament {
 
   @Column({ name: 'contact_phone', nullable: true })
   contactPhone?: string;
+
+  @Column({ name: 'whatsapp_group_link', nullable: true })
+  whatsappGroupLink?: string;
 
   @Column({ name: 'draw_seed', nullable: true })
   drawSeed?: string;
@@ -165,7 +187,11 @@ export class Tournament {
   invitationCode?: string;
 
   // Invitation code expiration date
-  @Column({ name: 'invitation_code_expires_at', type: 'timestamp', nullable: true })
+  @Column({
+    name: 'invitation_code_expires_at',
+    type: 'timestamp',
+    nullable: true,
+  })
   invitationCodeExpiresAt?: Date;
 
   // Visibility configuration for private tournaments
@@ -177,24 +203,14 @@ export class Tournament {
     isPublicListing?: boolean; // Whether to show in public listings
   };
 
-  // Bracket data for playoff structure
+  /**
+   * Bracket data stored as JSON. Two formats exist:
+   * - Legacy flat: `BracketData` (single age group or pre-multi-age-group tournaments)
+   * - Per-age-group: `Record<string, BracketData>` (current multi-age-group format)
+   * Use `getBracketForAgeGroup()` in GroupsService to read safely.
+   */
   @Column({ name: 'bracket_data', type: 'json', nullable: true })
-  bracketData?: {
-    type: 'groups_only' | 'groups_and_playoffs' | 'single_elimination';
-    groupCount: number;
-    teamsPerGroup: number;
-    playoffRounds: string[];
-    matches: Array<{
-      matchId: string;
-      stage: string;
-      group?: string;
-      team1Id?: string;
-      team2Id?: string;
-      winner?: string;
-      scheduledDate?: string;
-      score?: { team1: number; team2: number };
-    }>;
-  };
+  bracketData?: BracketData | Record<string, BracketData>;
 
   // Regulations type tracking
   @Column({
@@ -239,6 +255,10 @@ export class Tournament {
   @Column({ nullable: true })
   country?: string;
 
+  // Total number of playing fields/grounds available for the tournament
+  @Column({ name: 'number_of_fields', nullable: true })
+  numberOfFields?: number;
+
   // Group Configuration (Issue #41)
   @Column({ name: 'number_of_groups', nullable: true })
   numberOfGroups?: number;
@@ -269,4 +289,7 @@ export class Tournament {
 
   @OneToMany(() => TournamentPot, (pot) => pot.tournament)
   pots: TournamentPot[];
+
+  @Column({ name: 'data_test', default: false })
+  dataTest: boolean;
 }

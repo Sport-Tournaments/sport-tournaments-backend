@@ -1,8 +1,11 @@
 [phases.setup]
-nixPkgs = ["nodejs_20", "pnpm"]
+nixPkgs = ["nodejs_22"]
 
 [phases.install]
 cmds = [
+  "npm install -g corepack@latest",
+  "corepack enable",
+  "corepack prepare pnpm@10.18.2 --activate",
   "pnpm install --frozen-lockfile --prod=false"
 ]
 
@@ -12,7 +15,7 @@ cmds = [
 ]
 
 [start]
-cmd = "node dist/main"
+cmd = "sh scripts/start-prod.sh"
 
 [variables]
 NODE_ENV = "production"

@@ -30,6 +30,7 @@ import {
   BulkReviewDto,
   UploadDocumentDto,
   ConfirmFitnessDto,
+  MarkAsPaidDto,
 } from './dto';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards';
 import { Roles, CurrentUser, Public } from '../../common/decorators';
@@ -99,6 +100,21 @@ export class RegistrationsController {
     return this.registrationsService.getStatusStatistics(tournamentId);
   }
 
+  @Get('tournaments/:tournamentId/registrations/statistics-by-age-group')
+  @Public()
+  @ApiOperation({ summary: 'Get registration statistics grouped by age group' })
+  @ApiResponse({
+    status: 200,
+    description: 'Registration statistics by age group',
+  })
+  getStatusStatisticsByAgeGroup(
+    @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
+  ) {
+    return this.registrationsService.getStatusStatisticsByAgeGroup(
+      tournamentId,
+    );
+  }
+
   @Get('registrations/my-registrations')
   @ApiOperation({ summary: 'Get all registrations for current user clubs' })
   @ApiResponse({ status: 200, description: 'List of registrations' })
@@ -155,6 +171,44 @@ export class RegistrationsController {
     return this.registrationsService.approve(id, user.sub, user.role, dto);
   }
 
+  @Post('registrations/:id/approve-with-payment')
+  @ApiOperation({ summary: 'Approve registration with payment' })
+  @ApiResponse({
+    status: 200,
+    description: 'Registration approved with payment',
+  })
+  approveWithPayment(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: ApproveRegistrationDto,
+  ) {
+    return this.registrationsService.approveWithPayment(
+      id,
+      user.sub,
+      user.role,
+      dto,
+    );
+  }
+
+  @Post('registrations/:id/approve-without-payment')
+  @ApiOperation({ summary: 'Approve registration without payment' })
+  @ApiResponse({
+    status: 200,
+    description: 'Registration approved without payment',
+  })
+  approveWithoutPayment(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: ApproveRegistrationDto,
+  ) {
+    return this.registrationsService.approveWithoutPayment(
+      id,
+      user.sub,
+      user.role,
+      dto,
+    );
+  }
+
   @Post('registrations/:id/reject')
   @ApiOperation({ summary: 'Reject registration' })
   @ApiResponse({ status: 200, description: 'Registration rejected' })
@@ -164,6 +218,17 @@ export class RegistrationsController {
     @Body() dto: RejectRegistrationDto,
   ) {
     return this.registrationsService.reject(id, user.sub, user.role, dto);
+  }
+
+  @Post('registrations/:id/mark-as-paid')
+  @ApiOperation({ summary: 'Mark registration as paid' })
+  @ApiResponse({ status: 200, description: 'Registration marked as paid' })
+  markAsPaid(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: MarkAsPaidDto,
+  ) {
+    return this.registrationsService.markAsPaid(id, user.sub, user.role, dto);
   }
 
   @Post('tournaments/:tournamentId/registrations/bulk-approve')
@@ -216,8 +281,11 @@ export class RegistrationsController {
   remove(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
+    @Query('resetDraw') resetDraw?: string,
   ) {
-    return this.registrationsService.remove(id, user.sub, user.role);
+    return this.registrationsService.remove(id, user.sub, user.role, {
+      resetDraw: resetDraw === 'true',
+    });
   }
 
   // Document Upload Endpoints
@@ -309,7 +377,25 @@ export class RegistrationsController {
   getMyRegistration(
     @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
     @CurrentUser() user: JwtPayload,
+    @Query('ageGroupId') ageGroupId?: string,
   ) {
-    return this.registrationsService.getMyRegistration(tournamentId, user.sub);
+    return this.registrationsService.getMyRegistration(
+      tournamentId,
+      user.sub,
+      ageGroupId,
+    );
+  }
+
+  @Get('tournaments/:tournamentId/my-registrations')
+  @ApiOperation({ summary: 'Get current user registrations for tournament' })
+  @ApiResponse({ status: 200, description: 'User registrations' })
+  getMyRegistrationsForTournament(
+    @Param('tournamentId', ParseUUIDPipe) tournamentId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.registrationsService.getMyRegistrationsForTournament(
+      tournamentId,
+      user.sub,
+    );
   }
 }

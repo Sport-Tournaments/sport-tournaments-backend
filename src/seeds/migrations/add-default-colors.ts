@@ -7,7 +7,7 @@ import { Club } from '../../modules/clubs/entities/club.entity';
  */
 export async function addDefaultColorsToClubs(dataSource: DataSource) {
   const clubRepository = dataSource.getRepository(Club);
-  
+
   // Get all clubs without colors
   const clubs = await clubRepository
     .createQueryBuilder('club')

@@ -11,7 +11,6 @@ import {
 } from '@nestjs/common';
 import {
   TournamentStatus,
-  AgeCategory,
   TournamentLevel,
   UserRole,
   Currency,
@@ -25,7 +24,6 @@ describe('TournamentsService', () => {
     id: 'tournament-1',
     name: 'U12 Test Tournament',
     description: 'Test description',
-    ageCategory: AgeCategory.U12,
     level: TournamentLevel.LEVEL_I,
     gameSystem: '4+1',
     numberOfMatches: 6,
@@ -112,7 +110,6 @@ describe('TournamentsService', () => {
     const createDto: CreateTournamentDto = {
       name: 'U12 Test Tournament',
       description: 'Test tournament',
-      ageCategory: AgeCategory.U12,
       level: TournamentLevel.LEVEL_I,
       gameSystem: '4+1',
       numberOfMatches: 6,
@@ -165,7 +162,7 @@ describe('TournamentsService', () => {
 
     it('should apply filters when provided', async () => {
       const pagination = { page: 1, pageSize: 20 };
-      const filters = { ageCategory: AgeCategory.U12 };
+      const filters = { level: TournamentLevel.LEVEL_I };
 
       await service.findAll(pagination, filters);
 
@@ -214,7 +211,6 @@ describe('TournamentsService', () => {
   describe('update', () => {
     const updateDto: UpdateTournamentDto = {
       name: 'Updated Tournament Name',
-      maxTeams: 20,
     };
 
     it('should update tournament when user is owner', async () => {
@@ -384,7 +380,10 @@ describe('TournamentsService', () => {
           ],
         };
 
-        const mockSavedTournament = { ...mockTournament, id: 'new-tournament-id' };
+        const mockSavedTournament = {
+          ...mockTournament,
+          id: 'new-tournament-id',
+        };
         mockRepository.create.mockReturnValue(mockSavedTournament);
         mockRepository.save.mockResolvedValue(mockSavedTournament);
 
@@ -406,7 +405,8 @@ describe('TournamentsService', () => {
         expect(mockAgeGroupRepository.save).toHaveBeenCalled();
 
         // Verify first age group contains all required fields
-        const firstAgeGroupCall = mockAgeGroupRepository.create.mock.calls[0][0];
+        const firstAgeGroupCall =
+          mockAgeGroupRepository.create.mock.calls[0][0];
         expect(firstAgeGroupCall).toMatchObject({
           birthYear: 2010,
           displayLabel: 'U14',
@@ -421,7 +421,8 @@ describe('TournamentsService', () => {
         });
 
         // Verify second age group contains all required fields
-        const secondAgeGroupCall = mockAgeGroupRepository.create.mock.calls[1][0];
+        const secondAgeGroupCall =
+          mockAgeGroupRepository.create.mock.calls[1][0];
         expect(secondAgeGroupCall).toMatchObject({
           birthYear: 2012,
           displayLabel: 'U12',
@@ -453,7 +454,10 @@ describe('TournamentsService', () => {
           ],
         };
 
-        const mockSavedTournament = { ...mockTournament, id: 'new-tournament-id' };
+        const mockSavedTournament = {
+          ...mockTournament,
+          id: 'new-tournament-id',
+        };
         mockRepository.create.mockReturnValue(mockSavedTournament);
         mockRepository.save.mockResolvedValue(mockSavedTournament);
 
@@ -491,7 +495,9 @@ describe('TournamentsService', () => {
 
         mockRepository.findOne.mockResolvedValue(mockExistingTournament);
         mockAgeGroupRepository.find.mockResolvedValue([existingAgeGroup]);
-        mockAgeGroupRepository.save.mockImplementation((data) => Promise.resolve(data));
+        mockAgeGroupRepository.save.mockImplementation((data) =>
+          Promise.resolve(data),
+        );
 
         const updateData = [
           {
@@ -504,6 +510,7 @@ describe('TournamentsService', () => {
             numberOfMatches: 5,
             guaranteedMatches: 3,
             participationFee: 300,
+            leagueLegs: 1,
           },
         ];
 
@@ -519,13 +526,16 @@ describe('TournamentsService', () => {
 
         // Verify the age group object was updated with all new fields
         const savedAgeGroups = mockAgeGroupRepository.save.mock.calls[0][0];
-        expect(Array.isArray(savedAgeGroups) ? savedAgeGroups[0] : savedAgeGroups).toMatchObject({
+        expect(
+          Array.isArray(savedAgeGroups) ? savedAgeGroups[0] : savedAgeGroups,
+        ).toMatchObject({
           id: 'age-group-1',
           minTeams: 8,
           maxTeams: 16,
           numberOfMatches: 5,
           guaranteedMatches: 3,
           participationFee: 300,
+          leagueLegs: 1,
         });
       });
 
@@ -539,7 +549,9 @@ describe('TournamentsService', () => {
         mockRepository.findOne.mockResolvedValue(mockExistingTournament);
         mockAgeGroupRepository.find.mockResolvedValue([]);
         mockAgeGroupRepository.create.mockImplementation((data) => data);
-        mockAgeGroupRepository.save.mockImplementation((data) => Promise.resolve(data));
+        mockAgeGroupRepository.save.mockImplementation((data) =>
+          Promise.resolve(data),
+        );
 
         const newAgeGroupData = [
           {
@@ -580,14 +592,24 @@ describe('TournamentsService', () => {
         };
 
         const existingAgeGroups = [
-          { id: 'age-group-1', tournamentId: mockTournament.id, birthYear: 2010 },
-          { id: 'age-group-2', tournamentId: mockTournament.id, birthYear: 2011 },
+          {
+            id: 'age-group-1',
+            tournamentId: mockTournament.id,
+            birthYear: 2010,
+          },
+          {
+            id: 'age-group-2',
+            tournamentId: mockTournament.id,
+            birthYear: 2011,
+          },
         ];
 
         mockRepository.findOne.mockResolvedValue(mockExistingTournament);
         mockAgeGroupRepository.find.mockResolvedValue(existingAgeGroups);
         mockAgeGroupRepository.remove.mockResolvedValue(undefined);
-        mockAgeGroupRepository.save.mockImplementation((data) => Promise.resolve(data));
+        mockAgeGroupRepository.save.mockImplementation((data) =>
+          Promise.resolve(data),
+        );
 
         const updateData = [
           {
@@ -615,7 +637,7 @@ describe('TournamentsService', () => {
 
     describe('data integrity validation', () => {
       it('should throw error when maxTeams is less than minTeams', async () => {
-        const createDto: CreateTournamentDto = {
+        const _createDto: CreateTournamentDto = {
           name: 'Invalid Tournament',
           description: 'Tournament with invalid age group constraints',
           startDate: '2025-07-01',

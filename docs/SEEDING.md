@@ -163,6 +163,66 @@ CommonJS module is loading ES Module using require()
 - This is a warning from faker.js, not an error
 - Can be safely ignored, seeding will proceed
 
+## Real Data Import: Euro-Sportring
+
+Besides the faker-based test seed, you can import **real tournaments** scraped
+from [Euro-Sportring's youth football tournaments](https://www.euro-sportring.com/en/international-football-tournaments/youth-football-tournaments):
+
+```bash
+# Scrape + insert into the database (requires DATABASE_URL)
+pnpm seed:eurosportring
+
+# Scrape only — writes euro-sportring-scraped.json, no DB writes
+pnpm seed:eurosportring -- --dry-run
+
+# Useful flags
+pnpm seed:eurosportring -- --limit=5        # only first N tournaments (testing)
+pnpm seed:eurosportring -- --delay=2000     # ms between requests (default 1000, min 250)
+pnpm seed:eurosportring -- --out=data.json  # also dump the raw scraped data
+```
+
+What it does:
+
+1. Crawls **all listing pages** (Drupal `?page=N` pager) to collect every
+   tournament detail URL (~56 tournaments).
+2. Fetches **each tournament page** sequentially with throttling (1 req/sec by
+   default), retries with exponential backoff, a request timeout, and an
+   identifying User-Agent.
+3. Parses the schema.org **SportsEvent JSON-LD** (name, description, dates,
+   address, geo coordinates, organiser) plus page fields (age categories,
+   team count, first edition, availability, slogan, long description).
+4. Maps into our data model:
+   - A dedicated organizer user `import.eurosportring@turnee-sportive.ro`
+     (role ORGANIZER, created on first run).
+   - `tournaments` — status derived from dates (PUBLISHED/ONGOING/COMPLETED),
+     currency EUR, `max_teams` from their team count, `is_registration_closed`
+     when sold out, real lat/long, `url_slug` = `euro-sportring-<slug>`.
+   - `tournament_age_groups` — one per age category (U7–U19, G-categories for
+     girls) with `birth_year` = event year − age and a game system matching the
+     platform conventions (5+1 / 7+1 / 9+1 / 10+1 by age).
+   - `tournament_locations` — the primary venue with address + coordinates.
+
+The import is **idempotent**: tournaments are upserted by `url_slug`, so
+re-running refreshes existing rows (and replaces their age groups/locations)
+instead of duplicating them. It does **not** clear any other data — it composes
+with `pnpm seed` or an empty database alike.
+
+### Automatic run on production deploy
+
+Production starts through `scripts/start-prod.sh` (wired into `nixpacks.toml`
+and the `Dockerfile` CMD), which launches the compiled seeder
+(`node dist/seeds/scrape-euro-sportring.js --on-deploy`) **in the background**
+before starting the API. On every deploy the database is refreshed with the
+current Euro-Sportring data. Safety properties in deploy mode:
+
+- **Non-blocking**: the API starts immediately; the seed (~2 min) runs
+  concurrently and a failed scrape can never fail the deployment (always
+  exits 0).
+- **Single-flight**: a Postgres advisory lock ensures only one replica seeds
+  at a time; others skip.
+- **Opt-out**: set `SEED_EUROSPORTRING_ON_DEPLOY=false` in the environment to
+  disable it.
+
 ## Related Documentation
 
 - [Getting Started](./GETTING_STARTED.md)

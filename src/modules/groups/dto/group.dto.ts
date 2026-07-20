@@ -5,6 +5,10 @@ import {
   IsArray,
   Min,
   IsUUID,
+  IsISO8601,
+  ValidateIf,
+  IsBoolean,
+  IsIn,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
@@ -24,6 +28,11 @@ export class ExecuteDrawDto {
   @IsOptional()
   @IsString()
   seed?: string;
+
+  @ApiPropertyOptional({ description: 'Age group ID to scope the draw' })
+  @IsOptional()
+  @IsUUID()
+  ageGroupId?: string;
 }
 
 export class ManualGroupAssignmentDto {
@@ -61,4 +70,141 @@ export class CreateGroupDto {
   @Type(() => Number)
   @IsNumber()
   groupOrder?: number;
+}
+
+export class UpdateMatchAdvancementDto {
+  @ApiProperty({
+    description: 'ID of the team (registration) that advances/wins',
+  })
+  @IsUUID()
+  advancingTeamId: string;
+}
+
+export class UpdateMatchScoreDto {
+  @ApiPropertyOptional({ description: 'Score of team 1' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  team1Score?: number;
+
+  @ApiPropertyOptional({ description: 'Score of team 2' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  team2Score?: number;
+
+  @ApiPropertyOptional({
+    description: 'Leg 1 score of team 1 (at team 1 home)',
+    nullable: true,
+  })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @Type(() => Number)
+  @IsNumber()
+  leg1Team1Score?: number | null;
+
+  @ApiPropertyOptional({
+    description: 'Leg 1 score of team 2 (at team 1 home)',
+    nullable: true,
+  })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @Type(() => Number)
+  @IsNumber()
+  leg1Team2Score?: number | null;
+
+  @ApiPropertyOptional({
+    description: 'Leg 2 score of team 1 (at team 2 home)',
+    nullable: true,
+  })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @Type(() => Number)
+  @IsNumber()
+  leg2Team1Score?: number | null;
+
+  @ApiPropertyOptional({
+    description: 'Leg 2 score of team 2 (at team 2 home)',
+    nullable: true,
+  })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @Type(() => Number)
+  @IsNumber()
+  leg2Team2Score?: number | null;
+
+  @ApiPropertyOptional({
+    description: 'ID of the advancing/winning team (manual override)',
+  })
+  @IsOptional()
+  @IsString()
+  advancingTeamId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Whether match was decided by penalty shootout',
+  })
+  @IsOptional()
+  @IsBoolean()
+  hasPenalties?: boolean;
+
+  @ApiPropertyOptional({ description: 'Penalty shootout score for team 1' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  penaltyTeam1Score?: number;
+
+  @ApiPropertyOptional({ description: 'Penalty shootout score for team 2' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  penaltyTeam2Score?: number;
+
+  @ApiPropertyOptional({ description: 'Match status' })
+  @IsOptional()
+  @IsString()
+  status?: string;
+}
+
+
+export class SwapMatchTeamsDto {
+  @ApiProperty({ description: 'Source match ID' })
+  @IsString()
+  sourceMatchId: string;
+
+  @ApiProperty({ description: 'Source team slot', enum: ['team1', 'team2'] })
+  @IsIn(['team1', 'team2'])
+  sourceSlot: 'team1' | 'team2';
+
+  @ApiProperty({ description: 'Target match ID' })
+  @IsString()
+  targetMatchId: string;
+
+  @ApiProperty({ description: 'Target team slot', enum: ['team1', 'team2'] })
+  @IsIn(['team1', 'team2'])
+  targetSlot: 'team1' | 'team2';
+}
+
+/** BE-07 — Schedule a match (set date/time and optional court number) */
+export class ScheduleMatchDto {
+  @ApiProperty({
+    example: '2026-07-15T09:00:00Z',
+    description: 'ISO 8601 datetime when the match is scheduled to start',
+  })
+  @IsISO8601()
+  scheduledAt: string;
+
+  @ApiPropertyOptional({ example: 3, description: 'Court / field number' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  courtNumber?: number;
+
+  @ApiPropertyOptional({
+    example: 'Pitch 1',
+    description: 'Football field name',
+  })
+  @IsOptional()
+  @IsString()
+  fieldName?: string;
 }

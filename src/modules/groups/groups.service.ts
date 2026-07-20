@@ -5,17 +5,36 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { Group } from './entities/group.entity';
 import { Tournament } from '../tournaments/entities/tournament.entity';
+import { TournamentAgeGroup } from '../tournaments/entities/tournament-age-group.entity';
 import { Registration } from '../registrations/entities/registration.entity';
-import { ExecuteDrawDto, UpdateBracketDto, CreateGroupDto, ConfigureGroupsDto, UpdateGroupDto, GroupConfigurationResponseDto } from './dto';
+import {
+  ExecuteDrawDto,
+  UpdateBracketDto,
+  CreateGroupDto,
+  ConfigureGroupsDto,
+  UpdateGroupDto,
+  GroupConfigurationResponseDto,
+  UpdateMatchAdvancementDto,
+  UpdateMatchScoreDto,
+  SwapMatchTeamsDto,
+} from './dto';
 import {
   TournamentStatus,
   RegistrationStatus,
   UserRole,
+  TournamentFormat,
 } from '../../common/enums';
+import {
+  BracketGeneratorService,
+  BracketType,
+  GroupStanding,
+  Match,
+  PlacementBracket,
+} from './services/bracket-generator.service';
 
 @Injectable()
 export class GroupsService {
@@ -24,9 +43,406 @@ export class GroupsService {
     private groupsRepository: Repository<Group>,
     @InjectRepository(Tournament)
     private tournamentsRepository: Repository<Tournament>,
+    @InjectRepository(TournamentAgeGroup)
+    private ageGroupRepository: Repository<TournamentAgeGroup>,
     @InjectRepository(Registration)
     private registrationsRepository: Repository<Registration>,
+    private bracketGeneratorService: BracketGeneratorService,
   ) {}
+
+  private getRegistrationDisplayName(registration?: Registration | null): string {
+    if (!registration) return 'Unknown Team';
+    return (
+      registration.team?.name ||
+      registration.club?.name ||
+      registration.coachName ||
+      'Unknown Team'
+    );
+  }
+
+  private resetKnockoutRoundsForSeeding(bracketData: any): void {
+    bracketData.playoffRounds?.forEach((round: any) => {
+      (round.matches as Match[]).forEach((match) => {
+        match.status = 'PENDING';
+        match.team1Score = undefined;
+        match.team2Score = undefined;
+        match.winnerId = undefined;
+        match.loserId = undefined;
+        match.manualWinnerId = undefined;
+        match.isManualOverride = false;
+        match.team1Id = undefined;
+        match.team1Name = undefined;
+        match.team2Id = undefined;
+        match.team2Name = undefined;
+      });
+    });
+  }
+
+  private seedKnockoutFromCompletedGroups(
+    bracketData: any,
+    groups: Group[],
+    groupPhaseMatches: Match[],
+  ): void {
+    this.resetKnockoutRoundsForSeeding(bracketData);
+
+    const nameMap = new Map<string, string>();
+    for (const match of groupPhaseMatches) {
+      if (match.team1Id && match.team1Name)
+        nameMap.set(match.team1Id, match.team1Name);
+      if (match.team2Id && match.team2Name)
+        nameMap.set(match.team2Id, match.team2Name);
+    }
+
+    const perGroupStandings = new Map<string, GroupStanding[]>();
+    for (const group of groups) {
+      const groupMatches = groupPhaseMatches.filter(
+        (match) => match.groupLetter === group.groupLetter,
+      );
+      const standings =
+        this.bracketGeneratorService.calculateGroupStandings(
+          group.teams,
+          groupMatches,
+          group.tieBreakOrder,
+        ) ?? [];
+      perGroupStandings.set(group.groupLetter, standings);
+    }
+
+    const advancingPerGroup = bracketData.advancingTeamsPerGroup ?? 2;
+    this.bracketGeneratorService.seedTeamsIntoBracket(
+      perGroupStandings,
+      advancingPerGroup,
+      bracketData,
+    );
+
+    const firstRound = bracketData.playoffRounds?.[0];
+    for (const match of firstRound?.matches ?? []) {
+      if (match.team1Id)
+        match.team1Name = nameMap.get(match.team1Id) || match.team1Name || '';
+      if (match.team2Id)
+        match.team2Name = nameMap.get(match.team2Id) || match.team2Name || '';
+    }
+  }
+
+  private getPlacementSlotLabel(
+    position: number,
+    groups: Group[],
+  ): string | undefined {
+    if (groups.length === 0) return undefined;
+    const groupIndex = (position - 1) % groups.length;
+    const rank = Math.floor((position - 1) / groups.length) + 1;
+    const group = groups[groupIndex];
+    return group ? `${group.groupLetter}${rank}` : undefined;
+  }
+
+  private buildPlacementBracket(
+    rangeStart: number,
+    rangeEnd: number,
+    groups: Group[],
+    withSourceSlots: boolean,
+  ): PlacementBracket {
+    const key = `placement-${rangeStart}-${rangeEnd}`;
+    const size = rangeEnd - rangeStart + 1;
+    const matchCount = Math.floor(size / 2);
+    const matches: Match[] = Array.from({ length: matchCount }, (_, index) => {
+      const leftPosition = rangeStart + index;
+      const rightPosition = rangeEnd - index;
+      const team1SourceSlot = withSourceSlots
+        ? this.getPlacementSlotLabel(leftPosition, groups)
+        : undefined;
+      const team2SourceSlot = withSourceSlots
+        ? this.getPlacementSlotLabel(rightPosition, groups)
+        : undefined;
+
+      return {
+        id: `${key}-r1-m${index + 1}`,
+        round: 1,
+        matchNumber: index + 1,
+        status: 'PENDING',
+        team1Name: team1SourceSlot,
+        team2Name: team2SourceSlot,
+        team1SourceSlot,
+        team2SourceSlot,
+      };
+    });
+
+    const bracket: PlacementBracket = {
+      key,
+      label: `${rangeStart}-${rangeEnd}`,
+      rangeStart,
+      rangeEnd,
+      playoffRounds: [
+        {
+          roundNumber: 1,
+          roundName: `${rangeStart}-${rangeEnd}`,
+          matches,
+          bracket: 'winners',
+        },
+      ],
+    };
+
+    if (size > 2 && size % 2 === 0) {
+      const midpoint = rangeStart + Math.floor(size / 2) - 1;
+      const winners = this.buildPlacementBracket(
+        rangeStart,
+        midpoint,
+        groups,
+        false,
+      );
+      const losers = this.buildPlacementBracket(midpoint + 1, rangeEnd, groups, false);
+
+      matches.forEach((match, index) => {
+        const winnerTarget =
+          winners.playoffRounds[0]?.matches[Math.floor(index / 2)];
+        const loserTarget =
+          losers.playoffRounds[0]?.matches[Math.floor(index / 2)];
+        match.nextMatchId = winnerTarget?.id;
+        match.loserNextMatchId = loserTarget?.id;
+      });
+
+      bracket.children = { winners, losers };
+    }
+
+    return bracket;
+  }
+
+  private buildPlacementBrackets(
+    groups: Group[],
+    advancingTeamsPerGroup = 2,
+  ): PlacementBracket[] {
+    const totalTeams = groups.reduce((sum, group) => sum + group.teams.length, 0);
+    if (totalTeams < 2 || groups.length === 0) return [];
+
+    const maxTeamsPerGroup = Math.max(
+      ...groups.map((group) => group.teams.length),
+    );
+    const safeAdvancingPerGroup = Math.max(
+      1,
+      Math.min(advancingTeamsPerGroup, maxTeamsPerGroup),
+    );
+    const topLevelSize = Math.min(
+      totalTeams,
+      Math.max(2, groups.length * safeAdvancingPerGroup),
+    );
+
+    const brackets: PlacementBracket[] = [];
+    for (let start = 1; start <= totalTeams; start += topLevelSize) {
+      const end = Math.min(totalTeams, start + topLevelSize - 1);
+      if (end - start + 1 >= 2) {
+        brackets.push(this.buildPlacementBracket(start, end, groups, true));
+      }
+    }
+
+    return brackets;
+  }
+
+  private hasEmptyPlacementMatches(bracket: PlacementBracket): boolean {
+    return (
+      bracket.playoffRounds.some((round) => round.matches.length === 0) ||
+      (!!bracket.children?.winners &&
+        this.hasEmptyPlacementMatches(bracket.children.winners)) ||
+      (!!bracket.children?.losers &&
+        this.hasEmptyPlacementMatches(bracket.children.losers))
+    );
+  }
+
+  private placementBracketsNeedRebuild(
+    current: unknown,
+    expected: PlacementBracket[],
+  ): current is PlacementBracket[] {
+    if (!Array.isArray(current) || current.length === 0) return true;
+    const currentBrackets = current as PlacementBracket[];
+    if (
+      currentBrackets.some((bracket) => this.hasEmptyPlacementMatches(bracket))
+    ) {
+      return true;
+    }
+
+    const currentLabels = currentBrackets.map((bracket) => bracket.label).join('|');
+    const expectedLabels = expected.map((bracket) => bracket.label).join('|');
+    return currentLabels !== expectedLabels;
+  }
+
+  private clearPlacementTeams(bracket: PlacementBracket): void {
+    bracket.playoffRounds.forEach((round) => {
+      round.matches.forEach((match) => {
+        match.status = 'PENDING';
+        match.team1Score = undefined;
+        match.team2Score = undefined;
+        match.winnerId = undefined;
+        match.loserId = undefined;
+        match.manualWinnerId = undefined;
+        match.isManualOverride = false;
+
+        if (match.team1SourceSlot) {
+          match.team1Id = undefined;
+          match.team1Name = match.team1SourceSlot;
+        } else {
+          match.team1Id = undefined;
+          match.team1Name = undefined;
+        }
+
+        if (match.team2SourceSlot) {
+          match.team2Id = undefined;
+          match.team2Name = match.team2SourceSlot;
+        } else {
+          match.team2Id = undefined;
+          match.team2Name = undefined;
+        }
+      });
+    });
+
+    if (bracket.children?.winners) this.clearPlacementTeams(bracket.children.winners);
+    if (bracket.children?.losers) this.clearPlacementTeams(bracket.children.losers);
+  }
+
+  private seedPlacementBracketsFromCompletedGroups(
+    bracketData: any,
+    groups: Group[],
+    groupPhaseMatches: Match[],
+  ): void {
+    if (!Array.isArray(bracketData.placementBrackets)) return;
+
+    const slotMap = new Map<string, { id: string; name?: string }>();
+    for (const group of groups) {
+      const groupMatches = groupPhaseMatches.filter(
+        (match) => match.groupLetter === group.groupLetter,
+      );
+      const standings =
+        this.bracketGeneratorService.calculateGroupStandings(
+          group.teams,
+          groupMatches,
+          group.tieBreakOrder,
+        ) ?? [];
+
+      standings.forEach((standing) => {
+        const name =
+          groupMatches.find((match) => match.team1Id === standing.teamId)
+            ?.team1Name ||
+          groupMatches.find((match) => match.team2Id === standing.teamId)
+            ?.team2Name;
+        slotMap.set(`${group.groupLetter}${standing.position}`, {
+          id: standing.teamId,
+          name,
+        });
+      });
+    }
+
+    for (const bracket of bracketData.placementBrackets as PlacementBracket[]) {
+      this.clearPlacementTeams(bracket);
+      const firstRound = bracket.playoffRounds[0];
+      firstRound?.matches.forEach((match) => {
+        const team1 = match.team1SourceSlot
+          ? slotMap.get(match.team1SourceSlot)
+          : undefined;
+        const team2 = match.team2SourceSlot
+          ? slotMap.get(match.team2SourceSlot)
+          : undefined;
+        if (team1) {
+          match.team1Id = team1.id;
+          match.team1Name = team1.name || match.team1SourceSlot;
+        }
+        if (team2) {
+          match.team2Id = team2.id;
+          match.team2Name = team2.name || match.team2SourceSlot;
+        }
+      });
+    }
+  }
+
+  private async ensureGroupsPlusKnockoutPlanningData(
+    tournament: Tournament,
+    tournamentId: string,
+    ageGroupId: string | undefined,
+    bracketData: any,
+  ): Promise<boolean> {
+    if (
+      bracketData?.type !== BracketType.GROUPS_PLUS_KNOCKOUT ||
+      !Array.isArray(bracketData.matches) ||
+      bracketData.matches.length === 0
+    ) {
+      return false;
+    }
+
+    const groupsWhere: any = { tournamentId };
+    if (ageGroupId) groupsWhere.ageGroupId = ageGroupId;
+    const groups = await this.groupsRepository.find({
+      where: groupsWhere,
+      order: { groupLetter: 'ASC' },
+    });
+    if (groups.length === 0) return false;
+
+    let changed = false;
+    let createdPlayoff = false;
+    let createdPlacement = false;
+
+    if (!Array.isArray(bracketData.playoffRounds) || bracketData.playoffRounds.length === 0) {
+      const advancingPerGroup = bracketData.advancingTeamsPerGroup ?? 2;
+      const knockoutBracketData = this.bracketGeneratorService.generateBracket(
+        BracketType.SINGLE_ELIMINATION,
+        groups.length * advancingPerGroup,
+        {
+          thirdPlaceMatch: true,
+          seed: tournament.drawSeed || undefined,
+        },
+      );
+      if (Array.isArray(knockoutBracketData?.playoffRounds)) {
+        bracketData.playoffRounds = knockoutBracketData.playoffRounds;
+        createdPlayoff = true;
+        changed = true;
+      }
+    }
+
+    const expectedPlacementBrackets = this.buildPlacementBrackets(
+      groups,
+      bracketData.advancingTeamsPerGroup ?? 2,
+    );
+    if (
+      this.placementBracketsNeedRebuild(
+        bracketData.placementBrackets,
+        expectedPlacementBrackets,
+      )
+    ) {
+      bracketData.placementBrackets = expectedPlacementBrackets;
+      createdPlacement = true;
+      changed = true;
+    }
+
+    const groupPhaseMatches = (bracketData.matches as Match[]).filter(
+      (match) => match.groupLetter,
+    );
+    const allGroupDone =
+      groupPhaseMatches.length > 0 &&
+      groupPhaseMatches.every((match) => match.status === 'COMPLETED');
+
+    if (allGroupDone) {
+      const firstRoundMatches = bracketData.playoffRounds?.[0]?.matches ?? [];
+      const knockoutNeedsSeeding =
+        createdPlayoff ||
+        firstRoundMatches.some(
+          (match: Match) => !match.team1Id || !match.team2Id,
+        );
+
+      if (knockoutNeedsSeeding) {
+        this.seedKnockoutFromCompletedGroups(
+          bracketData,
+          groups,
+          groupPhaseMatches,
+        );
+        changed = true;
+      }
+
+      if (createdPlacement) {
+        this.seedPlacementBracketsFromCompletedGroups(
+          bracketData,
+          groups,
+          groupPhaseMatches,
+        );
+        changed = true;
+      }
+    }
+
+    return changed;
+  }
 
   async executeDraw(
     tournamentId: string,
@@ -50,8 +466,22 @@ export class GroupsService {
       );
     }
 
-    // Check if draw already completed
-    if (tournament.drawCompleted) {
+    // Check if draw already completed — per age group if ageGroupId given, otherwise tournament-level
+    if (executeDrawDto.ageGroupId) {
+      const ageGroup = await this.ageGroupRepository.findOne({
+        where: { id: executeDrawDto.ageGroupId, tournamentId },
+      });
+      if (!ageGroup) {
+        throw new NotFoundException(
+          `Age group ${executeDrawDto.ageGroupId} not found`,
+        );
+      }
+      if (ageGroup.drawCompleted) {
+        throw new BadRequestException(
+          'Draw has already been completed for this age group',
+        );
+      }
+    } else if (tournament.drawCompleted) {
       throw new BadRequestException(
         'Draw has already been completed for this tournament',
       );
@@ -67,13 +497,17 @@ export class GroupsService {
       );
     }
 
-    // Get approved registrations
+    // Get approved registrations — scoped to age group if specified
+    const regWhere: any = {
+      tournamentId,
+      status: RegistrationStatus.APPROVED,
+    };
+    if (executeDrawDto.ageGroupId) {
+      regWhere.ageGroupId = executeDrawDto.ageGroupId;
+    }
     const registrations = await this.registrationsRepository.find({
-      where: {
-        tournamentId,
-        status: RegistrationStatus.APPROVED,
-      },
-      relations: ['club'],
+      where: regWhere,
+      relations: ['club', 'team'],
     });
 
     if (registrations.length < 2) {
@@ -102,12 +536,17 @@ export class GroupsService {
     const groups: Group[] = [];
     const groupLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
-    // Delete existing groups
-    await this.groupsRepository.delete({ tournamentId });
+    // Delete existing groups — scoped to age group if specified
+    const deleteWhere: any = { tournamentId };
+    if (executeDrawDto.ageGroupId) {
+      deleteWhere.ageGroupId = executeDrawDto.ageGroupId;
+    }
+    await this.groupsRepository.delete(deleteWhere);
 
     for (let i = 0; i < numberOfGroups; i++) {
       const group = this.groupsRepository.create({
         tournamentId,
+        ageGroupId: executeDrawDto.ageGroupId,
         groupLetter: groupLetters[i],
         teams: [],
         groupOrder: i + 1,
@@ -133,57 +572,95 @@ export class GroupsService {
       }
     }
 
-    // Mark draw as completed
-    await this.tournamentsRepository.update(tournamentId, {
-      drawCompleted: true,
-      drawSeed: seed,
-    });
+    // Mark draw as completed — per age group or tournament level
+    if (executeDrawDto.ageGroupId) {
+      await this.ageGroupRepository.update(executeDrawDto.ageGroupId, {
+        drawCompleted: true,
+        drawSeed: seed,
+      });
+    } else {
+      await this.tournamentsRepository.update(tournamentId, {
+        drawCompleted: true,
+        drawSeed: seed,
+      });
+    }
+
+    // BE-08 — auto-calculate numberOfMatches for affected age groups
+    const ageGroupIds = [
+      ...new Set(registrations.map((r) => r.ageGroupId).filter(Boolean)),
+    ];
+    for (const agId of ageGroupIds) {
+      await this.autoCalcNumberOfMatches(
+        tournamentId,
+        agId!,
+        savedGroups.filter((g) =>
+          g.teams.some(
+            (t) => registrations.find((r) => r.id === t)?.ageGroupId === agId,
+          ),
+        ),
+      );
+    }
 
     return savedGroups;
   }
 
-  async getGroups(tournamentId: string): Promise<Group[]> {
+  async getGroups(tournamentId: string, ageGroupId?: string): Promise<Group[]> {
+    const where: any = { tournamentId };
+    if (ageGroupId) where.ageGroupId = ageGroupId;
     const groups = await this.groupsRepository.find({
-      where: { tournamentId },
+      where,
       order: { groupOrder: 'ASC' },
     });
 
-    // Populate team details
+    const registrationIds = Array.from(
+      new Set(groups.flatMap((group) => group.teams || [])),
+    );
+    const registrations = registrationIds.length
+      ? await this.registrationsRepository.find({
+          where: { id: In(registrationIds) },
+          relations: ['club', 'team'],
+        })
+      : [];
+    const registrationById = new Map(
+      registrations.map((registration) => [registration.id, registration]),
+    );
+
+    // Populate team details while preserving the group team order.
     for (const group of groups) {
-      // Replace team IDs with full registration data
-      (group as any).teamDetails = await Promise.all(
-        group.teams.map(async (teamId) => {
-          const registration = await this.registrationsRepository.findOne({
-            where: { id: teamId },
-            relations: ['club'],
-          });
-          return registration;
-        }),
-      );
+      (group as any).teamDetails = (group.teams || [])
+        .map((teamId) => registrationById.get(teamId))
+        .filter(Boolean);
     }
 
     return groups;
   }
 
-  async getBracket(tournamentId: string): Promise<{
+  async getBracket(
+    tournamentId: string,
+    ageGroupId?: string,
+  ): Promise<{
     groups: Group[];
     tournament: Tournament;
     drawCompleted: boolean;
   }> {
     const tournament = await this.tournamentsRepository.findOne({
       where: { id: tournamentId },
+      relations: ['ageGroups'],
     });
 
     if (!tournament) {
       throw new NotFoundException('Tournament not found');
     }
 
-    const groups = await this.getGroups(tournamentId);
+    const groups = await this.getGroups(tournamentId, ageGroupId);
+    const scopedAgeGroup = ageGroupId
+      ? (tournament.ageGroups ?? []).find((ag) => ag.id === ageGroupId)
+      : undefined;
 
     return {
       groups,
       tournament,
-      drawCompleted: tournament.drawCompleted,
+      drawCompleted: scopedAgeGroup?.drawCompleted ?? tournament.drawCompleted,
     };
   }
 
@@ -195,6 +672,7 @@ export class GroupsService {
   ): Promise<Group[]> {
     const tournament = await this.tournamentsRepository.findOne({
       where: { id: tournamentId },
+      relations: ['ageGroups'],
     });
 
     if (!tournament) {
@@ -269,6 +747,7 @@ export class GroupsService {
     tournamentId: string,
     userId: string,
     userRole: string,
+    ageGroupId?: string,
   ): Promise<void> {
     const tournament = await this.tournamentsRepository.findOne({
       where: { id: tournamentId },
@@ -285,19 +764,60 @@ export class GroupsService {
       );
     }
 
-    // Delete all groups
-    await this.groupsRepository.delete({ tournamentId });
+    if (ageGroupId) {
+      // Scoped reset: only delete groups for this age group
+      await this.groupsRepository.delete({ tournamentId, ageGroupId });
+      // Clear group assignments only for registrations in this age group
+      await this.registrationsRepository.update(
+        { tournamentId, ageGroupId } as any,
+        { groupAssignment: null as unknown as string },
+      );
+      // Reset only this age group's drawCompleted flag
+      await this.ageGroupRepository.update(ageGroupId, {
+        drawCompleted: false,
+        drawSeed: undefined,
+      });
+      tournament.bracketData = this.clearBracketData(
+        tournament.bracketData,
+        ageGroupId,
+      );
+      await this.tournamentsRepository.save(tournament);
+    } else {
+      // Full tournament reset
+      await this.groupsRepository.delete({ tournamentId });
+      await this.registrationsRepository.update(
+        { tournamentId },
+        { groupAssignment: null as unknown as string },
+      );
+      tournament.drawCompleted = false;
+      tournament.drawSeed = undefined;
+      tournament.bracketData = undefined as any;
+      await this.tournamentsRepository.save(tournament);
+    }
+  }
 
-    // Clear group assignments from registrations
-    await this.registrationsRepository.update(
-      { tournamentId },
-      { groupAssignment: undefined as unknown as string },
-    );
+  private clearBracketData(bracketData: any, ageGroupId?: string) {
+    if (!bracketData) {
+      return undefined;
+    }
 
-    // Reset draw status
-    tournament.drawCompleted = false;
-    tournament.drawSeed = undefined;
-    await this.tournamentsRepository.save(tournament);
+    if (!ageGroupId) {
+      return undefined;
+    }
+
+    const hasFlatBracketShape =
+      bracketData.playoffRounds || bracketData.matches || bracketData.type;
+
+    if (hasFlatBracketShape) {
+      return undefined;
+    }
+
+    const nextBracketData = { ...bracketData };
+    delete nextBracketData[ageGroupId];
+
+    return Object.keys(nextBracketData).length > 0
+      ? nextBracketData
+      : undefined;
   }
 
   async createGroup(
@@ -366,17 +886,19 @@ export class GroupsService {
       );
     }
 
-    // Get approved registrations count
+    // Get approved registrations count — scoped to age group if specified
+    const regCountWhere: any = {
+      tournamentId,
+      status: RegistrationStatus.APPROVED,
+    };
+    if (dto.ageGroupId) regCountWhere.ageGroupId = dto.ageGroupId;
     const registeredTeamsCount = await this.registrationsRepository.count({
-      where: {
-        tournamentId,
-        status: RegistrationStatus.APPROVED,
-      },
+      where: regCountWhere,
     });
 
     // Validation
     const errors: string[] = [];
-    
+
     // Validate number of groups matches teamsPerGroup array length
     if (dto.numberOfGroups !== dto.teamsPerGroup.length) {
       errors.push(
@@ -420,20 +942,45 @@ export class GroupsService {
       tournament.groupConfigCreatedAt = new Date();
       await this.tournamentsRepository.save(tournament);
 
-      // Create empty groups based on configuration
+      // Create empty groups based on configuration, scoped to the selected age group.
+      const groupWhere: any = { tournamentId };
+      if (dto.ageGroupId) groupWhere.ageGroupId = dto.ageGroupId;
       const existingGroups = await this.groupsRepository.find({
-        where: { tournamentId },
+        where: groupWhere,
       });
 
       // Delete existing groups if any
       if (existingGroups.length > 0) {
-        await this.groupsRepository.delete({ tournamentId });
+        await this.groupsRepository.delete(groupWhere);
       }
+
+      await this.registrationsRepository.update(
+        regCountWhere,
+        { groupAssignment: null as unknown as string },
+      );
+
+      if (dto.ageGroupId) {
+        await this.ageGroupRepository.update(dto.ageGroupId, {
+          drawCompleted: false,
+          drawSeed: undefined,
+        });
+        tournament.bracketData = this.clearBracketData(
+          tournament.bracketData,
+          dto.ageGroupId,
+        );
+      } else {
+        tournament.drawCompleted = false;
+        tournament.drawSeed = undefined;
+        tournament.bracketData = undefined as any;
+      }
+
+      await this.tournamentsRepository.save(tournament);
 
       // Create new groups
       const newGroups = dto.teamsPerGroup.map((config, index) =>
         this.groupsRepository.create({
           tournamentId,
+          ageGroupId: dto.ageGroupId,
           groupLetter: config.groupLetter,
           teams: [],
           groupOrder: index,
@@ -457,6 +1004,7 @@ export class GroupsService {
 
   async getGroupConfiguration(
     tournamentId: string,
+    ageGroupId?: string,
   ): Promise<GroupConfigurationResponseDto> {
     const tournament = await this.tournamentsRepository.findOne({
       where: { id: tournamentId },
@@ -467,15 +1015,19 @@ export class GroupsService {
     }
 
     if (!tournament.numberOfGroups || !tournament.groupConfiguration) {
-      throw new NotFoundException('No group configuration found for this tournament');
+      throw new NotFoundException(
+        'No group configuration found for this tournament',
+      );
     }
 
-    // Get approved registrations count
+    // Get approved registrations count — scoped to age group if specified
+    const regCountWhere: any = {
+      tournamentId,
+      status: RegistrationStatus.APPROVED,
+    };
+    if (ageGroupId) regCountWhere.ageGroupId = ageGroupId;
     const registeredTeamsCount = await this.registrationsRepository.count({
-      where: {
-        tournamentId,
-        status: RegistrationStatus.APPROVED,
-      },
+      where: regCountWhere,
     });
 
     // Calculate total teams allocated
@@ -536,13 +1088,17 @@ export class GroupsService {
       throw new NotFoundException('Group not found');
     }
 
-    // Validate teams exist if provided
+    // Validate teams exist if provided. When the group belongs to an age group,
+    // only registrations from that same age group are valid; otherwise a manual
+    // edit can silently mix U10/U14 teams and produce stale matches.
     if (dto.teams && dto.teams.length > 0) {
+      const registrationWhere: any = {
+        tournamentId,
+        status: RegistrationStatus.APPROVED,
+      };
+      if (group.ageGroupId) registrationWhere.ageGroupId = group.ageGroupId;
       const registrations = await this.registrationsRepository.find({
-        where: {
-          tournamentId,
-          status: RegistrationStatus.APPROVED,
-        },
+        where: registrationWhere,
       });
 
       const validRegistrationIds = registrations.map((r) => r.id);
@@ -561,7 +1117,7 @@ export class GroupsService {
         const groupConfig = tournament.groupConfiguration.find(
           (g) => g.groupLetter === group.groupLetter,
         );
-        
+
         if (groupConfig && dto.teams.length > groupConfig.teamCount) {
           throw new BadRequestException(
             `Group ${group.groupLetter} can only have ${groupConfig.teamCount} teams (tried to assign ${dto.teams.length})`,
@@ -569,7 +1125,26 @@ export class GroupsService {
         }
       }
 
+      const previousTeams = group.teams ?? [];
       group.teams = dto.teams;
+
+      // Clear assignments for teams removed from this group so standings and
+      // subsequent manual edits are based only on the current group contents.
+      const removedTeams = previousTeams.filter(
+        (teamId) => !dto.teams!.includes(teamId),
+      );
+      for (const teamId of removedTeams) {
+        await this.registrationsRepository.update(teamId, {
+          groupAssignment: null as unknown as string,
+        });
+      }
+
+      // Update registration.groupAssignment for all teams in this group
+      for (const teamId of dto.teams) {
+        await this.registrationsRepository.update(teamId, {
+          groupAssignment: group.groupLetter,
+        });
+      }
     }
 
     if (dto.groupLetter !== undefined) {
@@ -587,7 +1162,1416 @@ export class GroupsService {
       group.groupLetter = dto.groupLetter;
     }
 
-    return this.groupsRepository.save(group);
+    const savedGroup = await this.groupsRepository.save(group);
+
+    if (dto.teams) {
+      await this.completeManualDrawAndRegenerateMatchesIfReady(
+        tournamentId,
+        userId,
+        userRole,
+        group.ageGroupId,
+      );
+    }
+
+    return savedGroup;
+  }
+
+  private async completeManualDrawAndRegenerateMatchesIfReady(
+    tournamentId: string,
+    userId: string,
+    userRole: string,
+    ageGroupId?: string,
+  ): Promise<void> {
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id: tournamentId },
+      relations: ['ageGroups'],
+    });
+    if (!tournament) return;
+
+    const ageGroup = ageGroupId
+      ? (tournament.ageGroups ?? []).find((ag) => ag.id === ageGroupId)
+      : null;
+    const bracketType = ageGroup?.format;
+    if (bracketType !== TournamentFormat.GROUPS_PLUS_KNOCKOUT) {
+      return;
+    }
+
+    const regWhere: any = { tournamentId, status: RegistrationStatus.APPROVED };
+    if (ageGroupId) regWhere.ageGroupId = ageGroupId;
+    const registrations = await this.registrationsRepository.find({
+      where: regWhere,
+      relations: ['club', 'team'],
+    });
+    if (registrations.length < 2) return;
+
+    const groupWhere: any = { tournamentId };
+    if (ageGroupId) groupWhere.ageGroupId = ageGroupId;
+    const groups = await this.groupsRepository.find({
+      where: groupWhere,
+      order: { groupLetter: 'ASC' },
+    });
+    if (groups.length === 0) return;
+
+    const validRegistrationIds = new Set(registrations.map((reg) => reg.id));
+    const assignedTeamIds = groups.flatMap((group) =>
+      (group.teams ?? []).filter((teamId) => validRegistrationIds.has(teamId)),
+    );
+    const uniqueAssignedTeamIds = new Set(assignedTeamIds);
+
+    // Generate matches only after every approved team in this age group is
+    // assigned exactly once. This keeps the manual workflow safe while the user
+    // is still moving teams around.
+    if (
+      assignedTeamIds.length !== registrations.length ||
+      uniqueAssignedTeamIds.size !== registrations.length
+    ) {
+      return;
+    }
+
+    if (ageGroupId) {
+      await this.ageGroupRepository.update(ageGroupId, {
+        drawCompleted: true,
+        drawSeed: ageGroup?.drawSeed || tournament.drawSeed || randomUUID(),
+      });
+    } else {
+      await this.tournamentsRepository.update(tournamentId, {
+        drawCompleted: true,
+        drawSeed: tournament.drawSeed || randomUUID(),
+      });
+    }
+
+    await this.generateBracket(tournamentId, userId, userRole, ageGroupId);
+  }
+
+  // =====================================================
+  // Match Management & Advancement Methods (Issue #173)
+  // =====================================================
+
+  /**
+   * Helper to retrieve bracket data for a specific age group.
+   * Supports both per-age-group format { [ageGroupId]: bracketData }
+   * and legacy flat format (playoffRounds at top level).
+   */
+  private getBracketForAgeGroup(
+    bracketData: any,
+    ageGroupId?: string,
+  ): any {
+    if (!bracketData) return null;
+
+    // New format: keyed by ageGroupId
+    if (ageGroupId && bracketData[ageGroupId]) {
+      return bracketData[ageGroupId];
+    }
+
+    // Legacy flat format: has playoffRounds or matches at top level.
+    // Never reuse a flat legacy bracket for a requested age group: in
+    // multi-age tournaments this is exactly how stale U10 matches leak into
+    // U14 (or any other category). Unscoped callers may still read it.
+    if (bracketData.playoffRounds || bracketData.matches || bracketData.type) {
+      return ageGroupId ? null : bracketData;
+    }
+
+    // No ageGroupId requested - return all brackets merged
+    if (!ageGroupId) {
+      // If it's a per-age-group map, merge all
+      const keys = Object.keys(bracketData);
+      if (
+        keys.length > 0 &&
+        (bracketData[keys[0]]?.playoffRounds ||
+          bracketData[keys[0]]?.matches ||
+          bracketData[keys[0]]?.type)
+      ) {
+        const allRounds: any[] = [];
+        const allMatches: any[] = [];
+        let bracketType: string | undefined;
+        for (const key of keys) {
+          const bd = bracketData[key];
+          if (bd.playoffRounds) allRounds.push(...bd.playoffRounds);
+          if (bd.matches) allMatches.push(...bd.matches);
+          if (bd.type) bracketType = bd.type;
+        }
+        return {
+          playoffRounds: allRounds,
+          matches: allMatches,
+          type: bracketType,
+        };
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Searches bracketData (playoffRounds[].matches, placement bracket trees,
+   * and top-level matches) for a
+   * match with the given matchId. Returns the match object reference so callers
+   * can mutate it in-place.
+   */
+  private findMatchInBracket(bracketData: any, matchId: string): any {
+    if (!bracketData) return null;
+
+    // Search inside playoffRounds
+    if (Array.isArray(bracketData.playoffRounds)) {
+      for (const round of bracketData.playoffRounds) {
+        if (Array.isArray(round.matches)) {
+          const match = round.matches.find((m: any) => m.id === matchId);
+          if (match) return match;
+        }
+      }
+    }
+
+    if (Array.isArray(bracketData.placementBrackets)) {
+      for (const bracket of bracketData.placementBrackets) {
+        const match = this.findMatchInPlacementBracket(bracket, matchId);
+        if (match) return match;
+      }
+    }
+
+    // Search top-level matches array
+    if (Array.isArray(bracketData.matches)) {
+      const match = bracketData.matches.find((m: any) => m.id === matchId);
+      if (match) return match;
+    }
+
+    return null;
+  }
+
+  private findMatchInPlacementBracket(
+    bracket: PlacementBracket | undefined,
+    matchId: string,
+  ): Match | null {
+    if (!bracket) return null;
+
+    for (const round of bracket.playoffRounds ?? []) {
+      const match = round.matches?.find((m) => m.id === matchId);
+      if (match) return match;
+    }
+
+    return (
+      this.findMatchInPlacementBracket(bracket.children?.winners, matchId) ||
+      this.findMatchInPlacementBracket(bracket.children?.losers, matchId)
+    );
+  }
+
+  async getMatches(
+    tournamentId: string,
+    ageGroupId?: string,
+  ): Promise<{
+    matches: Match[];
+    bracketType?: string;
+    playoffRounds?: any[];
+    placementBrackets?: PlacementBracket[];
+    teams: { id: string; name: string; clubName?: string }[];
+    advancingTeamsPerGroup?: number;
+  }> {
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id: tournamentId },
+      relations: ['ageGroups'],
+    });
+
+    if (!tournament) {
+      throw new NotFoundException('Tournament not found');
+    }
+
+    // Get team details for display - filter by ageGroupId if provided
+    const regWhere: any = { tournamentId, status: RegistrationStatus.APPROVED };
+    if (ageGroupId) {
+      regWhere.ageGroupId = ageGroupId;
+    }
+
+    const registrations = await this.registrationsRepository.find({
+      where: regWhere,
+      relations: ['club', 'team'],
+    });
+
+    const teams = registrations.map((r) => ({
+      id: r.id,
+      name: this.getRegistrationDisplayName(r),
+      clubName: r.club?.name,
+    }));
+
+    if (!tournament.bracketData) {
+      return { matches: [], teams };
+    }
+
+    const ageBracket = this.getBracketForAgeGroup(
+      tournament.bracketData,
+      ageGroupId,
+    );
+    if (!ageBracket) {
+      return { matches: [], teams };
+    }
+
+    const currentAgeGroup = ageGroupId
+      ? tournament.ageGroups?.find((ageGroup) => ageGroup.id === ageGroupId)
+      : undefined;
+    const currentFormat = currentAgeGroup?.format as BracketType | undefined;
+
+    if (currentFormat && ageBracket.type && currentFormat !== ageBracket.type) {
+      return {
+        matches: [],
+        bracketType: currentFormat,
+        playoffRounds: [],
+        placementBrackets: [],
+        teams,
+      };
+    }
+
+    const planningDataChanged =
+      await this.ensureGroupsPlusKnockoutPlanningData(
+        tournament,
+        tournamentId,
+        ageGroupId,
+        ageBracket,
+      );
+
+    if (planningDataChanged) {
+      await this.tournamentsRepository.update(tournamentId, {
+        bracketData: tournament.bracketData as any,
+      });
+    }
+
+    const allMatches: Match[] = [];
+
+    const isGroupFormat =
+      ageBracket.type === BracketType.GROUPS_PLUS_KNOCKOUT ||
+      ageBracket.type === BracketType.GROUPS_ONLY;
+
+    // For group formats, only standalone matches (group phase) go into allMatches.
+    // Knockout playoff rounds are returned separately and rendered via the bracket chart.
+    if (!isGroupFormat && ageBracket.playoffRounds) {
+      for (const round of ageBracket.playoffRounds) {
+        if (round.matches) {
+          allMatches.push(...round.matches);
+        }
+      }
+    }
+
+    // Collect standalone matches
+    if (ageBracket.matches) {
+      allMatches.push(...ageBracket.matches);
+    }
+
+    const visibleMatches =
+      ageBracket.type === BracketType.LEAGUE &&
+      (currentAgeGroup?.leagueLegs ?? 2) <= 1
+        ? allMatches.filter((match) => !match.id?.startsWith('leg2_'))
+        : allMatches;
+
+    return {
+      matches: visibleMatches,
+      bracketType: ageBracket.type,
+      playoffRounds: ageBracket.playoffRounds,
+      placementBrackets: ageBracket.placementBrackets,
+      teams,
+      advancingTeamsPerGroup: ageBracket.advancingTeamsPerGroup ?? undefined,
+    };
+  }
+
+
+  private getTeamSlot(
+    match: Match,
+    slot: 'team1' | 'team2',
+  ): { teamId?: string; teamName?: string; sourceSlot?: string } {
+    return slot === 'team1'
+      ? {
+          teamId: match.team1Id,
+          teamName: match.team1Name,
+          sourceSlot: match.team1SourceSlot,
+        }
+      : {
+          teamId: match.team2Id,
+          teamName: match.team2Name,
+          sourceSlot: match.team2SourceSlot,
+        };
+  }
+
+  private setTeamSlot(
+    match: Match,
+    slot: 'team1' | 'team2',
+    team: { teamId?: string; teamName?: string; sourceSlot?: string },
+  ) {
+    if (slot === 'team1') {
+      match.team1Id = team.teamId;
+      match.team1Name = team.teamName;
+      match.team1SourceSlot = team.sourceSlot;
+      return;
+    }
+
+    match.team2Id = team.teamId;
+    match.team2Name = team.teamName;
+    match.team2SourceSlot = team.sourceSlot;
+  }
+
+  private isMatchLockedForTeamSwap(match: Match): boolean {
+    return (
+      match.status !== 'PENDING' ||
+      match.team1Score != null ||
+      match.team2Score != null ||
+      match.leg1Team1Score != null ||
+      match.leg1Team2Score != null ||
+      match.leg2Team1Score != null ||
+      match.leg2Team2Score != null ||
+      match.winnerId != null ||
+      match.loserId != null ||
+      match.manualWinnerId != null ||
+      match.hasPenalties === true ||
+      match.penaltyTeam1Score != null ||
+      match.penaltyTeam2Score != null
+    );
+  }
+
+  private assertMatchCanSwapTeams(match: Match) {
+    if (this.isMatchLockedForTeamSwap(match)) {
+      throw new BadRequestException(
+        'Teams can only be swapped before a match has started or received a score',
+      );
+    }
+  }
+
+
+  async swapMatchTeams(
+    tournamentId: string,
+    userId: string,
+    userRole: string,
+    dto: SwapMatchTeamsDto,
+    ageGroupId?: string,
+  ): Promise<{ sourceMatch: Match; targetMatch: Match; bracketUpdated: boolean }> {
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id: tournamentId },
+    });
+
+    if (!tournament) {
+      throw new NotFoundException('Tournament not found');
+    }
+
+    if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException(
+        'You are not allowed to manage matches for this tournament',
+      );
+    }
+
+    if (!tournament.bracketData) {
+      throw new BadRequestException(
+        'No bracket data found for this tournament',
+      );
+    }
+
+    if (
+      dto.sourceMatchId === dto.targetMatchId &&
+      dto.sourceSlot === dto.targetSlot
+    ) {
+      throw new BadRequestException('Choose two different team slots to swap');
+    }
+
+    const fullBracketData = tournament.bracketData as any;
+    const bracketData =
+      this.getBracketForAgeGroup(fullBracketData, ageGroupId) ||
+      fullBracketData;
+
+    const sourceMatch = this.findMatchInBracket(
+      bracketData,
+      dto.sourceMatchId,
+    ) as Match | null;
+    const targetMatch = this.findMatchInBracket(
+      bracketData,
+      dto.targetMatchId,
+    ) as Match | null;
+
+    if (!sourceMatch) {
+      throw new NotFoundException(`Match ${dto.sourceMatchId} not found`);
+    }
+    if (!targetMatch) {
+      throw new NotFoundException(`Match ${dto.targetMatchId} not found`);
+    }
+
+    this.assertMatchCanSwapTeams(sourceMatch);
+    if (targetMatch !== sourceMatch) {
+      this.assertMatchCanSwapTeams(targetMatch);
+    }
+
+    const sourceTeam = this.getTeamSlot(sourceMatch, dto.sourceSlot);
+    const targetTeam = this.getTeamSlot(targetMatch, dto.targetSlot);
+
+    const sourceHasValue =
+      !!sourceTeam.teamId || !!sourceTeam.sourceSlot || !!sourceTeam.teamName;
+    const targetHasValue =
+      !!targetTeam.teamId || !!targetTeam.sourceSlot || !!targetTeam.teamName;
+
+    if (!sourceHasValue || !targetHasValue) {
+      throw new BadRequestException(
+        'Both selected slots must contain teams or provisional source slots',
+      );
+    }
+
+    this.setTeamSlot(sourceMatch, dto.sourceSlot, targetTeam);
+    this.setTeamSlot(targetMatch, dto.targetSlot, sourceTeam);
+
+    await this.tournamentsRepository.update(tournamentId, {
+      bracketData: fullBracketData,
+    });
+
+    return { sourceMatch, targetMatch, bracketUpdated: true };
+  }
+
+  async setMatchAdvancement(
+    tournamentId: string,
+    matchId: string,
+    userId: string,
+    userRole: string,
+    dto: UpdateMatchAdvancementDto,
+    ageGroupId?: string,
+  ): Promise<{ match: Match; bracketUpdated: boolean }> {
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id: tournamentId },
+    });
+
+    if (!tournament) {
+      throw new NotFoundException('Tournament not found');
+    }
+
+    // Check permission
+    if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException(
+        'You are not allowed to manage matches for this tournament',
+      );
+    }
+
+    if (!tournament.bracketData) {
+      throw new BadRequestException(
+        'No bracket data found for this tournament',
+      );
+    }
+
+    const fullBracketData = tournament.bracketData as any;
+    const bracketData =
+      this.getBracketForAgeGroup(fullBracketData, ageGroupId) ||
+      fullBracketData;
+    const targetMatch = this.findMatchInBracket(bracketData, matchId) as
+      | Match
+      | null;
+    let bracketUpdated = false;
+
+    if (!targetMatch) {
+      throw new NotFoundException(`Match ${matchId} not found`);
+    }
+
+    // Validate the advancing team is one of the match participants
+    if (
+      dto.advancingTeamId !== targetMatch.team1Id &&
+      dto.advancingTeamId !== targetMatch.team2Id
+    ) {
+      throw new BadRequestException(
+        'Advancing team must be one of the match participants',
+      );
+    }
+
+    // Set manual advancement
+    const oldWinnerId = targetMatch.winnerId; // capture before overwriting for replacement
+    targetMatch.manualWinnerId = dto.advancingTeamId;
+    targetMatch.winnerId = dto.advancingTeamId;
+    targetMatch.isManualOverride = true;
+    targetMatch.status = 'COMPLETED';
+
+    // Set loser
+    targetMatch.loserId =
+      dto.advancingTeamId === targetMatch.team1Id
+        ? targetMatch.team2Id
+        : targetMatch.team1Id;
+
+    // Propagate winner to next match if exists
+    if (targetMatch.nextMatchId) {
+      bracketUpdated = this.propagateAdvancement(
+        bracketData,
+        targetMatch,
+        dto.advancingTeamId,
+        oldWinnerId,
+      );
+    }
+
+    // Propagate loser to third place match if exists
+    if (targetMatch.loserNextMatchId && targetMatch.loserId) {
+      this.propagateLoser(bracketData, targetMatch, targetMatch.loserId);
+      bracketUpdated = true;
+    }
+
+    // Save bracket data (fullBracketData contains the mutation via object reference)
+    await this.tournamentsRepository.update(tournamentId, {
+      bracketData: fullBracketData,
+    });
+
+    return { match: targetMatch, bracketUpdated };
+  }
+
+  async updateMatchScore(
+    tournamentId: string,
+    matchId: string,
+    userId: string,
+    userRole: string,
+    dto: UpdateMatchScoreDto,
+    ageGroupId?: string,
+  ): Promise<{ match: Match; bracketUpdated: boolean }> {
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id: tournamentId },
+    });
+
+    if (!tournament) {
+      throw new NotFoundException('Tournament not found');
+    }
+
+    // Check permission
+    if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException(
+        'You are not allowed to manage matches for this tournament',
+      );
+    }
+
+    if (!tournament.bracketData) {
+      throw new BadRequestException(
+        'No bracket data found for this tournament',
+      );
+    }
+
+    const fullBracketData = tournament.bracketData as any;
+    const bracketData =
+      this.getBracketForAgeGroup(fullBracketData, ageGroupId) ||
+      fullBracketData;
+    const targetMatch = this.findMatchInBracket(bracketData, matchId) as
+      | Match
+      | null;
+
+    if (!targetMatch) {
+      throw new NotFoundException(`Match ${matchId} not found`);
+    }
+
+    // Update leg scores (two-legged ties: leg1 = at team1 home, leg2 = at team2 home)
+    // null = explicitly clear the field (e.g. undo a mistakenly-entered leg)
+    if (dto.leg1Team1Score !== undefined)
+      targetMatch.leg1Team1Score = dto.leg1Team1Score ?? undefined;
+    if (dto.leg1Team2Score !== undefined)
+      targetMatch.leg1Team2Score = dto.leg1Team2Score ?? undefined;
+    if (dto.leg2Team1Score !== undefined)
+      targetMatch.leg2Team1Score = dto.leg2Team1Score ?? undefined;
+    if (dto.leg2Team2Score !== undefined)
+      targetMatch.leg2Team2Score = dto.leg2Team2Score ?? undefined;
+
+    // Compute aggregate when all four leg scores are present (non-null); else use legacy single scores
+    const hasAllLegs =
+      targetMatch.leg1Team1Score != null &&
+      targetMatch.leg1Team2Score != null &&
+      targetMatch.leg2Team1Score != null &&
+      targetMatch.leg2Team2Score != null;
+    const hasAnyLeg =
+      targetMatch.leg1Team1Score != null || targetMatch.leg2Team1Score != null;
+    if (hasAllLegs) {
+      // Both legs played – compute aggregate
+      targetMatch.team1Score =
+        targetMatch.leg1Team1Score! + targetMatch.leg2Team1Score!;
+      targetMatch.team2Score =
+        targetMatch.leg1Team2Score! + targetMatch.leg2Team2Score!;
+    } else if (hasAnyLeg) {
+      // Only one leg played – clear aggregate to prevent premature auto-advancement
+      targetMatch.team1Score = undefined;
+      targetMatch.team2Score = undefined;
+    } else {
+      // No legs at all – legacy single-match direct score update
+      if (dto.team1Score !== undefined) targetMatch.team1Score = dto.team1Score;
+      if (dto.team2Score !== undefined) targetMatch.team2Score = dto.team2Score;
+    }
+
+    if (dto.status) targetMatch.status = dto.status as Match['status'];
+
+    // Update penalty fields
+    if (dto.hasPenalties !== undefined)
+      targetMatch.hasPenalties = dto.hasPenalties;
+    if (dto.penaltyTeam1Score !== undefined)
+      targetMatch.penaltyTeam1Score = dto.penaltyTeam1Score;
+    if (dto.penaltyTeam2Score !== undefined)
+      targetMatch.penaltyTeam2Score = dto.penaltyTeam2Score;
+
+    let bracketUpdated = false;
+
+    // Handle manual advancement override
+    if (dto.advancingTeamId) {
+      const oldWinnerId = targetMatch.winnerId; // capture before overwriting for replacement
+      targetMatch.manualWinnerId = dto.advancingTeamId;
+      targetMatch.winnerId = dto.advancingTeamId;
+      targetMatch.isManualOverride = true;
+      targetMatch.status = 'COMPLETED';
+      targetMatch.loserId =
+        dto.advancingTeamId === targetMatch.team1Id
+          ? targetMatch.team2Id
+          : targetMatch.team1Id;
+
+      if (targetMatch.nextMatchId) {
+        bracketUpdated = this.propagateAdvancement(
+          bracketData,
+          targetMatch,
+          dto.advancingTeamId,
+          oldWinnerId,
+        );
+      }
+
+      // Propagate loser to third place match if exists
+      if (targetMatch.loserNextMatchId && targetMatch.loserId) {
+        this.propagateLoser(bracketData, targetMatch, targetMatch.loserId);
+        bracketUpdated = true;
+      }
+    } else if (
+      targetMatch.hasPenalties &&
+      targetMatch.penaltyTeam1Score !== undefined &&
+      targetMatch.penaltyTeam2Score !== undefined &&
+      targetMatch.penaltyTeam1Score !== targetMatch.penaltyTeam2Score &&
+      !targetMatch.isManualOverride
+    ) {
+      // Penalty shootout determines winner (scores are tied in regular time)
+      const winnerId =
+        targetMatch.penaltyTeam1Score > targetMatch.penaltyTeam2Score
+          ? targetMatch.team1Id
+          : targetMatch.team2Id;
+
+      if (winnerId) {
+        const oldWinnerId = targetMatch.winnerId;
+        targetMatch.winnerId = winnerId;
+        targetMatch.status = 'COMPLETED';
+        targetMatch.loserId =
+          winnerId === targetMatch.team1Id
+            ? targetMatch.team2Id
+            : targetMatch.team1Id;
+
+        if (targetMatch.nextMatchId) {
+          bracketUpdated = this.propagateAdvancement(
+            bracketData,
+            targetMatch,
+            winnerId,
+            oldWinnerId,
+          );
+        }
+
+        if (targetMatch.loserNextMatchId && targetMatch.loserId) {
+          this.propagateLoser(bracketData, targetMatch, targetMatch.loserId);
+          bracketUpdated = true;
+        }
+      }
+    } else if (
+      targetMatch.team1Score !== undefined &&
+      targetMatch.team2Score !== undefined &&
+      targetMatch.team1Score !== targetMatch.team2Score &&
+      !targetMatch.isManualOverride
+    ) {
+      // Auto-determine winner from score (only if not manually overridden)
+      const winnerId =
+        targetMatch.team1Score > targetMatch.team2Score
+          ? targetMatch.team1Id
+          : targetMatch.team2Id;
+
+      if (winnerId) {
+        const oldWinnerId = targetMatch.winnerId; // capture before overwriting for replacement
+        targetMatch.winnerId = winnerId;
+        targetMatch.status = 'COMPLETED';
+        targetMatch.loserId =
+          winnerId === targetMatch.team1Id
+            ? targetMatch.team2Id
+            : targetMatch.team1Id;
+
+        if (targetMatch.nextMatchId) {
+          bracketUpdated = this.propagateAdvancement(
+            bracketData,
+            targetMatch,
+            winnerId,
+            oldWinnerId,
+          );
+        }
+
+        // Propagate loser to third place match if exists
+        if (targetMatch.loserNextMatchId && targetMatch.loserId) {
+          this.propagateLoser(bracketData, targetMatch, targetMatch.loserId);
+          bracketUpdated = true;
+        }
+      }
+    } else if (
+      targetMatch.team1Score !== undefined &&
+      targetMatch.team2Score !== undefined &&
+      targetMatch.team1Score === targetMatch.team2Score &&
+      !targetMatch.hasPenalties &&
+      !targetMatch.isManualOverride
+    ) {
+      // Draw with no penalties required (group stage) — mark as COMPLETED
+      targetMatch.status = 'COMPLETED';
+    }
+
+    // Auto-seed knockout bracket when ALL group-phase matches are completed
+    if (
+      targetMatch.groupLetter &&
+      targetMatch.status === 'COMPLETED' &&
+      bracketData.matches &&
+      bracketData.playoffRounds?.length > 0
+    ) {
+      const groupPhaseMatches = bracketData.matches as Match[];
+      const allGroupDone =
+        groupPhaseMatches.length > 0 &&
+        groupPhaseMatches.every((m) => m.status === 'COMPLETED');
+
+      if (allGroupDone) {
+        const groupsWhere: any = { tournamentId };
+        if (ageGroupId) groupsWhere.ageGroupId = ageGroupId;
+        const groups = await this.groupsRepository.find({
+          where: groupsWhere,
+          order: { groupLetter: 'ASC' },
+        });
+
+        this.seedKnockoutFromCompletedGroups(
+          bracketData,
+          groups,
+          groupPhaseMatches,
+        );
+        this.seedPlacementBracketsFromCompletedGroups(
+          bracketData,
+          groups,
+          groupPhaseMatches,
+        );
+        bracketUpdated = true;
+      }
+    }
+
+    // Save bracket data (fullBracketData contains the mutation via object reference)
+    await this.tournamentsRepository.update(tournamentId, {
+      bracketData: fullBracketData,
+    });
+
+    return { match: targetMatch, bracketUpdated };
+  }
+
+  /**
+   * BE-07 — Schedule a match: sets scheduledAt and optional courtNumber.
+   * Only the tournament organizer (or admin) may call this.
+   */
+  async scheduleMatch(
+    tournamentId: string,
+    matchId: string,
+    userId: string,
+    userRole: string,
+    dto: { scheduledAt: string; courtNumber?: number; fieldName?: string },
+    ageGroupId?: string,
+  ): Promise<any> {
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id: tournamentId },
+    });
+
+    if (!tournament) {
+      throw new NotFoundException('Tournament not found');
+    }
+
+    if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException(
+        'Only the tournament organizer can schedule matches',
+      );
+    }
+
+    const fullBracketData: any = tournament.bracketData || {};
+    const bracketData =
+      this.getBracketForAgeGroup(fullBracketData, ageGroupId) ||
+      fullBracketData;
+
+    const targetMatch = this.findMatchInBracket(bracketData, matchId);
+    if (!targetMatch) {
+      throw new NotFoundException(`Match ${matchId} not found in bracket`);
+    }
+
+    targetMatch.scheduledAt = new Date(dto.scheduledAt) as any;
+    if (dto.courtNumber !== undefined) {
+      targetMatch.courtNumber = dto.courtNumber;
+    }
+    if (dto.fieldName !== undefined) {
+      targetMatch.fieldName = dto.fieldName;
+    }
+
+    await this.tournamentsRepository.update(tournamentId, {
+      bracketData: fullBracketData,
+    });
+
+    return targetMatch;
+  }
+
+  async generateBracket(
+    tournamentId: string,
+    userId: string,
+    userRole: string,
+    ageGroupId?: string,
+  ): Promise<any> {
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id: tournamentId },
+      relations: ['ageGroups'],
+    });
+
+    if (!tournament) {
+      throw new NotFoundException('Tournament not found');
+    }
+
+    // Check permission
+    if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException(
+        'You are not allowed to generate bracket for this tournament',
+      );
+    }
+
+    // BE#148 — draw-completion gate: bracket can only be generated after the draw is done.
+    // Only GROUPS_PLUS_KNOCKOUT requires a pot draw (team-to-group assignment); all other
+    // formats (ROUND_ROBIN, SINGLE_ELIMINATION, DOUBLE_ELIMINATION, LEAGUE) generate their
+    // bracket directly without a prior pot draw step.
+    if (ageGroupId) {
+      const ageGroupForGate = (tournament.ageGroups ?? []).find(
+        (ag) => ag.id === ageGroupId,
+      );
+      if (
+        ageGroupForGate &&
+        ageGroupForGate.format === TournamentFormat.GROUPS_PLUS_KNOCKOUT &&
+        !ageGroupForGate.drawCompleted
+      ) {
+        throw new BadRequestException(
+          'Draw must be completed for this age group before generating a bracket',
+        );
+      }
+    }
+
+    // Get approved registrations - filter by ageGroupId if provided
+    const regWhere: any = { tournamentId, status: RegistrationStatus.APPROVED };
+    if (ageGroupId) {
+      regWhere.ageGroupId = ageGroupId;
+    }
+
+    const registrations = await this.registrationsRepository.find({
+      where: regWhere,
+      relations: ['club', 'team'],
+    });
+
+    if (registrations.length < 2) {
+      throw new BadRequestException(
+        'At least 2 approved teams are required to generate a bracket',
+      );
+    }
+
+    // BE-10: Determine bracket type from the age group's persisted format column.
+    // The previous cast `(tournament as any).bracketType` was always undefined
+    // because Tournament has no such property.
+    const ageGroup = ageGroupId
+      ? (tournament.ageGroups ?? []).find((ag) => ag.id === ageGroupId)
+      : null;
+    const bracketType: BracketType =
+      (ageGroup?.format as unknown as BracketType) ??
+      BracketType.SINGLE_ELIMINATION;
+
+    const bracketData = this.bracketGeneratorService.generateBracket(
+      bracketType,
+      registrations.length,
+      {
+        groupCount: ageGroup?.groupsCount ?? tournament.numberOfGroups,
+        advancingPerGroup: ageGroup?.qualifyingTeamsPerGroup ?? 2,
+        thirdPlaceMatch: true,
+        seed: ageGroup?.drawSeed || tournament.drawSeed || undefined,
+        leagueLegs: ageGroup?.leagueLegs ?? 2,
+      },
+    );
+
+    // Assign teams to first round matches, seeded from groups when available
+    if (
+      bracketType !== BracketType.GROUPS_PLUS_KNOCKOUT &&
+      bracketData.playoffRounds &&
+      bracketData.playoffRounds.length > 0
+    ) {
+      const firstRound = bracketData.playoffRounds[0];
+      const totalTeams = registrations.length;
+
+      // Build a registration lookup map
+      const regMap = new Map(registrations.map((r) => [r.id, r]));
+
+      // Fetch groups scoped to this age group using the ageGroupId column (BE#146)
+      const groupsWhere: any = { tournamentId };
+      if (ageGroupId) groupsWhere.ageGroupId = ageGroupId;
+      const scopedGroups = await this.groupsRepository.find({
+        where: groupsWhere,
+        order: { groupLetter: 'ASC' },
+      });
+
+      let seededRegistrations: Registration[];
+
+      if (scopedGroups.length > 0) {
+        // Build group-seeded order:
+        //   position 0 of every group first, then position 1, etc.
+        //   e.g. 4 groups → [A0, B0, C0, D0, A1, B1, C1, D1]
+        // This lets standard bracket seeding (seed[i] vs seed[n-1-i]) create
+        // cross-group QF match-ups that prevent same-group teams from meeting
+        // before the semi-finals.
+        const maxTeamsPerGroup =
+          Math.max(...scopedGroups.map((g) => g.teams.length)) || 1;
+        seededRegistrations = [];
+        for (let pos = 0; pos < maxTeamsPerGroup; pos++) {
+          for (const group of scopedGroups) {
+            const teamId = group.teams[pos];
+            if (teamId) {
+              const reg = regMap.get(teamId);
+              if (reg) seededRegistrations.push(reg);
+            }
+          }
+        }
+        // Append any registrations that were not in any group (safety fallback)
+        const seededIds = new Set(seededRegistrations.map((r) => r.id));
+        for (const reg of registrations) {
+          if (!seededIds.has(reg.id)) seededRegistrations.push(reg);
+        }
+      } else {
+        // No groups — fall back to seeded shuffle (existing behaviour)
+        seededRegistrations = this.seededShuffle(
+          [...registrations],
+          bracketData.seed || 'default-seed',
+        );
+      }
+
+      // Standard bracket seeding: match i pairs seed[i] vs seed[n-1-i]
+      // For n=8: QF1=A1vsD2, QF2=B1vsC2, QF3=C1vsB2, QF4=D1vsA2
+      firstRound.matches.forEach((match: Match, index: number) => {
+        const team1Index = index;
+        const team2Index = totalTeams - 1 - index;
+
+        if (seededRegistrations[team1Index]) {
+          match.team1Id = seededRegistrations[team1Index].id;
+          match.team1Name =
+            this.getRegistrationDisplayName(seededRegistrations[team1Index]) ||
+            'Team ' + (team1Index + 1);
+        }
+        if (seededRegistrations[team2Index] && team2Index !== team1Index) {
+          match.team2Id = seededRegistrations[team2Index].id;
+          match.team2Name =
+            this.getRegistrationDisplayName(seededRegistrations[team2Index]) ||
+            'Team ' + (team2Index + 1);
+        }
+      });
+    }
+
+    // Assign team IDs to ROUND_ROBIN matches using the same wheel algorithm
+    // that generateRoundRobinBracket uses, so matches are populated with real
+    // team IDs rather than left as TBD.
+    if (
+      bracketType === BracketType.ROUND_ROBIN &&
+      bracketData.matches &&
+      bracketData.matches.length > 0
+    ) {
+      const shuffled = this.seededShuffle(
+        [...registrations],
+        bracketData.seed || 'default-seed',
+      );
+      const teamCount = shuffled.length;
+      const n = teamCount % 2 === 0 ? teamCount : teamCount + 1;
+      let matchIndex = 0;
+
+      for (
+        let r = 0;
+        r < n - 1 && matchIndex < bracketData.matches.length;
+        r++
+      ) {
+        // Fixed pair: slot 0 vs the rotating opponent
+        const oppRotIdx = (r + n / 2 - 1) % (n - 1);
+        const opp = oppRotIdx + 1;
+        if (opp < teamCount) {
+          const m = bracketData.matches[matchIndex++];
+          m.team1Id = shuffled[0].id;
+          m.team1Name =
+            this.getRegistrationDisplayName(shuffled[0]) || 'Team 1';
+          m.team2Id = shuffled[opp].id;
+          m.team2Name =
+            this.getRegistrationDisplayName(shuffled[opp]) ||
+            `Team ${opp + 1}`;
+        }
+
+        // Remaining pairs for this round
+        for (
+          let i = 1;
+          i < n / 2 && matchIndex < bracketData.matches.length;
+          i++
+        ) {
+          const rIdx1 = (r + i - 1 + (n - 1)) % (n - 1);
+          const rIdx2 = (r + n - 2 - i + (n - 1)) % (n - 1);
+          const ta = rIdx1 + 1;
+          const tb = rIdx2 + 1;
+          if (ta < teamCount && tb < teamCount) {
+            const m = bracketData.matches[matchIndex++];
+            m.team1Id = shuffled[ta].id;
+            m.team1Name =
+              this.getRegistrationDisplayName(shuffled[ta]) ||
+              `Team ${ta + 1}`;
+            m.team2Id = shuffled[tb].id;
+            m.team2Name =
+              this.getRegistrationDisplayName(shuffled[tb]) ||
+              `Team ${tb + 1}`;
+          }
+        }
+      }
+    }
+
+    // Assign team IDs to LEAGUE matches using the same wheel algorithm as
+    // generateLeagueBracket: first-leg gets real IDs, second-leg swaps them.
+    if (
+      bracketType === BracketType.LEAGUE &&
+      bracketData.matches &&
+      bracketData.matches.length > 0
+    ) {
+      const shuffled = this.seededShuffle(
+        [...registrations],
+        bracketData.seed || 'default-seed',
+      );
+      const teamCount = shuffled.length;
+      const n = teamCount % 2 === 0 ? teamCount : teamCount + 1;
+
+      const firstLegMatches = bracketData.matches.filter((m: Match) =>
+        m.id.startsWith('leg1_'),
+      );
+      const secondLegMatches = bracketData.matches.filter((m: Match) =>
+        m.id.startsWith('leg2_'),
+      );
+
+      let matchIndex = 0;
+      for (let r = 0; r < n - 1 && matchIndex < firstLegMatches.length; r++) {
+        const oppRotIdx = (r + n / 2 - 1) % (n - 1);
+        const opp = oppRotIdx + 1;
+        if (opp < teamCount) {
+          const m = firstLegMatches[matchIndex++];
+          m.team1Id = shuffled[0].id;
+          m.team1Name =
+            this.getRegistrationDisplayName(shuffled[0]) || 'Team 1';
+          m.team2Id = shuffled[opp].id;
+          m.team2Name =
+            this.getRegistrationDisplayName(shuffled[opp]) ||
+            `Team ${opp + 1}`;
+        }
+
+        for (let i = 1; i < n / 2 && matchIndex < firstLegMatches.length; i++) {
+          const rIdx1 = (r + i - 1 + (n - 1)) % (n - 1);
+          const rIdx2 = (r + n - 2 - i + (n - 1)) % (n - 1);
+          const ta = rIdx1 + 1;
+          const tb = rIdx2 + 1;
+          if (ta < teamCount && tb < teamCount) {
+            const m = firstLegMatches[matchIndex++];
+            m.team1Id = shuffled[ta].id;
+            m.team1Name =
+              this.getRegistrationDisplayName(shuffled[ta]) ||
+              `Team ${ta + 1}`;
+            m.team2Id = shuffled[tb].id;
+            m.team2Name =
+              this.getRegistrationDisplayName(shuffled[tb]) ||
+              `Team ${tb + 1}`;
+          }
+        }
+      }
+
+      // Second-leg: swap home/away from corresponding first-leg match
+      secondLegMatches.forEach((m: Match, idx: number) => {
+        if (idx < firstLegMatches.length) {
+          const fl = firstLegMatches[idx];
+          m.team1Id = fl.team2Id;
+          m.team1Name = fl.team2Name;
+          m.team2Id = fl.team1Id;
+          m.team2Name = fl.team1Name;
+        }
+      });
+    }
+
+    // Generate group phase round-robin matches for GROUPS_PLUS_KNOCKOUT / GROUPS_ONLY
+    if (
+      bracketType === BracketType.GROUPS_PLUS_KNOCKOUT ||
+      bracketType === BracketType.GROUPS_ONLY
+    ) {
+      const groupsWhere: any = { tournamentId };
+      if (ageGroupId) groupsWhere.ageGroupId = ageGroupId;
+      const groupsForRR = await this.groupsRepository.find({
+        where: groupsWhere,
+        order: { groupLetter: 'ASC' },
+      });
+      const rrRegIds = new Set(registrations.map((r) => r.id));
+      const rrRegMap = new Map(registrations.map((r) => [r.id, r]));
+
+      const groupPhaseMatches: Match[] = [];
+      let rrCounter = 1;
+
+      for (const group of groupsForRR) {
+        const teams = group.teams.filter((id) => rrRegIds.has(id));
+        const n = teams.length;
+        if (n < 2) continue;
+        const nSlots = n % 2 === 0 ? n : n + 1; // add ghost slot for odd count
+
+        // Circle method: fix team 0, rotate 1..nSlots-1
+        // In round r, build permuted list ℓ:
+        //   ℓ[0] = 0 (fixed), ℓ[j] = (r + j - 1) % (nSlots - 1) + 1, j=1..nSlots-1
+        // Pair: ℓ[i] vs ℓ[nSlots-1-i] for i=0..nSlots/2-1
+        const numRounds = nSlots - 1;
+        for (let r = 0; r < numRounds; r++) {
+          const round = r + 1;
+          let matchInRound = 0;
+          const perm: number[] = [0];
+          for (let j = 1; j < nSlots; j++) {
+            perm.push(((r + j - 1) % (nSlots - 1)) + 1);
+          }
+
+          for (let i = 0; i < nSlots / 2; i++) {
+            const idx1 = perm[i];
+            const idx2 = perm[nSlots - 1 - i];
+            // Skip ghost slots (index >= n means BYE for odd team count)
+            if (idx1 >= n || idx2 >= n) continue;
+            matchInRound++;
+            const t1Id = teams[idx1];
+            const t2Id = teams[idx2];
+            groupPhaseMatches.push({
+              id: `grp_${group.groupLetter}_${rrCounter++}`,
+              round,
+              matchNumber: matchInRound,
+              status: 'PENDING',
+              groupLetter: group.groupLetter,
+              team1Id: t1Id,
+              team2Id: t2Id,
+              team1Name: this.getRegistrationDisplayName(rrRegMap.get(t1Id)),
+              team2Name: this.getRegistrationDisplayName(rrRegMap.get(t2Id)),
+            });
+          }
+        }
+      }
+
+      (bracketData as any).matches = groupPhaseMatches;
+      (bracketData as any).placementBrackets = this.buildPlacementBrackets(
+        groupsForRR,
+        ageGroup?.qualifyingTeamsPerGroup ?? 2,
+      );
+    }
+
+    // Save bracket data - store per age group if ageGroupId is provided
+    if (ageGroupId) {
+      const existingBracketData = (tournament.bracketData as any) || {};
+      // Migrate legacy flat format: if it has playoffRounds at top level, wrap it
+      if (existingBracketData.playoffRounds || existingBracketData.type) {
+        // Legacy data exists - overwrite with new per-age-group structure
+        const newBracketData = { [ageGroupId]: bracketData };
+        await this.tournamentsRepository.update(tournamentId, {
+          bracketData: newBracketData as any,
+        });
+      } else {
+        existingBracketData[ageGroupId] = bracketData;
+        await this.tournamentsRepository.update(tournamentId, {
+          bracketData: existingBracketData,
+        });
+      }
+    } else {
+      await this.tournamentsRepository.update(tournamentId, {
+        bracketData: bracketData as any,
+      });
+    }
+
+    return bracketData;
+  }
+
+  /**
+   * Generate the knockout bracket for a GROUPS_PLUS_KNOCKOUT tournament.
+   * Creates a provisional shell before group-stage completion, then seeds it
+   * once all group-stage matches are COMPLETED.
+   */
+  async generateKnockoutBracket(
+    tournamentId: string,
+    userId: string,
+    userRole: string,
+    ageGroupId?: string,
+  ): Promise<any> {
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id: tournamentId },
+      relations: ['ageGroups'],
+    });
+
+    if (!tournament) {
+      throw new NotFoundException('Tournament not found');
+    }
+
+    if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException(
+        'You are not allowed to generate the knockout bracket for this tournament',
+      );
+    }
+
+    const ageGroup = ageGroupId
+      ? (tournament.ageGroups ?? []).find((ag) => ag.id === ageGroupId)
+      : null;
+
+    if (ageGroup && ageGroup.format !== TournamentFormat.GROUPS_PLUS_KNOCKOUT) {
+      throw new BadRequestException(
+        'Knockout bracket generation is only available for GROUPS_PLUS_KNOCKOUT format',
+      );
+    }
+
+    // Load existing bracket data
+    const existingBracketData = (tournament.bracketData as any) || {};
+    const bracketData = ageGroupId
+      ? existingBracketData[ageGroupId]
+      : existingBracketData;
+
+    if (
+      !bracketData ||
+      !bracketData.matches ||
+      bracketData.matches.length === 0
+    ) {
+      throw new BadRequestException(
+        'Group matches must be generated before creating the knockout bracket',
+      );
+    }
+
+    // Verify all group matches are completed
+    const groupMatches = (bracketData.matches as Match[]).filter(
+      (m) => m.groupLetter,
+    );
+    const incompleteMatches = groupMatches.filter(
+      (m) => m.status !== 'COMPLETED',
+    );
+
+    // Fetch groups
+    const groupsWhere: any = { tournamentId };
+    if (ageGroupId) groupsWhere.ageGroupId = ageGroupId;
+    const groups = await this.groupsRepository.find({
+      where: groupsWhere,
+      order: { groupLetter: 'ASC' },
+    });
+
+    if (groups.length === 0) {
+      throw new BadRequestException('No groups found for this tournament');
+    }
+
+    const advancingPerGroup = bracketData.advancingTeamsPerGroup ?? 2;
+
+    if (!bracketData.playoffRounds || bracketData.playoffRounds.length === 0) {
+      const playoffTeamCount = groups.length * advancingPerGroup;
+      const knockoutBracketData = this.bracketGeneratorService.generateBracket(
+        BracketType.SINGLE_ELIMINATION,
+        playoffTeamCount,
+        {
+          thirdPlaceMatch: true,
+          seed: tournament.drawSeed || undefined,
+        },
+      );
+      bracketData.playoffRounds = knockoutBracketData.playoffRounds;
+    }
+
+    const expectedPlacementBrackets = this.buildPlacementBrackets(
+      groups,
+      bracketData.advancingTeamsPerGroup ?? 2,
+    );
+    if (
+      this.placementBracketsNeedRebuild(
+        bracketData.placementBrackets,
+        expectedPlacementBrackets,
+      )
+    ) {
+      bracketData.placementBrackets = expectedPlacementBrackets;
+    }
+
+    if (incompleteMatches.length === 0) {
+      this.seedKnockoutFromCompletedGroups(bracketData, groups, groupMatches);
+      this.seedPlacementBracketsFromCompletedGroups(
+        bracketData,
+        groups,
+        groupMatches,
+      );
+    }
+
+    // Save updated bracket data
+    if (ageGroupId) {
+      existingBracketData[ageGroupId] = bracketData;
+      await this.tournamentsRepository.update(tournamentId, {
+        bracketData: existingBracketData,
+      });
+    } else {
+      await this.tournamentsRepository.update(tournamentId, {
+        bracketData: bracketData,
+      });
+    }
+
+    return bracketData;
+  }
+
+  /**
+   * Propagate match winner to the next match in the bracket.
+   * If oldWinnerId is provided and already occupies a slot in the next match,
+   * that slot is replaced rather than a new slot filled (handles score edits).
+   */
+  private propagateAdvancement(
+    bracketData: any,
+    sourceMatch: Match,
+    advancingTeamId: string,
+    oldWinnerId?: string,
+  ): boolean {
+    if (!sourceMatch.nextMatchId) return false;
+
+    const nextMatch = this.findMatchInBracket(
+      bracketData,
+      sourceMatch.nextMatchId,
+    ) as Match | null;
+
+    if (!nextMatch) return false;
+
+    const advancingName =
+      sourceMatch.team1Id === advancingTeamId
+        ? sourceMatch.team1Name
+        : sourceMatch.team2Name;
+
+    // If the old winner already occupies a slot, replace it (score-edit case)
+    if (oldWinnerId) {
+      if (nextMatch.team1Id === oldWinnerId) {
+        nextMatch.team1Id = advancingTeamId;
+        nextMatch.team1Name = advancingName;
+        return true;
+      } else if (nextMatch.team2Id === oldWinnerId) {
+        nextMatch.team2Id = advancingTeamId;
+        nextMatch.team2Name = advancingName;
+        return true;
+      }
+    }
+
+    // No previous winner in the next match — fill the first empty slot
+    if (!nextMatch.team1Id) {
+      nextMatch.team1Id = advancingTeamId;
+      nextMatch.team1Name = advancingName;
+    } else if (!nextMatch.team2Id) {
+      nextMatch.team2Id = advancingTeamId;
+      nextMatch.team2Name = advancingName;
+    }
+
+    return true;
+  }
+
+  /**
+   * Propagate the loser of a match to the loserNextMatchId (e.g., third place match)
+   */
+  private propagateLoser(
+    bracketData: any,
+    sourceMatch: Match,
+    loserTeamId: string,
+  ): boolean {
+    if (!sourceMatch.loserNextMatchId) return false;
+
+    const loserMatch = this.findMatchInBracket(
+      bracketData,
+      sourceMatch.loserNextMatchId,
+    ) as Match | null;
+
+    if (!loserMatch) return false;
+
+    const loserName =
+      sourceMatch.team1Id === loserTeamId
+        ? sourceMatch.team1Name
+        : sourceMatch.team2Name;
+
+    // Place losing team in the appropriate slot
+    if (!loserMatch.team1Id) {
+      loserMatch.team1Id = loserTeamId;
+      loserMatch.team1Name = loserName;
+    } else if (!loserMatch.team2Id) {
+      loserMatch.team2Id = loserTeamId;
+      loserMatch.team2Name = loserName;
+    }
+
+    return true;
   }
 
   // Seeded shuffle using Fisher-Yates algorithm
@@ -612,5 +2596,174 @@ export class GroupsService {
       hash = hash & hash;
     }
     return Math.abs(hash);
+  }
+
+  /**
+   * BE-08 — Auto-calculate numberOfMatches for a TournamentAgeGroup after the
+   * group draw has been executed.
+   *
+   * Formula for GROUPS_PLUS_KNOCKOUT:
+   *   groupMatches = numGroups × C(teamsPerGroup, 2)          (round-robin within each group)
+   *   knockoutMatches = qualifyingTeams – 1                   (single-elim tree; each match eliminates one team)
+   *   total = groupMatches + knockoutMatches + 1              (+ 1 for 3rd-place match)
+   */
+  private async autoCalcNumberOfMatches(
+    tournamentId: string,
+    ageGroupId: string,
+    groups: Group[],
+  ): Promise<void> {
+    try {
+      const ageGroup = await this.ageGroupRepository.findOne({
+        where: { id: ageGroupId, tournamentId },
+      });
+      if (!ageGroup) return;
+
+      const numGroups = groups.length;
+      if (numGroups === 0) return;
+
+      const teamsPerGroup = Math.ceil(
+        groups.reduce((s, g) => s + g.teams.length, 0) / numGroups,
+      );
+
+      // C(n, 2) = n*(n-1)/2
+      const groupMatches =
+        numGroups * ((teamsPerGroup * (teamsPerGroup - 1)) / 2);
+
+      const advancingPerGroup = ageGroup.qualifyingTeamsPerGroup ?? 2;
+      const qualifyingTeams = numGroups * advancingPerGroup;
+
+      const knockoutMatches = qualifyingTeams - 1;
+      const total = groupMatches + knockoutMatches + 1; // +1 third-place match
+
+      await this.ageGroupRepository.update(ageGroupId, {
+        numberOfMatches: total,
+      });
+    } catch {
+      // Non-critical — silently skip if calculation fails
+    }
+  }
+
+  /**
+   * Set the manual tiebreak order for a group.
+   * When two or more teams are exactly equal (pts / GD / GF), the team
+   * appearing earlier in `order` gets the better rank.
+   * Re-triggers bracket seeding if all group matches are already done.
+   */
+  async setGroupTiebreak(
+    tournamentId: string,
+    groupId: string,
+    order: string[],
+    userId: string,
+    userRole: string,
+    ageGroupId?: string,
+  ): Promise<{ success: boolean; bracketUpdated: boolean }> {
+    const tournament = await this.tournamentsRepository.findOne({
+      where: { id: tournamentId },
+    });
+    if (!tournament) throw new NotFoundException('Tournament not found');
+    if (tournament.organizerId !== userId && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException(
+        'Only the tournament organizer can set tiebreak order',
+      );
+    }
+
+    const group = await this.groupsRepository.findOne({
+      where: { id: groupId, tournamentId },
+    });
+    if (!group) throw new NotFoundException('Group not found');
+
+    await this.groupsRepository.update(groupId, { tieBreakOrder: order });
+    group.tieBreakOrder = order;
+
+    let bracketUpdated = false;
+
+    if (!tournament.bracketData) return { success: true, bracketUpdated };
+
+    const fullBracketData = tournament.bracketData as any;
+    const bracketData =
+      this.getBracketForAgeGroup(fullBracketData, ageGroupId) ||
+      fullBracketData;
+
+    if (!bracketData.matches || !bracketData.playoffRounds?.length) {
+      return { success: true, bracketUpdated };
+    }
+
+    const groupPhaseMatches = bracketData.matches as Match[];
+    const allGroupDone =
+      groupPhaseMatches.length > 0 &&
+      groupPhaseMatches.every((m) => m.status === 'COMPLETED');
+
+    if (!allGroupDone) return { success: true, bracketUpdated };
+
+    // All group matches are done — re-seed with updated tiebreak
+    const groupsWhere: any = { tournamentId };
+    if (ageGroupId) groupsWhere.ageGroupId = ageGroupId;
+    const groups = await this.groupsRepository.find({
+      where: groupsWhere,
+      order: { groupLetter: 'ASC' },
+    });
+
+    const nameMap = new Map<string, string>();
+    for (const m of groupPhaseMatches) {
+      if (m.team1Id && m.team1Name) nameMap.set(m.team1Id, m.team1Name);
+      if (m.team2Id && m.team2Name) nameMap.set(m.team2Id, m.team2Name);
+    }
+
+    const perGroupStandings = new Map<string, GroupStanding[]>();
+    for (const g of groups) {
+      const gMatches = groupPhaseMatches.filter(
+        (m) => m.groupLetter === g.groupLetter,
+      );
+      const standings = this.bracketGeneratorService.calculateGroupStandings(
+        g.teams,
+        gMatches,
+        g.tieBreakOrder,
+      );
+      perGroupStandings.set(g.groupLetter, standings);
+    }
+
+    const advancingPerGroup = bracketData.advancingTeamsPerGroup ?? 2;
+    this.bracketGeneratorService.seedTeamsIntoBracket(
+      perGroupStandings,
+      advancingPerGroup,
+      bracketData,
+    );
+
+    const firstRound = bracketData.playoffRounds[0];
+    for (const m of firstRound.matches) {
+      if (m.team1Id) m.team1Name = nameMap.get(m.team1Id) || m.team1Name || '';
+      if (m.team2Id) m.team2Name = nameMap.get(m.team2Id) || m.team2Name || '';
+    }
+
+    bracketData.playoffRounds.forEach((round: any, roundIndex: number) => {
+      (round.matches as Match[]).forEach((m) => {
+        m.status = 'PENDING';
+        m.team1Score = undefined;
+        m.team2Score = undefined;
+        m.winnerId = undefined;
+        m.loserId = undefined;
+        m.manualWinnerId = undefined;
+        m.isManualOverride = false;
+        if (roundIndex > 0) {
+          m.team1Id = undefined;
+          m.team1Name = undefined;
+          m.team2Id = undefined;
+          m.team2Name = undefined;
+        }
+      });
+    });
+
+    this.seedPlacementBracketsFromCompletedGroups(
+      bracketData,
+      groups,
+      groupPhaseMatches,
+    );
+
+    await this.tournamentsRepository.update(tournamentId, {
+      bracketData: fullBracketData,
+    });
+    bracketUpdated = true;
+
+    return { success: true, bracketUpdated };
   }
 }

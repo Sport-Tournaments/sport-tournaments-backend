@@ -445,14 +445,6 @@ Cancel tournament.
 
 ---
 
-### POST /tournaments/:id/start
-
-Start tournament (move to ONGOING).
-
-**Requires:** Owner (ORGANIZER)
-
----
-
 ### POST /tournaments/:id/complete
 
 Complete tournament.

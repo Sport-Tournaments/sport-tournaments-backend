@@ -29,6 +29,7 @@
     "seed": "ts-node -r tsconfig-paths/register src/seeds/run.ts",
     "seed:dev": "NODE_ENV=development ts-node -r tsconfig-paths/register src/seeds/run.ts",
     "seed:fresh": "ts-node -r tsconfig-paths/register src/seeds/run.ts",
+    "seed:eurosportring": "ts-node -r tsconfig-paths/register src/seeds/scrape-euro-sportring.ts",
     "migrate:colors": "ts-node -r tsconfig-paths/register src/seeds/add-colors-migration.ts"
   },
   "dependencies": {
@@ -50,6 +51,7 @@
     "class-validator": "^0.14.3",
     "dotenv": "^17.2.3",
     "helmet": "^8.1.0",
+    "nodemailer": "^7.0.12",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
@@ -73,6 +75,7 @@
     "@types/jest": "^30.0.0",
     "@types/multer": "^2.0.0",
     "@types/node": "^22.10.7",
+    "@types/nodemailer": "^7.0.9",
     "@types/passport-jwt": "^4.0.1",
     "@types/passport-local": "^1.0.38",
     "@types/supertest": "^6.0.2",

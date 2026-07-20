@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Registration } from '../../registrations/entities/registration.entity';
+import { Team } from '../../teams/entities/team.entity';
 
 @Entity('clubs')
 export class Club {
@@ -79,4 +80,7 @@ export class Club {
 
   @OneToMany(() => Registration, (registration) => registration.club)
   registrations: Registration[];
+
+  @OneToMany(() => Team, (team) => team.club)
+  teams: Team[];
 }

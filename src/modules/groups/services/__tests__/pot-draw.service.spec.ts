@@ -1,12 +1,21 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PotDrawService } from '../pot-draw.service';
 import { TournamentPot } from '../../entities/tournament-pot.entity';
 import { Group } from '../../entities/group.entity';
 import { Tournament } from '../../../tournaments/entities/tournament.entity';
 import { Registration } from '../../../registrations/entities/registration.entity';
-import { UserRole, RegistrationStatus } from '../../../../common/enums';
+import { TournamentAgeGroup } from '../../../tournaments/entities/tournament-age-group.entity';
+import {
+  UserRole,
+  RegistrationStatus,
+  TournamentFormat,
+} from '../../../../common/enums';
 
 /**
  * Unit Test Suite: Pot Draw Service (Issue #34)
@@ -18,6 +27,7 @@ describe('PotDrawService (Issue #34)', () => {
   let tournamentRepository: any;
   let registrationRepository: any;
   let groupRepository: any;
+  let ageGroupRepository: any;
 
   const mockOrganizerId = 'organizer-id-123';
   const mockUserId = 'user-id-456';
@@ -44,7 +54,24 @@ describe('PotDrawService (Issue #34)', () => {
       create: jest.fn((dto) => dto),
       save: jest.fn((entity) => Promise.resolve({ ...entity, id: 'pot-id' })),
       delete: jest.fn(),
+      createQueryBuilder: jest.fn(),
     };
+
+    // Helper: createQueryBuilder delegates getMany to find mock
+    mockPotRepository.createQueryBuilder.mockImplementation(() => {
+      const qb: any = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        delete: jest.fn().mockReturnThis(),
+        from: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue(undefined),
+        getMany: jest.fn().mockImplementation(() => mockPotRepository.find()),
+      };
+      return qb;
+    });
 
     const mockTournamentRepository = {
       findOne: jest.fn(),
@@ -53,11 +80,17 @@ describe('PotDrawService (Issue #34)', () => {
 
     const mockRegistrationRepository = {
       findOne: jest.fn(),
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
     };
 
     const mockGroupRepository = {
       create: jest.fn((dto) => dto),
       save: jest.fn((entity) => Promise.resolve({ ...entity, id: 'group-id' })),
+    };
+
+    const mockAgeGroupRepository = {
+      findOne: jest.fn(),
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -79,6 +112,10 @@ describe('PotDrawService (Issue #34)', () => {
           provide: getRepositoryToken(Group),
           useValue: mockGroupRepository,
         },
+        {
+          provide: getRepositoryToken(TournamentAgeGroup),
+          useValue: mockAgeGroupRepository,
+        },
       ],
     }).compile();
 
@@ -87,6 +124,7 @@ describe('PotDrawService (Issue #34)', () => {
     tournamentRepository = module.get(getRepositoryToken(Tournament));
     registrationRepository = module.get(getRepositoryToken(Registration));
     groupRepository = module.get(getRepositoryToken(Group));
+    ageGroupRepository = module.get(getRepositoryToken(TournamentAgeGroup));
   });
 
   afterEach(() => {
@@ -151,7 +189,12 @@ describe('PotDrawService (Issue #34)', () => {
       const dto = { registrationId: 'registration-1', potNumber: 1 };
 
       await expect(
-        service.assignTeamToPot(mockTournamentId, dto, mockOrganizerId, UserRole.ORGANIZER),
+        service.assignTeamToPot(
+          mockTournamentId,
+          dto,
+          mockOrganizerId,
+          UserRole.ORGANIZER,
+        ),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -164,7 +207,7 @@ describe('PotDrawService (Issue #34)', () => {
 
       const dto = { registrationId: 'registration-1', potNumber: 2 };
 
-      const result = await service.assignTeamToPot(
+      await service.assignTeamToPot(
         mockTournamentId,
         dto,
         mockOrganizerId,
@@ -193,7 +236,7 @@ describe('PotDrawService (Issue #34)', () => {
 
       const dto = { registrationId: 'registration-1', potNumber: 3 };
 
-      const result = await service.assignTeamToPot(
+      await service.assignTeamToPot(
         mockTournamentId,
         dto,
         mockOrganizerId,
@@ -213,7 +256,12 @@ describe('PotDrawService (Issue #34)', () => {
       const dto = { registrationId: 'non-existent-registration', potNumber: 1 };
 
       await expect(
-        service.assignTeamToPot(mockTournamentId, dto, mockOrganizerId, UserRole.ORGANIZER),
+        service.assignTeamToPot(
+          mockTournamentId,
+          dto,
+          mockOrganizerId,
+          UserRole.ORGANIZER,
+        ),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -229,7 +277,12 @@ describe('PotDrawService (Issue #34)', () => {
       const dto = { registrationId: 'registration-1', potNumber: 1 };
 
       await expect(
-        service.assignTeamToPot(mockTournamentId, dto, mockOrganizerId, UserRole.ORGANIZER),
+        service.assignTeamToPot(
+          mockTournamentId,
+          dto,
+          mockOrganizerId,
+          UserRole.ORGANIZER,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -263,10 +316,26 @@ describe('PotDrawService (Issue #34)', () => {
   describe('Get Pot Assignments', () => {
     it('should return pot assignments grouped by pot number', async () => {
       const mockPots = [
-        { potNumber: 1, registrationId: 'reg-1', registration: { club: { name: 'Club A' } } },
-        { potNumber: 1, registrationId: 'reg-2', registration: { club: { name: 'Club B' } } },
-        { potNumber: 2, registrationId: 'reg-3', registration: { club: { name: 'Club C' } } },
-        { potNumber: 3, registrationId: 'reg-4', registration: { club: { name: 'Club D' } } },
+        {
+          potNumber: 1,
+          registrationId: 'reg-1',
+          registration: { club: { name: 'Club A' } },
+        },
+        {
+          potNumber: 1,
+          registrationId: 'reg-2',
+          registration: { club: { name: 'Club B' } },
+        },
+        {
+          potNumber: 2,
+          registrationId: 'reg-3',
+          registration: { club: { name: 'Club C' } },
+        },
+        {
+          potNumber: 3,
+          registrationId: 'reg-4',
+          registration: { club: { name: 'Club D' } },
+        },
       ];
 
       potRepository.find.mockResolvedValue(mockPots);
@@ -276,7 +345,7 @@ describe('PotDrawService (Issue #34)', () => {
       expect(result.get(1)).toHaveLength(2);
       expect(result.get(2)).toHaveLength(1);
       expect(result.get(3)).toHaveLength(1);
-      expect(result.get(4)).toHaveLength(0);
+      expect(result.has(4)).toBe(false);
     });
   });
 
@@ -292,20 +361,46 @@ describe('PotDrawService (Issue #34)', () => {
       };
 
       const mockPotAssignments = new Map([
-        [1, Array.from({ length: 4 }, (_, i) => ({ registrationId: `reg-${i}`, potNumber: 1 }))],
-        [2, Array.from({ length: 4 }, (_, i) => ({ registrationId: `reg-${i + 4}`, potNumber: 2 }))],
-        [3, Array.from({ length: 4 }, (_, i) => ({ registrationId: `reg-${i + 8}`, potNumber: 3 }))],
-        [4, Array.from({ length: 4 }, (_, i) => ({ registrationId: `reg-${i + 12}`, potNumber: 4 }))],
+        [
+          1,
+          Array.from({ length: 4 }, (_, i) => ({
+            registrationId: `reg-${i}`,
+            potNumber: 1,
+          })),
+        ],
+        [
+          2,
+          Array.from({ length: 4 }, (_, i) => ({
+            registrationId: `reg-${i + 4}`,
+            potNumber: 2,
+          })),
+        ],
+        [
+          3,
+          Array.from({ length: 4 }, (_, i) => ({
+            registrationId: `reg-${i + 8}`,
+            potNumber: 3,
+          })),
+        ],
+        [
+          4,
+          Array.from({ length: 4 }, (_, i) => ({
+            registrationId: `reg-${i + 12}`,
+            potNumber: 4,
+          })),
+        ],
       ]);
 
-      tournamentRepository.findOne.mockResolvedValue(tournamentWithRegistrations);
-      potRepository.find.mockImplementation(async () => {
-        const pots = [];
-        for (const [potNum, teams] of mockPotAssignments.entries()) {
-          pots.push(...teams.map(t => ({ ...t, potNumber: potNum })));
-        }
-        return pots;
-      });
+      tournamentRepository.findOne.mockResolvedValue(
+        tournamentWithRegistrations,
+      );
+
+      // Mock pot data for getPotAssignments (called internally via createQueryBuilder -> getMany -> find)
+      const allPots: any[] = [];
+      for (const [potNum, teams] of mockPotAssignments.entries()) {
+        allPots.push(...teams.map((t) => ({ ...t, potNumber: potNum })));
+      }
+      potRepository.find.mockResolvedValue(allPots);
 
       const dto = { numberOfGroups: 4 };
 
@@ -335,8 +430,83 @@ describe('PotDrawService (Issue #34)', () => {
       const dto = { numberOfGroups: 4 };
 
       await expect(
-        service.executePotBasedDraw(mockTournamentId, dto, mockOrganizerId, UserRole.ORGANIZER),
+        service.executePotBasedDraw(
+          mockTournamentId,
+          dto,
+          mockOrganizerId,
+          UserRole.ORGANIZER,
+        ),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should allow age-group draw when only tournament draw is completed', async () => {
+      const ageGroupId = 'age-group-1';
+      const completedTournament = {
+        ...mockTournament,
+        drawCompleted: true,
+        registrations: Array.from({ length: 4 }, (_, i) => ({
+          id: `reg-${i}`,
+          ageGroupId,
+          status: RegistrationStatus.APPROVED,
+        })),
+      };
+
+      tournamentRepository.findOne.mockResolvedValue(completedTournament);
+      ageGroupRepository.findOne.mockResolvedValue({
+        id: ageGroupId,
+        tournamentId: mockTournamentId,
+        drawCompleted: false,
+        format: TournamentFormat.GROUPS_PLUS_KNOCKOUT,
+        groupsCount: 2,
+      });
+      potRepository.find.mockResolvedValue([
+        { potNumber: 1, registrationId: 'reg-0' },
+        { potNumber: 1, registrationId: 'reg-1' },
+        { potNumber: 2, registrationId: 'reg-2' },
+        { potNumber: 2, registrationId: 'reg-3' },
+      ]);
+
+      const result = await service.executePotBasedDraw(
+        mockTournamentId,
+        { ageGroupId, numberOfGroups: 2, numberOfPots: 2 },
+        mockOrganizerId,
+        UserRole.ORGANIZER,
+      );
+
+      expect(result).toHaveLength(2);
+      expect(ageGroupRepository.update).toHaveBeenCalledWith(ageGroupId, {
+        drawCompleted: true,
+      });
+      expect(tournamentRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('should reject if age-group draw already completed', async () => {
+      const ageGroupId = 'age-group-1';
+      const tournament = {
+        ...mockTournament,
+        registrations: Array.from({ length: 4 }, (_, i) => ({
+          id: `reg-${i}`,
+          ageGroupId,
+          status: RegistrationStatus.APPROVED,
+        })),
+      };
+
+      tournamentRepository.findOne.mockResolvedValue(tournament);
+      ageGroupRepository.findOne.mockResolvedValue({
+        id: ageGroupId,
+        tournamentId: mockTournamentId,
+        drawCompleted: true,
+        format: TournamentFormat.GROUPS_PLUS_KNOCKOUT,
+      });
+
+      await expect(
+        service.executePotBasedDraw(
+          mockTournamentId,
+          { ageGroupId, numberOfGroups: 2, numberOfPots: 2 },
+          mockOrganizerId,
+          UserRole.ORGANIZER,
+        ),
+      ).rejects.toThrow('Draw has already been completed for this age group');
     });
 
     it('should reject if no teams registered', async () => {
@@ -350,25 +520,42 @@ describe('PotDrawService (Issue #34)', () => {
       const dto = { numberOfGroups: 4 };
 
       await expect(
-        service.executePotBasedDraw(mockTournamentId, dto, mockOrganizerId, UserRole.ORGANIZER),
+        service.executePotBasedDraw(
+          mockTournamentId,
+          dto,
+          mockOrganizerId,
+          UserRole.ORGANIZER,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should reject if teams not divisible by groups', async () => {
-      const oddTournament = {
+    it('should reject if not all teams are assigned to pots', async () => {
+      const tournamentWith6Teams = {
         ...mockTournament,
-        registrations: Array.from({ length: 15 }, (_, i) => ({
+        registrations: Array.from({ length: 6 }, (_, i) => ({
           id: `reg-${i}`,
           status: RegistrationStatus.APPROVED,
         })),
       };
 
-      tournamentRepository.findOne.mockResolvedValue(oddTournament);
+      tournamentRepository.findOne.mockResolvedValue(tournamentWith6Teams);
+      // Only 4 of 6 teams assigned to pots
+      potRepository.find.mockResolvedValue([
+        { potNumber: 1, registrationId: 'reg-0' },
+        { potNumber: 1, registrationId: 'reg-1' },
+        { potNumber: 2, registrationId: 'reg-2' },
+        { potNumber: 2, registrationId: 'reg-3' },
+      ]);
 
-      const dto = { numberOfGroups: 4 }; // 15 teams / 4 groups = not divisible
+      const dto = { numberOfGroups: 2 };
 
       await expect(
-        service.executePotBasedDraw(mockTournamentId, dto, mockOrganizerId, UserRole.ORGANIZER),
+        service.executePotBasedDraw(
+          mockTournamentId,
+          dto,
+          mockOrganizerId,
+          UserRole.ORGANIZER,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -378,16 +565,26 @@ describe('PotDrawService (Issue #34)', () => {
       tournamentRepository.findOne.mockResolvedValue(mockTournament);
       potRepository.delete.mockResolvedValue({ affected: 10 });
 
-      await service.clearPotAssignments(mockTournamentId, mockOrganizerId, UserRole.ORGANIZER);
+      await service.clearPotAssignments(
+        mockTournamentId,
+        mockOrganizerId,
+        UserRole.ORGANIZER,
+      );
 
-      expect(potRepository.delete).toHaveBeenCalledWith({ tournamentId: mockTournamentId });
+      expect(potRepository.delete).toHaveBeenCalledWith({
+        tournamentId: mockTournamentId,
+      });
     });
 
     it('should reject non-organizer from clearing pots', async () => {
       tournamentRepository.findOne.mockResolvedValue(mockTournament);
 
       await expect(
-        service.clearPotAssignments(mockTournamentId, mockUserId, UserRole.PARTICIPANT),
+        service.clearPotAssignments(
+          mockTournamentId,
+          mockUserId,
+          UserRole.PARTICIPANT,
+        ),
       ).rejects.toThrow(ForbiddenException);
     });
   });
@@ -424,6 +621,284 @@ describe('PotDrawService (Issue #34)', () => {
 
       expect(result.valid).toBe(false);
       expect(result.message).toContain('Uneven pot distribution');
+    });
+
+    it('should validate without expectedTeamsPerPot (no count constraint)', async () => {
+      const mixedPots = [
+        { potNumber: 1, registrationId: 'reg-1' },
+        { potNumber: 1, registrationId: 'reg-2' },
+        { potNumber: 2, registrationId: 'reg-3' },
+        { potNumber: 3, registrationId: 'reg-4' },
+        { potNumber: 3, registrationId: 'reg-5' },
+        { potNumber: 3, registrationId: 'reg-6' },
+      ];
+
+      potRepository.find.mockResolvedValue(mixedPots);
+
+      const result = await service.validatePotDistribution(mockTournamentId);
+
+      expect(result.valid).toBe(true);
+      expect(result.message).toBe('Total teams assigned: 6');
+      expect(result.potCounts.get(1)).toBe(2);
+      expect(result.potCounts.get(2)).toBe(1);
+      expect(result.potCounts.get(3)).toBe(3);
+      expect(result.potCounts.has(4)).toBe(false);
+    });
+
+    it('should return valid for empty pots', async () => {
+      potRepository.find.mockResolvedValue([]);
+
+      const result = await service.validatePotDistribution(mockTournamentId);
+
+      expect(result.valid).toBe(true);
+      expect(result.message).toBe('Total teams assigned: 0');
+    });
+  });
+
+  describe('Execute Pot-Based Draw - Snake Draft Balance', () => {
+    it('should distribute from each pot across groups (6 teams, 2 groups)', async () => {
+      const tournamentWith6 = {
+        ...mockTournament,
+        registrations: Array.from({ length: 6 }, (_, i) => ({
+          id: `reg-${i}`,
+          status: RegistrationStatus.APPROVED,
+        })),
+      };
+
+      tournamentRepository.findOne.mockResolvedValue(tournamentWith6);
+      potRepository.find.mockResolvedValue([
+        { potNumber: 1, registrationId: 'reg-0' },
+        { potNumber: 1, registrationId: 'reg-1' },
+        { potNumber: 2, registrationId: 'reg-2' },
+        { potNumber: 2, registrationId: 'reg-3' },
+        { potNumber: 3, registrationId: 'reg-4' },
+        { potNumber: 3, registrationId: 'reg-5' },
+      ]);
+
+      const dto = { numberOfGroups: 2, numberOfPots: 3 };
+      const result = await service.executePotBasedDraw(
+        mockTournamentId,
+        dto,
+        mockOrganizerId,
+        UserRole.ORGANIZER,
+      );
+
+      expect(result).toHaveLength(2);
+      expect(groupRepository.save).toHaveBeenCalledTimes(2);
+
+      // Each group should have 3 teams
+      const group1 = result[0];
+      const group2 = result[1];
+      expect(group1.teams).toHaveLength(3);
+      expect(group2.teams).toHaveLength(3);
+      expect(group1.groupLetter).toBe('A');
+      expect(group2.groupLetter).toBe('B');
+    });
+
+    it('should handle uneven team counts across groups (5 teams, 2 groups)', async () => {
+      const tournamentWith5 = {
+        ...mockTournament,
+        registrations: Array.from({ length: 5 }, (_, i) => ({
+          id: `reg-${i}`,
+          status: RegistrationStatus.APPROVED,
+        })),
+      };
+
+      tournamentRepository.findOne.mockResolvedValue(tournamentWith5);
+      potRepository.find.mockResolvedValue([
+        { potNumber: 1, registrationId: 'reg-0' },
+        { potNumber: 1, registrationId: 'reg-1' },
+        { potNumber: 2, registrationId: 'reg-2' },
+        { potNumber: 2, registrationId: 'reg-3' },
+        { potNumber: 3, registrationId: 'reg-4' },
+      ]);
+
+      const dto = { numberOfGroups: 2, numberOfPots: 3 };
+      const result = await service.executePotBasedDraw(
+        mockTournamentId,
+        dto,
+        mockOrganizerId,
+        UserRole.ORGANIZER,
+      );
+
+      expect(result).toHaveLength(2);
+      const totalTeams = result[0].teams.length + result[1].teams.length;
+      expect(totalTeams).toBe(5);
+      // Groups should differ by at most 1 team
+      expect(
+        Math.abs(result[0].teams.length - result[1].teams.length),
+      ).toBeLessThanOrEqual(1);
+    });
+
+    it('should reject numberOfGroups > totalTeams', async () => {
+      const smallTournament = {
+        ...mockTournament,
+        registrations: [
+          { id: 'reg-0', status: RegistrationStatus.APPROVED },
+          { id: 'reg-1', status: RegistrationStatus.APPROVED },
+        ],
+      };
+
+      tournamentRepository.findOne.mockResolvedValue(smallTournament);
+
+      const dto = { numberOfGroups: 5 };
+
+      await expect(
+        service.executePotBasedDraw(
+          mockTournamentId,
+          dto,
+          mockOrganizerId,
+          UserRole.ORGANIZER,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject numberOfGroups < 1', async () => {
+      const tournament = {
+        ...mockTournament,
+        registrations: [{ id: 'reg-0', status: RegistrationStatus.APPROVED }],
+      };
+
+      tournamentRepository.findOne.mockResolvedValue(tournament);
+
+      const dto = { numberOfGroups: 0 };
+
+      await expect(
+        service.executePotBasedDraw(
+          mockTournamentId,
+          dto,
+          mockOrganizerId,
+          UserRole.ORGANIZER,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should only count APPROVED registrations (ignore withdrawn/pending)', async () => {
+      const mixedTournament = {
+        ...mockTournament,
+        registrations: [
+          { id: 'reg-0', status: RegistrationStatus.APPROVED },
+          { id: 'reg-1', status: RegistrationStatus.APPROVED },
+          { id: 'reg-2', status: RegistrationStatus.WITHDRAWN },
+          { id: 'reg-3', status: RegistrationStatus.PENDING },
+          { id: 'reg-4', status: RegistrationStatus.APPROVED },
+          { id: 'reg-5', status: RegistrationStatus.APPROVED },
+        ],
+      };
+
+      tournamentRepository.findOne.mockResolvedValue(mixedTournament);
+      potRepository.find.mockResolvedValue([
+        { potNumber: 1, registrationId: 'reg-0' },
+        { potNumber: 1, registrationId: 'reg-1' },
+        { potNumber: 2, registrationId: 'reg-4' },
+        { potNumber: 2, registrationId: 'reg-5' },
+      ]);
+
+      const dto = { numberOfGroups: 2 };
+      const result = await service.executePotBasedDraw(
+        mockTournamentId,
+        dto,
+        mockOrganizerId,
+        UserRole.ORGANIZER,
+      );
+
+      expect(result).toHaveLength(2);
+      const totalTeams = result[0].teams.length + result[1].teams.length;
+      expect(totalTeams).toBe(4); // Only 4 approved
+    });
+
+    it('should set drawCompleted to true after successful draw', async () => {
+      const tournament = {
+        ...mockTournament,
+        registrations: [
+          { id: 'reg-0', status: RegistrationStatus.APPROVED },
+          { id: 'reg-1', status: RegistrationStatus.APPROVED },
+        ],
+      };
+
+      tournamentRepository.findOne.mockResolvedValue(tournament);
+      potRepository.find.mockResolvedValue([
+        { potNumber: 1, registrationId: 'reg-0' },
+        { potNumber: 2, registrationId: 'reg-1' },
+      ]);
+
+      const dto = { numberOfGroups: 1, numberOfPots: 2 };
+      await service.executePotBasedDraw(
+        mockTournamentId,
+        dto,
+        mockOrganizerId,
+        UserRole.ORGANIZER,
+      );
+
+      expect(tournamentRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ drawCompleted: true }),
+      );
+    });
+  });
+
+  describe('Edge Cases', () => {
+    it('should handle re-assigning team to different pot (update)', async () => {
+      const existingPot = {
+        id: 'pot-1',
+        tournamentId: mockTournamentId,
+        registrationId: 'reg-1',
+        potNumber: 1,
+      };
+
+      tournamentRepository.findOne.mockResolvedValue(mockTournament);
+      registrationRepository.findOne.mockResolvedValue(mockRegistration);
+      potRepository.findOne.mockResolvedValue(existingPot);
+
+      const dto = { registrationId: 'registration-1', potNumber: 4 };
+      await service.assignTeamToPot(
+        mockTournamentId,
+        dto,
+        mockOrganizerId,
+        UserRole.ORGANIZER,
+      );
+
+      expect(potRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ potNumber: 4 }),
+      );
+    });
+
+    it('should reject clear pots for non-existent tournament', async () => {
+      tournamentRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.clearPotAssignments(
+          'non-existent-id',
+          mockOrganizerId,
+          UserRole.ORGANIZER,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should allow admin to clear pots for any tournament', async () => {
+      tournamentRepository.findOne.mockResolvedValue(mockTournament);
+      potRepository.delete.mockResolvedValue({ affected: 5 });
+
+      // Different user but admin role
+      await service.clearPotAssignments(
+        mockTournamentId,
+        mockUserId,
+        UserRole.ADMIN,
+      );
+
+      expect(potRepository.delete).toHaveBeenCalledWith({
+        tournamentId: mockTournamentId,
+      });
+    });
+
+    it('should get pot assignments with empty pots', async () => {
+      potRepository.find.mockResolvedValue([]);
+
+      const result = await service.getPotAssignments(mockTournamentId);
+
+      expect(result.get(1)).toHaveLength(0);
+      expect(result.has(2)).toBe(false);
+      expect(result.has(3)).toBe(false);
+      expect(result.has(4)).toBe(false);
     });
   });
 });

@@ -62,6 +62,12 @@ export class User {
   @Column({ name: 'profile_image_url', nullable: true })
   profileImageUrl?: string;
 
+  @Column({ nullable: true })
+  bio?: string;
+
+  @Column({ nullable: true })
+  city?: string;
+
   // Team/Organization branding colors for dashboard theming
   @Column({ name: 'team_colors', type: 'json', nullable: true })
   teamColors?: {

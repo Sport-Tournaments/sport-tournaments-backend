@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -16,12 +17,14 @@ import {
 import { PaginationDto } from '../../common/dto';
 import { PaginatedResponse } from '../../common/interfaces';
 import { UserRole } from '../../common/enums';
+import { FilesService } from '../files/files.service';
 
 @Injectable()
 export class ClubsService {
   constructor(
     @InjectRepository(Club)
     private clubsRepository: Repository<Club>,
+    private readonly filesService: FilesService,
   ) {}
 
   async create(
@@ -152,6 +155,37 @@ export class ClubsService {
 
     Object.assign(club, updateClubDto);
 
+    return this.clubsRepository.save(club);
+  }
+
+  async uploadLogo(
+    id: string,
+    userId: string,
+    userRole: string,
+    file: Express.Multer.File,
+  ): Promise<Club> {
+    const club = await this.findByIdOrFail(id);
+
+    // Only the organizer or admin can update the club logo
+    if (club.organizerId !== userId && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException('You are not allowed to update this club');
+    }
+
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    // Upload the file using FilesService
+    const uploadedFile = await this.filesService.upload({
+      file,
+      userId,
+      entityType: 'club',
+      entityId: id,
+      isPublic: true,
+    });
+
+    // Update the club with the new logo URL
+    club.logo = uploadedFile.s3Url;
     return this.clubsRepository.save(club);
   }
 

@@ -21,6 +21,7 @@ export enum TournamentLevel {
 
 export enum RegistrationStatus {
   PENDING = 'PENDING',
+  PENDING_PAYMENT = 'PENDING_PAYMENT',
   APPROVED = 'APPROVED',
   REJECTED = 'REJECTED',
   WITHDRAWN = 'WITHDRAWN',
@@ -56,15 +57,35 @@ export enum Currency {
 }
 
 export enum AgeCategory {
+  U5 = 'U5',
+  U6 = 'U6',
+  U7 = 'U7',
   U8 = 'U8',
+  U9 = 'U9',
   U10 = 'U10',
+  U11 = 'U11',
   U12 = 'U12',
+  U13 = 'U13',
   U14 = 'U14',
+  U15 = 'U15',
   U16 = 'U16',
+  U17 = 'U17',
   U18 = 'U18',
+  U19 = 'U19',
+  U20 = 'U20',
   U21 = 'U21',
+  U22 = 'U22',
+  U23 = 'U23',
   SENIOR = 'SENIOR',
   VETERANS = 'VETERANS',
+}
+
+export enum TournamentFormat {
+  SINGLE_ELIMINATION = 'SINGLE_ELIMINATION',
+  DOUBLE_ELIMINATION = 'DOUBLE_ELIMINATION',
+  ROUND_ROBIN = 'ROUND_ROBIN',
+  GROUPS_PLUS_KNOCKOUT = 'GROUPS_PLUS_KNOCKOUT',
+  LEAGUE = 'LEAGUE',
 }
 
 export enum Language {

@@ -1,0 +1,63 @@
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  OneToMany,
+  ManyToMany,
+  Index,
+  JoinColumn,
+  JoinTable,
+} from 'typeorm';
+import { Club } from '../../clubs/entities/club.entity';
+import { Registration } from '../../registrations/entities/registration.entity';
+import { Player } from '../../players/entities';
+
+@Entity('teams')
+@Index(['clubId', 'name', 'ageCategory', 'birthyear'], { unique: true })
+export class Team {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Index()
+  @Column({ name: 'club_id' })
+  clubId: string;
+
+  @ManyToOne(() => Club, (club) => club.teams, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'club_id' })
+  club: Club;
+
+  @Column()
+  name: string;
+
+  @Column({ name: 'age_category', nullable: true })
+  ageCategory: string;
+
+  @Column({ type: 'int', nullable: true })
+  birthyear: number;
+
+  @Column({ nullable: true })
+  coach: string;
+
+  @Column({ name: 'coach_phone', nullable: true })
+  coachPhone: string;
+
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt: Date;
+
+  @OneToMany(() => Registration, (registration) => registration.team)
+  registrations: Registration[];
+
+  @ManyToMany(() => Player, (player) => player.teams)
+  @JoinTable({
+    name: 'team_players',
+    joinColumn: { name: 'team_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'player_id', referencedColumnName: 'id' },
+  })
+  players: Player[];
+}

@@ -11,6 +11,8 @@ import { Registration } from './registration.entity';
 
 export enum DocumentType {
   MEDICAL_DECLARATION = 'MEDICAL_DECLARATION',
+  PARENTAL_CONSENT = 'PARENTAL_CONSENT',
+  ID_DOCUMENT = 'ID_DOCUMENT',
   PLAYER_PHOTO = 'PLAYER_PHOTO',
   COACH_LICENSE = 'COACH_LICENSE',
   INSURANCE = 'INSURANCE',

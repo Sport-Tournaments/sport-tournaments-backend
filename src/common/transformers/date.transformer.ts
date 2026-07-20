@@ -12,12 +12,12 @@ export class DateOnlyTransformer implements ValueTransformer {
    */
   to(value: Date | string | null | undefined): Date | null {
     if (!value) return null;
-    
+
     if (typeof value === 'string') {
       // Parse YYYY-MM-DD string to Date
       return new Date(value);
     }
-    
+
     return value;
   }
 
@@ -28,10 +28,10 @@ export class DateOnlyTransformer implements ValueTransformer {
    */
   from(value: Date | null | undefined): string | null {
     if (!value) return null;
-    
+
     // Ensure we have a Date object
     const date = value instanceof Date ? value : new Date(value);
-    
+
     // Return YYYY-MM-DD format (ISO date string without time)
     return date.toISOString().split('T')[0];
   }

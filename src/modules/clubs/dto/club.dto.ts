@@ -7,7 +7,6 @@ import {
   IsBoolean,
   IsEmail,
   IsUrl,
-  IsHexColor,
   Min,
   Max,
 } from 'class-validator';
@@ -63,13 +62,19 @@ export class CreateClubDto {
   @IsString()
   logo?: string;
 
-  @ApiPropertyOptional({ example: '#A50044', description: 'Primary club color (hex format)' })
+  @ApiPropertyOptional({
+    example: '#A50044',
+    description: 'Primary club color (hex format)',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(7)
   primaryColor?: string;
 
-  @ApiPropertyOptional({ example: '#004D98', description: 'Secondary club color (hex format)' })
+  @ApiPropertyOptional({
+    example: '#004D98',
+    description: 'Secondary club color (hex format)',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(7)
@@ -150,13 +155,19 @@ export class UpdateClubDto {
   @IsString()
   logo?: string;
 
-  @ApiPropertyOptional({ example: '#A50044', description: 'Primary club color (hex format)' })
+  @ApiPropertyOptional({
+    example: '#A50044',
+    description: 'Primary club color (hex format)',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(7)
   primaryColor?: string;
 
-  @ApiPropertyOptional({ example: '#004D98', description: 'Secondary club color (hex format)' })
+  @ApiPropertyOptional({
+    example: '#004D98',
+    description: 'Secondary club color (hex format)',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(7)

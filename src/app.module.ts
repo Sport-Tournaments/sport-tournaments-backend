@@ -20,6 +20,10 @@ import { FilesModule } from './modules/files/files.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { InvitationsModule } from './modules/invitations/invitations.module';
 import { LocationsModule } from './modules/locations/locations.module';
+import { MailModule } from './modules/mail/mail.module';
+import { TeamsModule } from './modules/teams/teams.module';
+import { PlayersModule } from './modules/players/players.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -60,10 +64,14 @@ import { LocationsModule } from './modules/locations/locations.module';
     GroupsModule,
     PaymentsModule,
     NotificationsModule,
+    MailModule,
     FilesModule,
     AdminModule,
     InvitationsModule,
     LocationsModule,
+    TeamsModule,
+    PlayersModule,
+    DashboardModule,
   ],
   controllers: [],
   providers: [],

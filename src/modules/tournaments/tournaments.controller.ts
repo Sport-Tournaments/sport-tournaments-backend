@@ -32,6 +32,16 @@ import {
   RegenerateInvitationCodeDto,
   UpdateAgeGroupsDto,
 } from './dto';
+import { IsBoolean } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+
+class SetAgeGroupRegistrationClosedDto {
+  @ApiProperty({
+    description: 'Whether registrations are closed for this age group',
+  })
+  @IsBoolean()
+  isRegistrationClosed: boolean;
+}
 import { JwtAuthGuard, RolesGuard } from '../auth/guards';
 import { Roles, CurrentUser, Public } from '../../common/decorators';
 import { UserRole } from '../../common/enums';
@@ -103,13 +113,22 @@ export class TournamentsController {
     return this.tournamentsService.getStatistics();
   }
 
+  @Get('slug/:slug')
+  @Public()
+  @ApiOperation({ summary: 'Get tournament by slug' })
+  @ApiResponse({ status: 200, description: 'Tournament details' })
+  @ApiResponse({ status: 404, description: 'Tournament not found' })
+  findBySlug(@Param('slug') slug: string) {
+    return this.tournamentsService.findBySlugOrFail(slug);
+  }
+
   @Get(':id')
   @Public()
   @ApiOperation({ summary: 'Get tournament by ID' })
   @ApiResponse({ status: 200, description: 'Tournament details' })
   @ApiResponse({ status: 404, description: 'Tournament not found' })
   findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.tournamentsService.findByIdOrFail(id);
+    return this.tournamentsService.findDetailsByIdOrFail(id);
   }
 
   @Patch(':id')
@@ -134,7 +153,12 @@ export class TournamentsController {
   }
 
   @Put(':id/age-groups')
-  @Roles(UserRole.ORGANIZER)
+  @Roles(
+    UserRole.ORGANIZER,
+    UserRole.PARTICIPANT,
+    UserRole.USER,
+    UserRole.ADMIN,
+  )
   @ApiOperation({ summary: 'Update tournament age groups' })
   @ApiResponse({ status: 200, description: 'Age groups updated successfully' })
   @ApiResponse({
@@ -151,6 +175,43 @@ export class TournamentsController {
       user.sub,
       user.role,
       updateAgeGroupsDto.ageGroups,
+    );
+  }
+
+  @Patch(':id/age-groups/:ageGroupId/registration-status')
+  @Roles(
+    UserRole.ORGANIZER,
+    UserRole.PARTICIPANT,
+    UserRole.USER,
+    UserRole.ADMIN,
+  )
+  @ApiOperation({
+    summary: 'Open or close registrations for a specific age group',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Age group registration status updated',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Not allowed to update this tournament',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Tournament or age group not found',
+  })
+  setAgeGroupRegistrationClosed(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('ageGroupId', ParseUUIDPipe) ageGroupId: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: SetAgeGroupRegistrationClosedDto,
+  ) {
+    return this.tournamentsService.setAgeGroupRegistrationClosed(
+      id,
+      ageGroupId,
+      dto.isRegistrationClosed,
+      user.sub,
+      user.role,
     );
   }
 
@@ -190,17 +251,6 @@ export class TournamentsController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.tournamentsService.cancel(id, user.sub, user.role);
-  }
-
-  @Post(':id/start')
-  @Roles(UserRole.ORGANIZER, UserRole.PARTICIPANT, UserRole.USER)
-  @ApiOperation({ summary: 'Start tournament' })
-  @ApiResponse({ status: 200, description: 'Tournament started' })
-  start(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: JwtPayload,
-  ) {
-    return this.tournamentsService.start(id, user.sub, user.role);
   }
 
   @Post(':id/complete')

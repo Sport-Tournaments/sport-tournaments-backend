@@ -1,12 +1,26 @@
-import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TournamentPot } from '../entities/tournament-pot.entity';
 import { Group } from '../entities/group.entity';
 import { Tournament } from '../../tournaments/entities/tournament.entity';
 import { Registration } from '../../registrations/entities/registration.entity';
-import { AssignTeamToPotDto, AssignPotsBulkDto, ExecutePotDrawDto } from '../dto/pot.dto';
-import { UserRole, RegistrationStatus } from '../../../common/enums';
+import { TournamentAgeGroup } from '../../tournaments/entities/tournament-age-group.entity';
+import {
+  AssignTeamToPotDto,
+  AssignPotsBulkDto,
+  ExecutePotDrawDto,
+} from '../dto/pot.dto';
+import {
+  UserRole,
+  RegistrationStatus,
+  TournamentFormat,
+} from '../../../common/enums';
 
 @Injectable()
 export class PotDrawService {
@@ -19,6 +33,8 @@ export class PotDrawService {
     private readonly registrationRepository: Repository<Registration>,
     @InjectRepository(Group)
     private readonly groupRepository: Repository<Group>,
+    @InjectRepository(TournamentAgeGroup)
+    private readonly ageGroupRepository: Repository<TournamentAgeGroup>,
   ) {}
 
   /**
@@ -31,7 +47,11 @@ export class PotDrawService {
     userRole?: string,
   ): Promise<TournamentPot> {
     // Validate tournament exists and check authorization
-    const tournament = await this.validateTournamentAccess(tournamentId, userId, userRole);
+    await this.validateTournamentAccess(
+      tournamentId,
+      userId,
+      userRole,
+    );
 
     // Validate registration exists and belongs to tournament
     const registration = await this.registrationRepository.findOne({
@@ -43,7 +63,9 @@ export class PotDrawService {
 
     // Only allow APPROVED registrations to be assigned to pots
     if (registration.status !== RegistrationStatus.APPROVED) {
-      throw new BadRequestException('Only approved registrations can be assigned to pots');
+      throw new BadRequestException(
+        'Only approved registrations can be assigned to pots',
+      );
     }
 
     // Check if team already assigned to a pot
@@ -91,20 +113,44 @@ export class PotDrawService {
   }
 
   /**
-   * Get all pot assignments for a tournament
+   * Get all pot assignments for a tournament, optionally filtered by age group
    */
   async getPotAssignments(
     tournamentId: string,
+    ageGroupId?: string,
   ): Promise<Map<number, TournamentPot[]>> {
-    const pots = await this.potRepository.find({
-      where: { tournamentId },
-      relations: ['registration', 'registration.club'],
-      order: { potNumber: 'ASC', createdAt: 'ASC' },
-    });
+    const queryBuilder = this.potRepository
+      .createQueryBuilder('pot')
+      .leftJoinAndSelect('pot.registration', 'registration')
+      .leftJoinAndSelect('registration.club', 'club')
+      .leftJoinAndSelect('registration.team', 'team')
+      .where('pot.tournamentId = :tournamentId', { tournamentId });
 
+    if (ageGroupId) {
+      queryBuilder.andWhere('registration.ageGroupId = :ageGroupId', {
+        ageGroupId,
+      });
+    }
+
+    queryBuilder
+      .orderBy('pot.potNumber', 'ASC')
+      .addOrderBy('pot.createdAt', 'ASC');
+
+    const pots = await queryBuilder.getMany();
+
+    // Dynamically determine max pot number from actual assignments
     const potMap = new Map<number, TournamentPot[]>();
-    for (let i = 1; i <= 4; i++) {
-      potMap.set(i, pots.filter((p) => p.potNumber === i));
+    let maxPot = 0;
+    for (const p of pots) {
+      if (p.potNumber > maxPot) maxPot = p.potNumber;
+    }
+    // Always include at least pot 1
+    if (maxPot < 1) maxPot = 1;
+    for (let i = 1; i <= maxPot; i++) {
+      potMap.set(
+        i,
+        pots.filter((p) => p.potNumber === i),
+      );
     }
 
     return potMap;
@@ -121,17 +167,66 @@ export class PotDrawService {
     userRole?: string,
   ): Promise<Group[]> {
     // Validate tournament exists and check authorization
-    const tournament = await this.validateTournamentAccess(tournamentId, userId, userRole, true);
+    const tournament = await this.validateTournamentAccess(
+      tournamentId,
+      userId,
+      userRole,
+      true,
+    );
 
-    // Check if draw already completed
-    if (tournament.drawCompleted) {
-      throw new BadRequestException('Draw has already been completed for this tournament');
+    // BE-12 — Gate by age-group format
+    const ageGroup = dto.ageGroupId
+      ? await this.ageGroupRepository.findOne({
+          where: { id: dto.ageGroupId, tournamentId },
+        })
+      : undefined;
+
+    if (ageGroup?.format) {
+      switch (ageGroup.format) {
+        case TournamentFormat.ROUND_ROBIN:
+          throw new BadRequestException(
+            'Pot draw is not applicable for ROUND_ROBIN format. Teams are assigned directly.',
+          );
+        case TournamentFormat.GROUPS_PLUS_KNOCKOUT:
+          // Group-seeding pot draw — continue with existing logic below
+          break;
+        case TournamentFormat.SINGLE_ELIMINATION:
+        case TournamentFormat.DOUBLE_ELIMINATION:
+        case TournamentFormat.LEAGUE:
+          // For SE/DE/LEAGUE the draw creates a seeding order, not group assignments.
+          // The existing simple pot draw is repurposed here as a seeding draw.
+          // Full seeding-order draw (FE-14) is a future enhancement.
+          break;
+      }
     }
 
-    // Only count approved registrations for the draw
-    const approvedRegistrations = tournament.registrations.filter(
+    // Check if draw already completed — per age group if ageGroupId given,
+    // otherwise at tournament level.
+    if (dto.ageGroupId) {
+      if (!ageGroup) {
+        throw new NotFoundException(`Age group ${dto.ageGroupId} not found`);
+      }
+
+      if (ageGroup.drawCompleted) {
+        throw new BadRequestException(
+          'Draw has already been completed for this age group',
+        );
+      }
+    } else if (tournament.drawCompleted) {
+      throw new BadRequestException(
+        'Draw has already been completed for this tournament',
+      );
+    }
+
+    // Filter registrations by age group if specified
+    const allApprovedRegistrations = tournament.registrations.filter(
       (reg) => reg.status === RegistrationStatus.APPROVED,
     );
+    const approvedRegistrations = dto.ageGroupId
+      ? allApprovedRegistrations.filter(
+          (reg) => reg.ageGroupId === dto.ageGroupId,
+        )
+      : allApprovedRegistrations;
     const totalTeams = approvedRegistrations.length;
 
     // Validate input
@@ -139,14 +234,45 @@ export class PotDrawService {
       throw new BadRequestException('No teams registered for this tournament');
     }
 
-    if (dto.numberOfGroups < 2 || dto.numberOfGroups > totalTeams) {
+    const numberOfPots = dto.numberOfPots ?? dto.numberOfGroups;
+    if (!numberOfPots) {
       throw new BadRequestException(
-        `Number of groups must be between 2 and ${totalTeams}`,
+        'Number of pots is required to execute a pot draw.',
       );
     }
 
-    // Get pot assignments
-    const potAssignments = await this.getPotAssignments(tournamentId);
+    const numberOfGroups =
+      ageGroup?.groupsCount ??
+      tournament.numberOfGroups ??
+      dto.numberOfGroups ??
+      numberOfPots;
+
+    if (numberOfGroups < 1 || numberOfGroups > totalTeams) {
+      throw new BadRequestException(
+        `Number of groups must be between 1 and ${totalTeams}`,
+      );
+    }
+
+    if (numberOfPots < 1 || numberOfPots > 64) {
+      throw new BadRequestException(
+        `Number of pots must be between 1 and 64`,
+      );
+    }
+
+    if (numberOfPots > totalTeams) {
+      throw new BadRequestException(
+        `Number of pots cannot exceed total approved teams (${totalTeams}).`,
+      );
+    }
+
+    const teamsPerPot = Math.floor(totalTeams / numberOfPots);
+    const remainder = totalTeams % numberOfPots;
+
+    // Get pot assignments (filtered by age group if specified)
+    const potAssignments = await this.getPotAssignments(
+      tournamentId,
+      dto.ageGroupId,
+    );
 
     // Validate all teams are assigned to pots
     let totalAssigned = 0;
@@ -160,8 +286,21 @@ export class PotDrawService {
       );
     }
 
+    // Validate pot structure:
+    // Validate pot structure against the requested number of pots:
+    //   - First `remainder` pots have teamsPerPot + 1 teams, rest have teamsPerPot teams
+    for (let i = 1; i <= numberOfPots; i++) {
+      const potTeams = potAssignments.get(i) || [];
+      const expectedSize = i <= remainder ? teamsPerPot + 1 : teamsPerPot;
+      if (potTeams.length !== expectedSize) {
+        throw new BadRequestException(
+          `Pot ${i} has ${potTeams.length} teams, but must have exactly ${expectedSize} teams.`,
+        );
+      }
+    }
+
     // Initialize groups with their letters
-    const groupLetters = this.getGroupLetters(dto.numberOfGroups);
+    const groupLetters = this.getGroupLetters(numberOfGroups);
     const groups: { letter: string; teams: string[] }[] = groupLetters.map(
       (letter) => ({
         letter,
@@ -169,57 +308,17 @@ export class PotDrawService {
       }),
     );
 
-    // Execute pot-based distribution with snake draft pattern
-    // Shuffle within each pot for randomness
-    const shuffledPots = new Map<number, TournamentPot[]>();
-    for (let potNum = 1; potNum <= 4; potNum++) {
+    // Distribution: concatenate all pots in order and round-robin to groups.
+    // This ensures each group gets teams from different strength tiers.
+    const allTeams: string[] = [];
+    for (let potNum = 1; potNum <= numberOfPots; potNum++) {
       const potTeams = potAssignments.get(potNum) || [];
-      if (potTeams.length > 0) {
-        shuffledPots.set(
-          potNum,
-          this.seededShuffle([...potTeams], tournamentId + potNum),
-        );
+      for (const team of potTeams) {
+        allTeams.push(team.registrationId);
       }
     }
-
-    // Distribute teams using snake draft pattern
-    // This ensures balanced distribution even with uneven pot sizes
-    let groupIdx = 0;
-    let direction = 1; // 1 for forward, -1 for backward (snake pattern)
-    let teamIndex = new Map<number, number>(); // Track which team in each pot
-    
-    // Initialize team indices
-    for (const potNum of [1, 2, 3, 4]) {
-      teamIndex.set(potNum, 0);
-    }
-
-    // Continue until all teams are assigned
-    let assignedTeams = 0;
-    while (assignedTeams < totalTeams) {
-      // Try to assign one team from each pot to the current group
-      for (const potNum of [1, 2, 3, 4]) {
-        const potTeams = shuffledPots.get(potNum);
-        const idx = teamIndex.get(potNum);
-        
-        if (potTeams && idx !== undefined && idx < potTeams.length && groupIdx < dto.numberOfGroups) {
-          const team = potTeams[idx];
-          groups[groupIdx].teams.push(team.registrationId);
-          teamIndex.set(potNum, idx + 1);
-          assignedTeams++;
-          
-          // Move to next group
-          groupIdx += direction;
-          
-          // Handle snake pattern (reverse direction at ends)
-          if (groupIdx >= dto.numberOfGroups) {
-            groupIdx = dto.numberOfGroups - 1;
-            direction = -1;
-          } else if (groupIdx < 0) {
-            groupIdx = 0;
-            direction = 1;
-          }
-        }
-      }
+    for (let i = 0; i < allTeams.length; i++) {
+      groups[i % numberOfGroups].teams.push(allTeams[i]);
     }
 
     // Save groups to database
@@ -227,6 +326,7 @@ export class PotDrawService {
     for (const group of groups) {
       const groupEntity = this.groupRepository.create({
         tournamentId,
+        ageGroupId: dto.ageGroupId,
         groupLetter: group.letter,
         teams: group.teams,
       });
@@ -234,34 +334,120 @@ export class PotDrawService {
       savedGroups.push(saved);
     }
 
-    // Mark tournament as having completed draw
-    tournament.drawCompleted = true;
-    await this.tournamentRepository.save(tournament);
+    // BE-32 Step 1 — Update registration.groupAssignment for every team placed in a group
+    for (const group of savedGroups) {
+      for (const teamId of group.teams) {
+        await this.registrationRepository.update(teamId, {
+          groupAssignment: group.groupLetter,
+        });
+      }
+    }
+
+    // BE-32 Step 2 — Auto-calculate numberOfMatches for this age group
+    if (dto.ageGroupId) {
+      await this.autoCalcNumberOfMatches(
+        tournamentId,
+        dto.ageGroupId,
+        savedGroups,
+      );
+    }
+
+    // BE-32 Step 3 — Mark the specific age group draw as completed
+    if (dto.ageGroupId) {
+      await this.ageGroupRepository.update(dto.ageGroupId, {
+        drawCompleted: true,
+      });
+    } else {
+      tournament.drawCompleted = true;
+      await this.tournamentRepository.save(tournament);
+    }
 
     return savedGroups;
   }
 
   /**
-   * Clear all pot assignments for a tournament
+   * Auto-calculate numberOfMatches for an age group after pot draw.
+   * Mirrors the same logic in GroupsService.autoCalcNumberOfMatches.
+   */
+  private async autoCalcNumberOfMatches(
+    tournamentId: string,
+    ageGroupId: string,
+    groups: Group[],
+  ): Promise<void> {
+    try {
+      const ageGroup = await this.ageGroupRepository.findOne({
+        where: { id: ageGroupId, tournamentId },
+      });
+      if (!ageGroup) return;
+
+      const numGroups = groups.length;
+      if (numGroups === 0) return;
+
+      const teamsPerGroup = Math.ceil(
+        groups.reduce((s, g) => s + g.teams.length, 0) / numGroups,
+      );
+
+      // C(n, 2) = n*(n-1)/2 matches per group
+      const groupMatches =
+        numGroups * ((teamsPerGroup * (teamsPerGroup - 1)) / 2);
+      const advancingPerGroup = ageGroup.qualifyingTeamsPerGroup ?? 2;
+      const qualifyingTeams = numGroups * advancingPerGroup;
+      const knockoutMatches = qualifyingTeams - 1;
+      const total = groupMatches + knockoutMatches + 1; // +1 for third-place match
+
+      await this.ageGroupRepository.update(ageGroupId, {
+        numberOfMatches: total,
+      });
+    } catch {
+      // Non-critical — silently skip if calculation fails
+    }
+  }
+
+  /**
+   * Clear pot assignments for a tournament, optionally filtered by age group
    */
   async clearPotAssignments(
     tournamentId: string,
     userId?: string,
     userRole?: string,
+    ageGroupId?: string,
   ): Promise<void> {
     // Validate access
     await this.validateTournamentAccess(tournamentId, userId, userRole);
-    await this.potRepository.delete({ tournamentId });
+
+    if (ageGroupId) {
+      // Delete only pots for registrations in this age group
+      await this.potRepository
+        .createQueryBuilder()
+        .delete()
+        .from(TournamentPot)
+        .where('tournament_id = :tournamentId', { tournamentId })
+        .andWhere(
+          'registration_id IN (SELECT id FROM registrations WHERE tournament_id = :tournamentId AND age_group_id = :ageGroupId)',
+          { tournamentId, ageGroupId },
+        )
+        .execute();
+    } else {
+      await this.potRepository.delete({ tournamentId });
+    }
   }
 
   /**
-   * Validate pot distribution
+   * Validate pot distribution, optionally filtered by age group
    */
   async validatePotDistribution(
     tournamentId: string,
     expectedTeamsPerPot?: number,
-  ): Promise<{ valid: boolean; message: string; potCounts: Map<number, number> }> {
-    const potAssignments = await this.getPotAssignments(tournamentId);
+    ageGroupId?: string,
+  ): Promise<{
+    valid: boolean;
+    message: string;
+    potCounts: Map<number, number>;
+  }> {
+    const potAssignments = await this.getPotAssignments(
+      tournamentId,
+      ageGroupId,
+    );
     const potCounts = new Map<number, number>();
     let totalTeams = 0;
 

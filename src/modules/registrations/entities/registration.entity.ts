@@ -10,15 +10,21 @@ import {
   Index,
   JoinColumn,
 } from 'typeorm';
-import { RegistrationStatus, PaymentStatus } from '../../../common/enums';
+import {
+  RegistrationStatus,
+  PaymentStatus,
+  Currency,
+} from '../../../common/enums';
 import { Tournament } from '../../tournaments/entities/tournament.entity';
+import { TournamentAgeGroup } from '../../tournaments/entities/tournament-age-group.entity';
 import { Club } from '../../clubs/entities/club.entity';
+import { Team } from '../../teams/entities/team.entity';
 import { Payment } from '../../payments/entities/payment.entity';
 import { User } from '../../users/entities/user.entity';
 import { RegistrationDocument } from './registration-document.entity';
 
 @Entity('registrations')
-@Index(['tournamentId', 'clubId'], { unique: true })
+@Index(['tournamentId', 'clubId', 'teamId', 'ageGroupId'], { unique: true })
 export class Registration {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -34,12 +40,28 @@ export class Registration {
   tournament: Tournament;
 
   @Index()
+  @Column({ name: 'age_group_id', nullable: true })
+  ageGroupId?: string;
+
+  @ManyToOne(() => TournamentAgeGroup, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'age_group_id' })
+  ageGroup?: TournamentAgeGroup;
+
+  @Index()
   @Column({ name: 'club_id' })
   clubId: string;
 
   @ManyToOne(() => Club, (club) => club.registrations, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'club_id' })
   club: Club;
+
+  @Index()
+  @Column({ name: 'team_id', nullable: true })
+  teamId?: string;
+
+  @ManyToOne(() => Team, (team) => team.registrations, { onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'team_id' })
+  team?: Team;
 
   @Column({
     type: 'enum',
@@ -62,6 +84,10 @@ export class Registration {
 
   @Column({ name: 'emergency_contact', nullable: true })
   emergencyContact: string;
+
+  // BE-03: flag set when team age category/birth year doesn't match the selected age group
+  @Column({ name: 'age_category_mismatch', default: false })
+  ageCategoryMismatch: boolean;
 
   @Column({ type: 'text', nullable: true })
   notes: string;
@@ -119,6 +145,36 @@ export class Registration {
 
   @Column({ name: 'fitness_notes', type: 'text', nullable: true })
   fitnessNotes?: string;
+
+  // ----- Price / payment tracking (Issue #88) -----
+  @Column({
+    name: 'price_amount',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
+  priceAmount?: number;
+
+  @Column({
+    name: 'price_currency',
+    type: 'enum',
+    enum: Currency,
+    nullable: true,
+  })
+  priceCurrency?: Currency;
+
+  @Column({ name: 'paid', default: false })
+  paid: boolean;
+
+  @Column({
+    name: 'paid_amount',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
+  paidAmount?: number;
 
   @OneToOne(() => Payment, (payment) => payment.registration)
   payment: Payment;
