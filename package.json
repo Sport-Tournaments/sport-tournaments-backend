@@ -29,6 +29,7 @@
     "seed:dev": "NODE_ENV=development ts-node -r tsconfig-paths/register src/seeds/run.ts",
     "seed:fresh": "ts-node -r tsconfig-paths/register src/seeds/run.ts",
     "seed:eurosportring": "ts-node -r tsconfig-paths/register src/seeds/scrape-euro-sportring.ts",
+    "seed:youngtalents": "ts-node -r tsconfig-paths/register src/seeds/import-young-talents.ts",
     "migrate:colors": "ts-node -r tsconfig-paths/register src/seeds/add-colors-migration.ts"
   },
   "dependencies": {

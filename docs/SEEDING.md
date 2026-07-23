@@ -223,6 +223,52 @@ current Euro-Sportring data. Safety properties in deploy mode:
 - **Opt-out**: set `SEED_EUROSPORTRING_ON_DEPLOY=false` in the environment to
   disable it.
 
+## Real Data Import: Young Talents Group
+
+Imports real tournaments from a JSON snapshot of
+[youngtalentsgroup.com](https://youngtalentsgroup.com/search). The site is
+bot-protected (Cloudflare) and disallows automated crawlers in `robots.txt`,
+so the data is collected out-of-band (e.g. via a browser session) into
+`src/seeds/data/young-talents-group.json` and imported from there — the
+importer never touches the site.
+
+```bash
+# Import into the database (requires DATABASE_URL)
+pnpm seed:youngtalents
+
+# Parse + report only, no DB writes
+pnpm seed:youngtalents -- --dry-run
+
+# Useful flags
+pnpm seed:youngtalents -- --limit=5          # only first N (testing)
+pnpm seed:youngtalents -- --file=other.json  # override the input file
+```
+
+What it does:
+
+1. Reads the JSON array (`src/seeds/data/young-talents-group.json`, ~530
+   tournaments).
+2. Creates a dedicated organizer user
+   `import.youngtalentsgroup@turnee-sportive.ro` on first run.
+3. Upserts each tournament by `url_slug` = `young-talents-group-<slug>`
+   (idempotent — re-runs refresh instead of duplicating). Status is derived
+   from the dates, currency defaults to EUR, `is_registration_closed` is set
+   when the source says sold out / registration closed.
+4. Derives `tournament_age_groups` from the age-category strings, which encode
+   birth year + game format (e.g. `"2016 B10 (7vs7)"` → birth year 2016, game
+   system `6+1`); when no explicit birth year is present it is computed as
+   event year − age. Age groups are deduped on the unique
+   `(tournament_id, birth_year)` constraint (e.g. `B14` and `G14` share a
+   year).
+
+The source has no geo coordinates, so no `tournament_locations` are created
+(that table requires latitude/longitude); the city and country are stored in
+the tournament's `location` string. Tournaments with no name (2 in the current
+snapshot) are skipped.
+
+To refresh the data, replace `src/seeds/data/young-talents-group.json` with a
+new export (same shape) and re-run `pnpm seed:youngtalents`.
+
 ## Related Documentation
 
 - [Getting Started](./GETTING_STARTED.md)
