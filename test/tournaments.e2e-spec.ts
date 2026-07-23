@@ -120,7 +120,8 @@ describe('Tournaments (e2e)', () => {
       expect(response.body.success).toBe(true);
       expect(response.body.data.id).toBeDefined();
       expect(response.body.data.name).toBe(tournamentFixture.name);
-      expect(response.body.data.status).toBe('DRAFT');
+      // Tournaments are created published (see TournamentsService.create)
+      expect(response.body.data.status).toBe('PUBLISHED');
     });
 
     it('should reject tournament creation without auth', async () => {
@@ -190,10 +191,11 @@ describe('Tournaments (e2e)', () => {
       expect(response.body.data.meta.limit).toBe(10);
     });
 
-    it('should filter by age category', async () => {
+    it('should filter by game system', async () => {
+      // Age filtering now lives on age groups; game system is a top-level filter.
       const response = await request(app.getHttpServer())
         .get('/api/v1/tournaments')
-        .query({ ageCategory: 'U12' })
+        .query({ gameSystem: '4+1' })
         .expect(200);
 
       expect(response.body.success).toBe(true);
@@ -279,6 +281,13 @@ describe('Tournaments (e2e)', () => {
     });
 
     it('should delete tournament', async () => {
+      // Only draft or cancelled tournaments can be deleted; new ones are
+      // published, so cancel it first (see TournamentsService.remove).
+      await request(app.getHttpServer())
+        .post(`/api/v1/tournaments/${tournamentId}/cancel`)
+        .set('Authorization', `Bearer ${organizerToken}`)
+        .expect(201);
+
       const response = await request(app.getHttpServer())
         .delete(`/api/v1/tournaments/${tournamentId}`)
         .set('Authorization', `Bearer ${organizerToken}`)

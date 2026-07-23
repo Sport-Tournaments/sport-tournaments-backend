@@ -1,14 +1,9 @@
 import { faker } from '@faker-js/faker';
-import {
-  TournamentStatus,
-  AgeCategory,
-  TournamentLevel,
-} from '../../src/common/enums';
+import { TournamentStatus, TournamentLevel } from '../../src/common/enums';
 
 interface TournamentOverrides {
   name?: string;
   description?: string;
-  ageCategory?: AgeCategory;
   level?: TournamentLevel;
   gameSystem?: string;
   numberOfMatches?: number;
@@ -31,6 +26,9 @@ export const createTournamentFixture = (
   const endDate = new Date(startDate);
   endDate.setDate(endDate.getDate() + 2);
 
+  // CreateTournamentDto requires date-only strings (YYYY-MM-DD).
+  const toDateOnly = (d: Date) => d.toISOString().slice(0, 10);
+
   // Note: status is set by the server, not by the client in CreateTournamentDto
   const {
     status: _status,
@@ -41,12 +39,11 @@ export const createTournamentFixture = (
   return {
     name: `${faker.company.name()} Cup ${faker.date.future().getFullYear()}`,
     description: faker.lorem.paragraph(),
-    ageCategory: AgeCategory.U12,
     level: TournamentLevel.LEVEL_I,
     gameSystem: '4+1',
     numberOfMatches: 6,
-    startDate: startDate.toISOString(),
-    endDate: endDate.toISOString(),
+    startDate: toDateOnly(startDate),
+    endDate: toDateOnly(endDate),
     location: 'Brașov, Romania',
     latitude: 45.6427,
     longitude: 25.5887,
