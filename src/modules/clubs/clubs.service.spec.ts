@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ClubsService } from './clubs.service';
+import { FilesService } from '../files/files.service';
 import { Club } from './entities/club.entity';
 import { CreateClubDto, UpdateClubDto } from './dto';
 import {
@@ -48,6 +49,10 @@ describe('ClubsService', () => {
     })),
   };
 
+  const mockFilesService = {
+    upload: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -55,6 +60,10 @@ describe('ClubsService', () => {
         {
           provide: getRepositoryToken(Club),
           useValue: mockRepository,
+        },
+        {
+          provide: FilesService,
+          useValue: mockFilesService,
         },
       ],
     }).compile();

@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
+import { MailService } from '../mail/mail.service';
 import { User } from '../users/entities/user.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { UnauthorizedException, ConflictException } from '@nestjs/common';
@@ -82,6 +83,13 @@ describe('AuthService', () => {
         {
           provide: ConfigService,
           useValue: mockConfigService,
+        },
+        {
+          provide: MailService,
+          useValue: {
+            sendWelcomeEmail: jest.fn(),
+            sendPasswordResetEmail: jest.fn(),
+          },
         },
       ],
     }).compile();

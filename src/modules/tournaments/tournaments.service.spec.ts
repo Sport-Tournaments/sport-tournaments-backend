@@ -53,6 +53,10 @@ describe('TournamentsService', () => {
     addOrderBy: jest.fn().mockReturnThis(),
     skip: jest.fn().mockReturnThis(),
     take: jest.fn().mockReturnThis(),
+    // Used by syncPastTournamentsAsCompleted()
+    update: jest.fn().mockReturnThis(),
+    set: jest.fn().mockReturnThis(),
+    execute: jest.fn().mockResolvedValue({ affected: 0 }),
     getManyAndCount: jest.fn().mockResolvedValue([[mockTournament], 1]),
     getOne: jest.fn().mockResolvedValue(mockTournament),
   });
@@ -65,6 +69,8 @@ describe('TournamentsService', () => {
     update: jest.fn(),
     remove: jest.fn(),
     createQueryBuilder: jest.fn(() => createMockQueryBuilder()),
+    // enrichTournamentData()/list queries use the entity manager for raw SQL
+    manager: { query: jest.fn().mockResolvedValue([]) },
   };
 
   const mockAgeGroupRepository = {
@@ -100,6 +106,12 @@ describe('TournamentsService', () => {
     }).compile();
 
     service = module.get<TournamentsService>(TournamentsService);
+
+    // Default findOne to "no match" so slug generation terminates. Without
+    // this, a prior test's mockResolvedValue(tournament) leaks across tests
+    // (clearAllMocks resets call history, not implementations) and makes
+    // generateUniqueSlug loop forever → OOM. Tests override as needed.
+    mockRepository.findOne.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -287,17 +299,24 @@ describe('TournamentsService', () => {
   });
 
   describe('remove', () => {
+    // Only DRAFT/CANCELLED tournaments can be deleted, and findByIdOrFail
+    // auto-promotes DRAFT → PUBLISHED, so use a CANCELLED tournament here.
+    const cancelledTournament = {
+      ...mockTournament,
+      status: TournamentStatus.CANCELLED,
+    };
+
     it('should remove a tournament when user is owner', async () => {
-      mockRepository.findOne.mockResolvedValue(mockTournament);
-      mockRepository.remove.mockResolvedValue(mockTournament);
+      mockRepository.findOne.mockResolvedValue(cancelledTournament);
+      mockRepository.remove.mockResolvedValue(cancelledTournament);
 
       await service.remove('tournament-1', 'organizer-1', UserRole.ORGANIZER);
 
-      expect(mockRepository.remove).toHaveBeenCalledWith(mockTournament);
+      expect(mockRepository.remove).toHaveBeenCalledWith(cancelledTournament);
     });
 
     it('should throw ForbiddenException when user is not owner', async () => {
-      mockRepository.findOne.mockResolvedValue(mockTournament);
+      mockRepository.findOne.mockResolvedValue(cancelledTournament);
 
       await expect(
         service.remove('tournament-1', 'other-user', UserRole.ORGANIZER),
@@ -305,12 +324,12 @@ describe('TournamentsService', () => {
     });
 
     it('should allow admin to remove any tournament', async () => {
-      mockRepository.findOne.mockResolvedValue(mockTournament);
-      mockRepository.remove.mockResolvedValue(mockTournament);
+      mockRepository.findOne.mockResolvedValue(cancelledTournament);
+      mockRepository.remove.mockResolvedValue(cancelledTournament);
 
       await service.remove('tournament-1', 'admin-user', UserRole.ADMIN);
 
-      expect(mockRepository.remove).toHaveBeenCalledWith(mockTournament);
+      expect(mockRepository.remove).toHaveBeenCalledWith(cancelledTournament);
     });
   });
 
@@ -323,6 +342,7 @@ describe('TournamentsService', () => {
       expect(result).toHaveLength(1);
       expect(mockRepository.find).toHaveBeenCalledWith({
         where: { organizerId: 'organizer-1' },
+        relations: ['ageGroups'],
         order: { startDate: 'DESC' },
       });
     });
@@ -400,14 +420,13 @@ describe('TournamentsService', () => {
 
         await service.create('organizer-1', createDto);
 
-        // Verify age groups repository was called with correct data
-        expect(mockAgeGroupRepository.create).toHaveBeenCalledTimes(2);
-        expect(mockAgeGroupRepository.save).toHaveBeenCalled();
+        // Age groups are persisted with a single save(array) call.
+        expect(mockAgeGroupRepository.save).toHaveBeenCalledTimes(1);
+        const savedAgeGroups = mockAgeGroupRepository.save.mock.calls[0][0];
+        expect(savedAgeGroups).toHaveLength(2);
 
         // Verify first age group contains all required fields
-        const firstAgeGroupCall =
-          mockAgeGroupRepository.create.mock.calls[0][0];
-        expect(firstAgeGroupCall).toMatchObject({
+        expect(savedAgeGroups[0]).toMatchObject({
           birthYear: 2010,
           displayLabel: 'U14',
           gameSystem: '7+1',
@@ -421,9 +440,7 @@ describe('TournamentsService', () => {
         });
 
         // Verify second age group contains all required fields
-        const secondAgeGroupCall =
-          mockAgeGroupRepository.create.mock.calls[1][0];
-        expect(secondAgeGroupCall).toMatchObject({
+        expect(savedAgeGroups[1]).toMatchObject({
           birthYear: 2012,
           displayLabel: 'U12',
           gameSystem: '5+1',
@@ -466,8 +483,11 @@ describe('TournamentsService', () => {
 
         await service.create('organizer-1', createDto);
 
-        expect(mockAgeGroupRepository.create).toHaveBeenCalled();
-        const ageGroupCall = mockAgeGroupRepository.create.mock.calls[0][0];
+        expect(mockAgeGroupRepository.save).toHaveBeenCalled();
+        const savedAgeGroups = mockAgeGroupRepository.save.mock.calls[0][0];
+        const ageGroupCall = Array.isArray(savedAgeGroups)
+          ? savedAgeGroups[0]
+          : savedAgeGroups;
         expect(ageGroupCall.birthYear).toBe(2010);
         expect(ageGroupCall.displayLabel).toBe('U14');
       });
@@ -572,8 +592,9 @@ describe('TournamentsService', () => {
           newAgeGroupData,
         );
 
-        expect(mockAgeGroupRepository.create).toHaveBeenCalled();
-        const createdAgeGroup = mockAgeGroupRepository.create.mock.calls[0][0];
+        // New age groups (no id) are persisted directly via save(entity).
+        expect(mockAgeGroupRepository.save).toHaveBeenCalled();
+        const createdAgeGroup = mockAgeGroupRepository.save.mock.calls[0][0];
         expect(createdAgeGroup).toMatchObject({
           birthYear: 2011,
           minTeams: 4,

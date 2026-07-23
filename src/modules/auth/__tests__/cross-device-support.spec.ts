@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from '../auth.service';
+import { MailService } from '../../mail/mail.service';
 import { User } from '../../users/entities/user.entity';
 import { RefreshToken } from '../entities/refresh-token.entity';
 import { UnauthorizedException } from '@nestjs/common';
@@ -90,6 +91,13 @@ describe('Cross-Device Token Support (Issue #31)', () => {
           provide: ConfigService,
           useValue: mockConfigService,
         },
+        {
+          provide: MailService,
+          useValue: {
+            sendWelcomeEmail: jest.fn(),
+            sendPasswordResetEmail: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -140,9 +148,13 @@ describe('Cross-Device Token Support (Issue #31)', () => {
       const desktopIpAddress = '192.168.1.200';
 
       // CRITICAL: Call refreshTokens with token from mobile, but simulating desktop
-      const result = await service.refreshTokens({
-        refreshToken: mobileRefreshToken,
-      }, desktopIpAddress, desktopDeviceInfo);
+      const result = await service.refreshTokens(
+        {
+          refreshToken: mobileRefreshToken,
+        },
+        desktopIpAddress,
+        desktopDeviceInfo,
+      );
 
       // Verify: Token refresh succeeds (NOT blocked by device change)
       expect(result).toHaveProperty('accessToken');
@@ -183,9 +195,13 @@ describe('Cross-Device Token Support (Issue #31)', () => {
       const differentIpAddress = '20.0.0.1';
 
       // This should NOT throw an error because device validation is NOT performed
-      const result = await service.refreshTokens({
-        refreshToken: 'audit-refresh-token',
-      }, differentIpAddress, differentDeviceInfo);
+      const result = await service.refreshTokens(
+        {
+          refreshToken: 'audit-refresh-token',
+        },
+        differentIpAddress,
+        differentDeviceInfo,
+      );
 
       // Verify: Token refresh succeeds despite device/IP change
       expect(result).toBeDefined();
@@ -208,9 +224,13 @@ describe('Cross-Device Token Support (Issue #31)', () => {
       // Should throw UnauthorizedException because token is not found
       // (tokens are not found if they're revoked)
       await expect(
-        service.refreshTokens({
-          refreshToken: 'revoked-refresh-token',
-        }, '192.168.1.200', 'Mozilla/5.0 (Windows)'),
+        service.refreshTokens(
+          {
+            refreshToken: 'revoked-refresh-token',
+          },
+          '192.168.1.200',
+          'Mozilla/5.0 (Windows)',
+        ),
       ).rejects.toThrow(UnauthorizedException);
     });
 
@@ -222,9 +242,13 @@ describe('Cross-Device Token Support (Issue #31)', () => {
 
       // Invalid token should be rejected
       await expect(
-        service.refreshTokens({
-          refreshToken: 'invalid-token-xyz',
-        }, '192.168.1.100', 'Mozilla/5.0 (iPhone)'),
+        service.refreshTokens(
+          {
+            refreshToken: 'invalid-token-xyz',
+          },
+          '192.168.1.100',
+          'Mozilla/5.0 (iPhone)',
+        ),
       ).rejects.toThrow(UnauthorizedException);
     });
 
@@ -261,9 +285,13 @@ describe('Cross-Device Token Support (Issue #31)', () => {
         mockRefreshTokenRepository.create.mockReturnValue({});
         mockRefreshTokenRepository.save.mockResolvedValue({});
 
-        const result = await service.refreshTokens({
-          refreshToken: currentRefreshToken,
-        }, simulation.ip, `Mozilla/5.0 (${simulation.device})`);
+        const result = await service.refreshTokens(
+          {
+            refreshToken: currentRefreshToken,
+          },
+          simulation.ip,
+          `Mozilla/5.0 (${simulation.device})`,
+        );
 
         // All devices should succeed
         expect(result).toHaveProperty('accessToken');
@@ -297,9 +325,13 @@ describe('Cross-Device Token Support (Issue #31)', () => {
       mockRefreshTokenRepository.save.mockResolvedValue({});
 
       // Call with completely different device
-      const result = await service.refreshTokens({
-        refreshToken: 'test-token',
-      }, '9.9.9.9', 'Completely Different Device');
+      const result = await service.refreshTokens(
+        {
+          refreshToken: 'test-token',
+        },
+        '9.9.9.9',
+        'Completely Different Device',
+      );
 
       // If device validation exists, this would fail
       expect(result).toBeDefined();
