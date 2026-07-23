@@ -127,12 +127,11 @@ describe('Pot Management (e2e)', () => {
       .send({
         name: 'Pot Draw Test Cup 2026',
         description: 'E2E testing for pot management',
-        ageCategory: 'U12',
-        level: 'LEVEL_I',
+        level: 'I',
         gameSystem: '4+1',
         numberOfMatches: 6,
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
+        startDate: startDate.toISOString().slice(0, 10),
+        endDate: endDate.toISOString().slice(0, 10),
         location: 'Test City, Romania',
         latitude: 45.0,
         longitude: 25.0,
@@ -197,11 +196,10 @@ describe('Pot Management (e2e)', () => {
 
       registrationIds.push(regRes.body.data.id);
 
-      // Approve registration
+      // Approve registration (must be APPROVED — not PENDING_PAYMENT — to be
+      // assignable to pots)
       await request(app.getHttpServer())
-        .post(
-          `/api/v1/registrations/${regRes.body.data.id}/approve-without-payment`,
-        )
+        .post(`/api/v1/registrations/${regRes.body.data.id}/approve`)
         .set('Authorization', `Bearer ${organizerToken}`)
         .expect(201);
     }
@@ -227,14 +225,17 @@ describe('Pot Management (e2e)', () => {
   // 1. GET Pots (empty state)
   // -------------------------------------------------------
   describe('GET /api/v1/tournaments/:id/pots', () => {
-    it('should return 4 empty pots initially', async () => {
+    it('should return a single empty pot initially', async () => {
+      // Pots are returned dynamically based on the highest assigned pot number,
+      // with a floor of 1 (see PotDrawService.getPots). Before any assignment
+      // there is one empty pot.
       const res = await request(app.getHttpServer())
         .get(`/api/v1/tournaments/${tournamentId}/pots`)
         .set('Authorization', `Bearer ${organizerToken}`)
         .expect(200);
 
       expect(res.body.success).toBe(true);
-      expect(res.body.data).toHaveLength(4);
+      expect(res.body.data).toHaveLength(1);
       for (const pot of res.body.data) {
         expect(pot.count).toBe(0);
         expect(pot.teams).toHaveLength(0);
@@ -270,10 +271,11 @@ describe('Pot Management (e2e)', () => {
     });
 
     it('should reject invalid pot number', async () => {
+      // potNumber is validated to be between 1 and 32 (AssignTeamToPotDto)
       const res = await request(app.getHttpServer())
         .post(`/api/v1/tournaments/${tournamentId}/pots/assign`)
         .set('Authorization', `Bearer ${organizerToken}`)
-        .send({ registrationId: registrationIds[0], potNumber: 5 })
+        .send({ registrationId: registrationIds[0], potNumber: 33 })
         .expect(400);
 
       expect(res.body.success).toBe(false);
@@ -342,14 +344,15 @@ describe('Pot Management (e2e)', () => {
         .set('Authorization', `Bearer ${organizerToken}`)
         .expect(200);
 
+      // 6 teams across 3 pots (2 each); pots are returned dynamically, so
+      // there is no empty 4th pot.
+      expect(res.body.data).toHaveLength(3);
       expect(res.body.data[0].potNumber).toBe(1);
       expect(res.body.data[0].count).toBe(2);
       expect(res.body.data[1].potNumber).toBe(2);
       expect(res.body.data[1].count).toBe(2);
       expect(res.body.data[2].potNumber).toBe(3);
       expect(res.body.data[2].count).toBe(2);
-      expect(res.body.data[3].potNumber).toBe(4);
-      expect(res.body.data[3].count).toBe(0);
 
       // Verify team data is populated
       const firstTeam = res.body.data[0].teams[0];
@@ -402,10 +405,11 @@ describe('Pot Management (e2e)', () => {
     });
 
     it('should execute pot draw with 2 groups', async () => {
+      // 6 teams seeded across 3 pots (2 each) drawn into 2 groups of 3.
       const res = await request(app.getHttpServer())
         .post(`/api/v1/tournaments/${tournamentId}/pots/draw`)
         .set('Authorization', `Bearer ${organizerToken}`)
-        .send({ numberOfGroups: 2 })
+        .send({ numberOfGroups: 2, numberOfPots: 3 })
         .expect(201);
 
       expect(res.body.success).toBe(true);
