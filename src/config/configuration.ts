@@ -63,6 +63,17 @@ export default () => ({
 
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3002',
 
+  // SEO sitemap configuration
+  sitemap: {
+    // Public site the sitemap URLs point at (defaults to the frontend URL).
+    baseUrl:
+      process.env.SITEMAP_BASE_URL ||
+      process.env.FRONTEND_URL ||
+      'http://localhost:3002',
+    // Path prefix for a public tournament page: `${baseUrl}${tournamentPath}/${slug}`
+    tournamentPath: process.env.SITEMAP_TOURNAMENT_PATH || '/tournaments',
+  },
+
   throttle: {
     ttl: parseInt(process.env.THROTTLE_TTL || '60000', 10),
     limit: parseInt(process.env.THROTTLE_LIMIT || '100', 10),

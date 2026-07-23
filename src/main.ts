@@ -63,8 +63,15 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // API prefix
-  app.setGlobalPrefix('api');
+  // API prefix — SEO artifacts must live at the host root, so exclude them.
+  app.setGlobalPrefix('api', {
+    exclude: [
+      'sitemap.xml',
+      'sitemap-static.xml',
+      'sitemap-tournaments.xml',
+      'robots.txt',
+    ],
+  });
 
   // API versioning
   app.enableVersioning({
