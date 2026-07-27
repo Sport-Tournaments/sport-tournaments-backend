@@ -269,6 +269,23 @@ snapshot) are skipped.
 To refresh the data, replace `src/seeds/data/young-talents-group.json` with a
 new export (same shape) and re-run `pnpm seed:youngtalents`.
 
+### Automatic run on production deploy
+
+Like the Euro-Sportring seed, this import runs automatically on every deploy
+via `scripts/start-prod.sh` — the compiled importer
+(`node dist/seeds/import-young-talents.js --on-deploy`) is launched in the
+**background** before the API starts. Safety properties in deploy mode:
+
+- **Non-blocking**: the API starts immediately; the import runs concurrently
+  and a failure (missing file, DB hiccup) can never fail the deployment
+  (always exits 0).
+- **Single-flight**: a Postgres advisory lock ensures only one replica imports
+  at a time; others skip.
+- **Data ships with the build**: `postbuild` copies
+  `src/seeds/data/*.json` into `dist/seeds/data/`, so the compiled importer
+  finds the snapshot in the production image.
+- **Opt-out**: set `SEED_YOUNGTALENTS_ON_DEPLOY=false` in the environment.
+
 ## Related Documentation
 
 - [Getting Started](./GETTING_STARTED.md)

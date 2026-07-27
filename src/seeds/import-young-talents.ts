@@ -20,7 +20,7 @@
  *   pnpm seed:youngtalents -- --file=path.json # override input file
  */
 import 'reflect-metadata';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, QueryRunner, Repository } from 'typeorm';
 import { join } from 'path';
 import { readFileSync, existsSync } from 'fs';
 import { randomUUID } from 'crypto';
@@ -81,7 +81,14 @@ interface CliOptions {
   dryRun: boolean;
   limit?: number;
   file: string;
+  // Deploy mode: never exit non-zero (a failed import must not fail the
+  // deploy) and serialize concurrent replicas via a Postgres advisory lock.
+  onDeploy: boolean;
 }
+
+// Advisory-lock key identifying "the Young Talents import" so only one replica
+// imports at a time. Distinct from the Euro-Sportring key (727270001).
+const ADVISORY_LOCK_KEY = 727270002;
 
 // ── Local helpers (avoid seeds/utils/helpers → faker devDependency) ──
 
@@ -321,9 +328,14 @@ async function importTournament(
 // ── Entry point ───────────────────────────────────────────
 
 function parseCli(argv: string[]): CliOptions {
-  const options: CliOptions = { dryRun: false, file: defaultFile() };
+  const options: CliOptions = {
+    dryRun: false,
+    file: defaultFile(),
+    onDeploy: false,
+  };
   for (const arg of argv) {
     if (arg === '--dry-run') options.dryRun = true;
+    else if (arg === '--on-deploy') options.onDeploy = true;
     else if (arg.startsWith('--limit='))
       options.limit = parseInt(arg.slice(8), 10);
     else if (arg.startsWith('--file=')) options.file = arg.slice(7);
@@ -333,13 +345,11 @@ function parseCli(argv: string[]): CliOptions {
 
 function loadSource(file: string): SourceTournament[] {
   if (!existsSync(file)) {
-    console.error(`❌ Input file not found: ${file}`);
-    process.exit(1);
+    throw new Error(`Input file not found: ${file}`);
   }
   const parsed = JSON.parse(readFileSync(file, 'utf8')) as unknown;
   if (!Array.isArray(parsed)) {
-    console.error('❌ Input file must be a JSON array of tournaments.');
-    process.exit(1);
+    throw new Error('Input file must be a JSON array of tournaments.');
   }
   return parsed as SourceTournament[];
 }
@@ -347,10 +357,9 @@ function loadSource(file: string): SourceTournament[] {
 async function connect(): Promise<DataSource> {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
-    console.error(
-      '❌ DATABASE_URL environment variable is required (or use --dry-run).',
+    throw new Error(
+      'DATABASE_URL environment variable is required (or use --dry-run).',
     );
-    process.exit(1);
   }
   const sslMode = new URL(databaseUrl).searchParams.get('sslmode');
   const dataSource = new DataSource({
@@ -368,11 +377,11 @@ async function connect(): Promise<DataSource> {
   return dataSource;
 }
 
-async function main(): Promise<void> {
-  const options = parseCli(process.argv.slice(2));
-
+async function main(options: CliOptions): Promise<void> {
   console.log('🌍 Importing Young Talents Group tournaments');
-  console.log(`   file: ${options.file}${options.dryRun ? ' | DRY RUN' : ''}`);
+  console.log(
+    `   file: ${options.file}${options.dryRun ? ' | DRY RUN' : ''}${options.onDeploy ? ' | deploy mode' : ''}`,
+  );
 
   let source = loadSource(options.file);
   if (options.limit) source = source.slice(0, options.limit);
@@ -409,6 +418,23 @@ async function main(): Promise<void> {
   }
 
   const dataSource = await connect();
+
+  // Serialize concurrent replicas: only one instance imports at a time.
+  const lockRunner: QueryRunner = dataSource.createQueryRunner();
+  await lockRunner.connect();
+  const [{ locked }] = (await lockRunner.query(
+    'SELECT pg_try_advisory_lock($1) AS locked',
+    [ADVISORY_LOCK_KEY],
+  )) as [{ locked: boolean }];
+  if (!locked) {
+    console.log(
+      '🔒 Another instance is already running the Young Talents import — skipping.',
+    );
+    await lockRunner.release();
+    await dataSource.destroy();
+    return;
+  }
+
   try {
     const organizerId = await ensureOrganizer(dataSource);
     let inserted = 0;
@@ -437,11 +463,17 @@ async function main(): Promise<void> {
     );
     console.log(`   Organizer: ${ORGANIZER_EMAIL}`);
   } finally {
+    await lockRunner.query('SELECT pg_advisory_unlock($1)', [
+      ADVISORY_LOCK_KEY,
+    ]);
+    await lockRunner.release();
     await dataSource.destroy();
   }
 }
 
-main().catch((error) => {
+const cliOptions = parseCli(process.argv.slice(2));
+main(cliOptions).catch((error) => {
   console.error('❌ Import failed:', error);
-  process.exit(1);
+  // In deploy mode a failed import must never fail the deployment/start-up.
+  process.exit(cliOptions.onDeploy ? 0 : 1);
 });
