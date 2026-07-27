@@ -7,6 +7,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
+    "postbuild": "node -e \"const fs=require('fs'),p=require('path');const s=p.join('src','seeds','data'),d=p.join('dist','seeds','data');if(fs.existsSync(s)){fs.mkdirSync(d,{recursive:true});for(const f of fs.readdirSync(s)){if(f.endsWith('.json'))fs.copyFileSync(p.join(s,f),p.join(d,f));}}\"",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
