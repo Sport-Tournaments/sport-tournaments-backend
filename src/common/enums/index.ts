@@ -13,6 +13,15 @@ export enum TournamentStatus {
   CANCELLED = 'CANCELLED',
 }
 
+/** CRM pipeline stage for a sales/outreach lead. */
+export enum LeadStatus {
+  NEW = 'NEW',
+  CONTACTED = 'CONTACTED',
+  QUALIFIED = 'QUALIFIED',
+  WON = 'WON',
+  LOST = 'LOST',
+}
+
 export enum TournamentLevel {
   LEVEL_I = 'I',
   LEVEL_II = 'II',
