@@ -25,6 +25,7 @@ import { TeamsModule } from './modules/teams/teams.module';
 import { PlayersModule } from './modules/players/players.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { SitemapModule } from './modules/sitemap/sitemap.module';
+import { LeadsModule } from './modules/leads/leads.module';
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { SitemapModule } from './modules/sitemap/sitemap.module';
     PlayersModule,
     DashboardModule,
     SitemapModule,
+    LeadsModule,
   ],
   controllers: [],
   providers: [],
