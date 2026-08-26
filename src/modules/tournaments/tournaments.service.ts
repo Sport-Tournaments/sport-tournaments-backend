@@ -123,7 +123,23 @@ export class TournamentsService {
     );
   }
 
+  // Throttle the past-tournament sweep: it flips date-expired tournaments to
+  // COMPLETED, a day-granularity transition, so running it at most once per
+  // minute is plenty fresh — and it keeps this write off the hot read path
+  // (findAll/findById/… all call it on every request).
+  private static lastSyncAt = 0;
+  private static readonly SYNC_INTERVAL_MS = 60_000;
+
   private async syncPastTournamentsAsCompleted(): Promise<void> {
+    const now = Date.now();
+    if (
+      now - TournamentsService.lastSyncAt <
+      TournamentsService.SYNC_INTERVAL_MS
+    ) {
+      return;
+    }
+    TournamentsService.lastSyncAt = now;
+
     await this.tournamentsRepository
       .createQueryBuilder()
       .update(Tournament)
@@ -269,10 +285,12 @@ export class TournamentsService {
     const { page = 1, pageSize = 20 } = pagination;
     const skip = (page - 1) * pageSize;
 
+    // NOTE: the ageGroups (to-many) join is added AFTER the count below, so the
+    // COUNT query is a cheap plain count instead of COUNT(DISTINCT ...) over the
+    // exploded tournament×ageGroups rows (which grows linearly with the data).
     const queryBuilder = this.tournamentsRepository
       .createQueryBuilder('tournament')
-      .leftJoinAndSelect('tournament.organizer', 'organizer')
-      .leftJoinAndSelect('tournament.ageGroups', 'ageGroups');
+      .leftJoinAndSelect('tournament.organizer', 'organizer');
 
     // By default, only show published tournaments for public queries
     if (!filters?.status) {
@@ -447,10 +465,11 @@ export class TournamentsService {
       queryBuilder.addOrderBy('tournament.isFeatured', 'DESC');
     }
 
-    const [tournaments, total] = await queryBuilder
-      .skip(skip)
-      .take(pageSize)
-      .getManyAndCount();
+    // Count first, without the ageGroups join (no filter depends on it), then
+    // add the join only for the paginated data fetch.
+    const total = await queryBuilder.getCount();
+    queryBuilder.leftJoinAndSelect('tournament.ageGroups', 'ageGroups');
+    const tournaments = await queryBuilder.skip(skip).take(pageSize).getMany();
 
     // Enrich list results with effective dates/maxTeams from age groups and team counts
     if (tournaments.length > 0) {

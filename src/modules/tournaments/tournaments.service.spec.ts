@@ -58,6 +58,9 @@ describe('TournamentsService', () => {
     set: jest.fn().mockReturnThis(),
     execute: jest.fn().mockResolvedValue({ affected: 0 }),
     getManyAndCount: jest.fn().mockResolvedValue([[mockTournament], 1]),
+    // findAll now counts then fetches separately (cheaper count without join)
+    getCount: jest.fn().mockResolvedValue(1),
+    getMany: jest.fn().mockResolvedValue([mockTournament]),
     getOne: jest.fn().mockResolvedValue(mockTournament),
   });
 
