@@ -286,6 +286,29 @@ via `scripts/start-prod.sh` — the compiled importer
   finds the snapshot in the production image.
 - **Opt-out**: set `SEED_YOUNGTALENTS_ON_DEPLOY=false` in the environment.
 
+## Cleanup: removing dummy / test data
+
+`pnpm cleanup:dummy` removes obvious test data from a database — the manually
+created `FilterTest-*` tournaments, the format-test cups (`SE/DE/RR/GK/League
+Cup 2026…`), e2e fixtures, and anything owned by a test account
+(`*@test.com`, `test.*@sport.ro`, `*@example.com`, …). Deleting a tournament
+cascades to its age groups, locations, registrations, pots, groups and
+invitations; any matching leads are removed too.
+
+**Safe by default — it is a dry-run unless you pass `--apply`.** The real
+import accounts (`import.youngtalentsgroup@…`, `import.eurosportring@…`) are
+protected and never touched.
+
+```bash
+pnpm cleanup:dummy                          # dry-run: report what WOULD be deleted
+pnpm cleanup:dummy -- --apply               # actually delete (transactional)
+pnpm cleanup:dummy -- --name-like='QA %'    # add a tournament-name pattern (ILIKE)
+pnpm cleanup:dummy -- --email-like='%@qa.io' # add an owner-email pattern (LIKE)
+pnpm cleanup:dummy -- --apply --delete-test-users  # also delete the test user accounts
+```
+
+Always run the dry-run first and eyeball the matched list before `--apply`.
+
 ## Related Documentation
 
 - [Getting Started](./GETTING_STARTED.md)
