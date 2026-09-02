@@ -849,7 +849,13 @@ export class TournamentsService {
     // Upsert age groups
     const result: TournamentAgeGroup[] = [];
     for (const ag of ageGroups) {
+      // Strip identity/ownership fields from the copyable payload so an
+      // incoming body can never overwrite the primary key or clear the
+      // tournament FK (which triggers a not-null violation on save).
       const {
+        id: _incomingId,
+        tournamentId: _incomingTournamentId,
+        tournament: _incomingTournament,
         minTeams,
         maxTeams,
         guaranteedMatches,
@@ -857,26 +863,32 @@ export class TournamentsService {
         qualifyingTeamsPerGroup,
         ...rest
       } = ag as any;
+      void _incomingId;
+      void _incomingTournamentId;
+      void _incomingTournament;
 
-      if (ag.id) {
+      const existing = ag.id
+        ? existingAgeGroups.find((e) => e.id === ag.id)
+        : undefined;
+
+      if (existing) {
         // Update existing
-        const existing = existingAgeGroups.find((e) => e.id === ag.id);
-        if (existing) {
-          // Pass values directly - transformer handles conversion
-          Object.assign(existing, rest);
-          if (minTeams !== undefined) existing.minTeams = minTeams;
-          if (maxTeams !== undefined) existing.maxTeams = maxTeams;
-          if (guaranteedMatches !== undefined)
-            existing.guaranteedMatches = guaranteedMatches;
-          if (participationFee !== undefined) {
-            existing.participationFee = participationFee;
-          }
-          existing.qualifyingTeamsPerGroup =
-            qualifyingTeamsPerGroup ?? (null as any);
-          result.push(await this.ageGroupsRepository.save(existing));
+        Object.assign(existing, rest);
+        existing.tournamentId = tournamentId; // never let the FK be cleared
+        if (minTeams !== undefined) existing.minTeams = minTeams;
+        if (maxTeams !== undefined) existing.maxTeams = maxTeams;
+        if (guaranteedMatches !== undefined)
+          existing.guaranteedMatches = guaranteedMatches;
+        if (participationFee !== undefined) {
+          existing.participationFee = participationFee;
         }
+        existing.qualifyingTeamsPerGroup =
+          qualifyingTeamsPerGroup ?? (null as any);
+        result.push(await this.ageGroupsRepository.save(existing));
       } else {
-        // Create new - pass date strings directly
+        // Create new (no id, or an id that no longer exists → recreate so the
+        // edit never silently drops an age group). The tournament FK always
+        // comes from the URL, never the request body.
         const newAgeGroup: DeepPartial<TournamentAgeGroup> = {
           ...rest,
           tournamentId,
@@ -905,14 +917,15 @@ export class TournamentsService {
       .filter(Boolean)
       .sort()
       .reverse();
-    if (startDates.length > 0) {
-      tournament.startDate = startDates[0] as any;
-    }
-    if (endDates.length > 0) {
-      tournament.endDate = endDates[0] as any;
-    }
-    if (startDates.length > 0 || endDates.length > 0) {
-      await this.tournamentsRepository.save(tournament);
+    // Use a targeted column update rather than save(tournament): the tournament
+    // was loaded with its `ageGroups` relation, and save() would reconcile that
+    // loaded collection — nulling the tournament_id FK of age groups it thinks
+    // were disassociated (which violates the not-null constraint).
+    const dateUpdates: { startDate?: any; endDate?: any } = {};
+    if (startDates.length > 0) dateUpdates.startDate = startDates[0];
+    if (endDates.length > 0) dateUpdates.endDate = endDates[0];
+    if (Object.keys(dateUpdates).length > 0) {
+      await this.tournamentsRepository.update(tournamentId, dateUpdates);
     }
 
     return result;
