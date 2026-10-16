@@ -50,8 +50,16 @@ export class LocationsController {
   async getAutocomplete(
     @Query('query') query: string,
     @Query('countryCode') countryCode?: string,
+    @Query('limit') limit?: string,
+    @Query('sessionToken') sessionToken?: string,
   ): Promise<LocationResultDto[]> {
-    return this.locationsService.getAutocompleteSuggestions(query, countryCode);
+    const parsedLimit = limit ? parseInt(limit, 10) : undefined;
+    return this.locationsService.getAutocompleteSuggestions(
+      query,
+      countryCode,
+      Number.isFinite(parsedLimit) ? parsedLimit : undefined,
+      sessionToken,
+    );
   }
 
   @Get('reverse')

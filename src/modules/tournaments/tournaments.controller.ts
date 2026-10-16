@@ -97,6 +97,16 @@ export class TournamentsController {
     return this.tournamentsService.getUpcomingTournaments(limit);
   }
 
+  @Get('countries')
+  @Public()
+  @ApiOperation({
+    summary: 'Get countries that have public tournaments (for filters)',
+  })
+  @ApiResponse({ status: 200, description: 'Countries with tournament count' })
+  getCountries() {
+    return this.tournamentsService.getAvailableCountries();
+  }
+
   @Get('my-tournaments')
   @Roles(UserRole.ORGANIZER, UserRole.PARTICIPANT, UserRole.USER)
   @ApiOperation({ summary: 'Get tournaments created by current user' })

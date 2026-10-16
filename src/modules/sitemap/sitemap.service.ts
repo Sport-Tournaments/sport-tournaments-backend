@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Tournament } from '../tournaments/entities/tournament.entity';
+import { Club } from '../clubs/entities/club.entity';
 import { TournamentStatus } from '../../common/enums';
 
 /**
@@ -33,6 +34,8 @@ export class SitemapService {
   constructor(
     @InjectRepository(Tournament)
     private readonly tournamentRepository: Repository<Tournament>,
+    @InjectRepository(Club)
+    private readonly clubRepository: Repository<Club>,
     private readonly configService: ConfigService,
   ) {}
 
@@ -48,6 +51,12 @@ export class SitemapService {
     const path =
       this.configService.get<string>('sitemap.tournamentPath') ||
       '/tournaments';
+    return `/${path.replace(/^\/+|\/+$/g, '')}`;
+  }
+
+  private get clubPath(): string {
+    const path =
+      this.configService.get<string>('sitemap.clubPath') || '/main/clubs';
     return `/${path.replace(/^\/+|\/+$/g, '')}`;
   }
 
@@ -93,6 +102,7 @@ export class SitemapService {
 
     const entries: string[] = [
       this.sitemapIndexEntry(`${base}/sitemap-static.xml`, now),
+      this.sitemapIndexEntry(`${base}/sitemap-clubs.xml`, now),
     ];
     for (let page = 1; page <= pages; page++) {
       entries.push(
@@ -123,8 +133,34 @@ export class SitemapService {
         changefreq: 'daily',
         priority: 0.9,
       },
+      {
+        loc: `${this.baseUrl}${this.clubPath}`,
+        changefreq: 'weekly',
+        priority: 0.6,
+      },
     ];
     return this.buildUrlset(urls);
+  }
+
+  /**
+   * Public club pages (capped at one sitemap file; clubs are far fewer than tournaments).
+   */
+  async buildClubsSitemap(): Promise<string> {
+    const clubs = await this.clubRepository
+      .createQueryBuilder('club')
+      .select(['club.id', 'club.updatedAt'])
+      .orderBy('club.updatedAt', 'DESC')
+      .take(URLS_PER_SITEMAP)
+      .getMany();
+
+    return this.buildUrlset(
+      clubs.map((club) => ({
+        loc: `${this.baseUrl}${this.clubPath}/${club.id}`,
+        lastmod: this.toIso(club.updatedAt),
+        changefreq: 'weekly' as const,
+        priority: 0.5,
+      })),
+    );
   }
 
   /**

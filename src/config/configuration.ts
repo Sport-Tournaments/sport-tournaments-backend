@@ -72,6 +72,8 @@ export default () => ({
       'http://localhost:3002',
     // Path prefix for a public tournament page: `${baseUrl}${tournamentPath}/${slug}`
     tournamentPath: process.env.SITEMAP_TOURNAMENT_PATH || '/tournaments',
+    // Path prefix for a public club page: `${baseUrl}${clubPath}/${id}`
+    clubPath: process.env.SITEMAP_CLUB_PATH || '/main/clubs',
   },
 
   throttle: {
