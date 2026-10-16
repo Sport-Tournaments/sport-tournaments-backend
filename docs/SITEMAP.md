@@ -12,7 +12,8 @@ API versioning) so crawlers find them at the conventional locations:
 | Route | Description |
 |-------|-------------|
 | `GET /sitemap.xml` | **Sitemap index** — references the sub-sitemaps below. Submit this URL to Google Search Console. |
-| `GET /sitemap-static.xml` | Static public pages (home, tournament listing). |
+| `GET /sitemap-static.xml` | Static public pages (home, tournament listing, club listing). |
+| `GET /sitemap-clubs.xml` | Public club pages. |
 | `GET /sitemap-tournaments.xml` | Public tournaments. Paginated via `?page=N` (20,000 URLs per page). |
 | `GET /robots.txt` | Allows all crawlers and advertises the sitemap index. |
 
@@ -44,9 +45,22 @@ Entries are ordered by `updatedAt` (newest first).
 |---------|---------|---------|
 | `SITEMAP_BASE_URL` | `FRONTEND_URL` | Public origin the sitemap `<loc>` URLs point at. Set to your real domain in production. |
 | `SITEMAP_TOURNAMENT_PATH` | `/tournaments` | Path prefix for a public tournament page: `${SITEMAP_BASE_URL}${SITEMAP_TOURNAMENT_PATH}/${slug}`. |
+| `SITEMAP_CLUB_PATH` | `/main/clubs` | Path prefix for a public club page: `${SITEMAP_BASE_URL}${SITEMAP_CLUB_PATH}/${id}`. |
 
 If your public tournament pages live at, say, `https://tournamente.ro/t/<slug>`,
 set `SITEMAP_TOURNAMENT_PATH=/t`.
+
+## Serving on the public domain
+
+The sitemap index points its sub-sitemaps at `SITEMAP_BASE_URL` (the public
+site), so the frontend must serve them. The frontend has route handlers for
+`/sitemap.xml`, `/sitemap-static.xml`, `/sitemap-clubs.xml` and
+`/sitemap-tournaments.xml` that proxy to this backend (origin of
+`NEXT_PUBLIC_API_URL`, or `SITEMAP_SOURCE_URL` if set), and it serves its own
+`/robots.txt` (disallowing `/dashboard` and `/auth`).
+
+In production set `SITEMAP_BASE_URL=https://tournamente.com` here, then submit
+`https://tournamente.com/sitemap.xml`.
 
 ## Submitting to Google Search Console
 

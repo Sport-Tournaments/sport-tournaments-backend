@@ -55,6 +55,17 @@ export class LocationResultDto {
   @ApiPropertyOptional({ example: 'ChIJ5TCOcRa7yhQRLlO1w2b9U_E' })
   placeId?: string;
 
+  @ApiPropertyOptional({
+    example: 'Camp Nou',
+    description: 'Venue name when the result is a point of interest',
+  })
+  venueName?: string;
+
+  @ApiPropertyOptional({
+    description: 'True when the result is a venue / POI rather than an address',
+  })
+  isPointOfInterest?: boolean;
+
   @ApiPropertyOptional({ example: '08001' })
   postalCode?: string;
 

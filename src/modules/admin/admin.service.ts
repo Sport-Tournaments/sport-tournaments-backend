@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Repository, MoreThanOrEqual } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { Tournament } from '../tournaments/entities/tournament.entity';
 import { Registration } from '../registrations/entities/registration.entity';
@@ -19,6 +19,7 @@ import {
   TournamentStatus,
   PaymentStatus,
   NotificationType,
+  RegistrationStatus,
 } from '../../common/enums';
 import { PaginatedResponse } from '../../common/interfaces';
 
@@ -43,14 +44,22 @@ export class AdminService {
 
   // Platform Statistics
   async getPlatformStatistics(): Promise<Record<string, any>> {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
     const [
       totalUsers,
       totalClubs,
       totalTournaments,
       activeTournaments,
+      ongoingTournaments,
       totalRegistrations,
+      pendingRegistrations,
       totalPayments,
       recentUsers,
+      newUsersThisWeek,
       recentTournaments,
     ] = await Promise.all([
       this.usersRepository.count(),
@@ -59,79 +68,80 @@ export class AdminService {
       this.tournamentsRepository.count({
         where: { status: TournamentStatus.PUBLISHED },
       }),
+      this.tournamentsRepository.count({
+        where: { status: TournamentStatus.ONGOING },
+      }),
       this.registrationsRepository.count(),
+      this.registrationsRepository.count({
+        where: { status: RegistrationStatus.PENDING },
+      }),
       this.paymentsRepository
         .createQueryBuilder('payment')
         .where('payment.status = :status', { status: PaymentStatus.COMPLETED })
         .select('SUM(payment.amount)', 'total')
         .getRawOne(),
       this.usersRepository.count({
-        where: {
-          createdAt: Between(
-            new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-            new Date(),
-          ),
-        },
+        where: { createdAt: MoreThanOrEqual(thirtyDaysAgo) },
+      }),
+      this.usersRepository.count({
+        where: { createdAt: MoreThanOrEqual(sevenDaysAgo) },
       }),
       this.tournamentsRepository.count({
-        where: {
-          createdAt: Between(
-            new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-            new Date(),
-          ),
-        },
+        where: { createdAt: MoreThanOrEqual(thirtyDaysAgo) },
       }),
     ]);
 
-    // User role distribution
-    const userRoleDistribution = await this.usersRepository
-      .createQueryBuilder('user')
-      .select('user.role', 'role')
-      .addSelect('COUNT(*)', 'count')
-      .groupBy('user.role')
-      .getRawMany();
-
-    // Tournament status distribution
-    const tournamentStatusDistribution = await this.tournamentsRepository
-      .createQueryBuilder('tournament')
-      .select('tournament.status', 'status')
-      .addSelect('COUNT(*)', 'count')
-      .groupBy('tournament.status')
-      .getRawMany();
-
-    // Monthly registration trend (last 6 months)
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-
-    const registrationTrend = await this.registrationsRepository
-      .createQueryBuilder('registration')
-      .select("DATE_FORMAT(registration.createdAt, '%Y-%m')", 'month')
-      .addSelect('COUNT(*)', 'count')
-      .where('registration.createdAt >= :date', { date: sixMonthsAgo })
-      .groupBy('month')
-      .orderBy('month', 'ASC')
-      .getRawMany();
-
-    // Revenue trend
-    const revenueTrend = await this.paymentsRepository
-      .createQueryBuilder('payment')
-      .select("DATE_FORMAT(payment.createdAt, '%Y-%m')", 'month')
-      .addSelect('SUM(payment.amount)', 'total')
-      .where('payment.status = :status', { status: PaymentStatus.COMPLETED })
-      .andWhere('payment.createdAt >= :date', { date: sixMonthsAgo })
-      .groupBy('month')
-      .orderBy('month', 'ASC')
-      .getRawMany();
-
-    // Top countries
-    const topCountries = await this.tournamentsRepository
-      .createQueryBuilder('tournament')
-      .select('tournament.country', 'country')
-      .addSelect('COUNT(*)', 'count')
-      .groupBy('tournament.country')
-      .orderBy('count', 'DESC')
-      .limit(10)
-      .getRawMany();
+    const [
+      userRoleDistribution,
+      tournamentStatusDistribution,
+      registrationTrend,
+      revenueTrend,
+      topCountries,
+      recentActivity,
+    ] = await Promise.all([
+      this.usersRepository
+        .createQueryBuilder('user')
+        .select('user.role', 'role')
+        .addSelect('COUNT(*)', 'count')
+        .groupBy('user.role')
+        .getRawMany(),
+      this.tournamentsRepository
+        .createQueryBuilder('tournament')
+        .select('tournament.status', 'status')
+        .addSelect('COUNT(*)', 'count')
+        .groupBy('tournament.status')
+        .getRawMany(),
+      // Postgres: TO_CHAR (DATE_FORMAT is MySQL-only and made this endpoint fail)
+      this.registrationsRepository
+        .createQueryBuilder('registration')
+        .select("TO_CHAR(registration.createdAt, 'YYYY-MM')", 'month')
+        .addSelect('COUNT(*)', 'count')
+        .where('registration.createdAt >= :date', { date: sixMonthsAgo })
+        .groupBy('month')
+        .orderBy('month', 'ASC')
+        .getRawMany(),
+      this.paymentsRepository
+        .createQueryBuilder('payment')
+        .select("TO_CHAR(payment.createdAt, 'YYYY-MM')", 'month')
+        .addSelect('SUM(payment.amount)', 'total')
+        .where('payment.status = :status', {
+          status: PaymentStatus.COMPLETED,
+        })
+        .andWhere('payment.createdAt >= :date', { date: sixMonthsAgo })
+        .groupBy('month')
+        .orderBy('month', 'ASC')
+        .getRawMany(),
+      this.tournamentsRepository
+        .createQueryBuilder('tournament')
+        .select('tournament.country', 'country')
+        .addSelect('COUNT(*)', 'count')
+        .where('tournament.country IS NOT NULL')
+        .groupBy('tournament.country')
+        .orderBy('count', 'DESC')
+        .limit(10)
+        .getRawMany(),
+      this.getRecentActivity(10),
+    ]);
 
     return {
       overview: {
@@ -139,9 +149,12 @@ export class AdminService {
         totalClubs,
         totalTournaments,
         activeTournaments,
+        ongoingTournaments,
         totalRegistrations,
-        totalRevenue: totalPayments?.total || 0,
+        pendingRegistrations,
+        totalRevenue: Number(totalPayments?.total) || 0,
         recentUsers,
+        newUsersThisWeek,
         recentTournaments,
       },
       distributions: {
@@ -153,7 +166,71 @@ export class AdminService {
         revenue: revenueTrend,
       },
       topCountries,
+      recentActivity,
     };
+  }
+
+  /**
+   * Latest sign-ups, tournaments and registrations merged into one feed.
+   */
+  private async getRecentActivity(limit: number): Promise<
+    {
+      type: 'user' | 'tournament' | 'registration';
+      id: string;
+      title: string;
+      subtitle?: string;
+      status?: string;
+      createdAt: Date;
+    }[]
+  > {
+    const [users, tournaments, registrations] = await Promise.all([
+      this.usersRepository.find({
+        select: ['id', 'firstName', 'lastName', 'email', 'createdAt'],
+        order: { createdAt: 'DESC' },
+        take: limit,
+      }),
+      this.tournamentsRepository.find({
+        select: ['id', 'name', 'status', 'location', 'createdAt'],
+        order: { createdAt: 'DESC' },
+        take: limit,
+      }),
+      this.registrationsRepository.find({
+        relations: ['club', 'tournament'],
+        order: { createdAt: 'DESC' },
+        take: limit,
+      }),
+    ]);
+
+    return [
+      ...users.map((u) => ({
+        type: 'user' as const,
+        id: u.id,
+        title: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email,
+        subtitle: u.email,
+        createdAt: u.createdAt,
+      })),
+      ...tournaments.map((t) => ({
+        type: 'tournament' as const,
+        id: t.id,
+        title: t.name,
+        subtitle: t.location,
+        status: t.status,
+        createdAt: t.createdAt,
+      })),
+      ...registrations.map((r) => ({
+        type: 'registration' as const,
+        id: r.tournamentId,
+        title: r.club?.name ?? 'Registration',
+        subtitle: r.tournament?.name,
+        status: r.status,
+        createdAt: r.createdAt,
+      })),
+    ]
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      )
+      .slice(0, limit);
   }
 
   // User Management
@@ -290,7 +367,7 @@ export class AdminService {
 
     if (search) {
       queryBuilder.andWhere(
-        '(LOWER(tournament.name) LIKE LOWER(:search) OR LOWER(tournament.city) LIKE LOWER(:search))',
+        '(LOWER(tournament.name) LIKE LOWER(:search) OR LOWER(tournament.location) LIKE LOWER(:search) OR LOWER(organizer.email) LIKE LOWER(:search))',
         { search: `%${search}%` },
       );
     }

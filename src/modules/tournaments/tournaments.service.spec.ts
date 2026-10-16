@@ -283,6 +283,24 @@ describe('TournamentsService', () => {
       expect(result).toBeDefined();
     });
 
+    it('should allow admin to fix data on a completed tournament', async () => {
+      const completedTournament = {
+        ...mockTournament,
+        status: TournamentStatus.COMPLETED,
+      };
+      mockRepository.findOne.mockResolvedValue(completedTournament);
+      mockRepository.save.mockImplementation((t) => Promise.resolve(t));
+
+      const result = await service.update(
+        'tournament-1',
+        'admin-user',
+        UserRole.ADMIN,
+        updateDto,
+      );
+
+      expect(result.name).toBe(updateDto.name);
+    });
+
     it('should throw BadRequestException when updating completed tournament', async () => {
       const completedTournament = {
         ...mockTournament,

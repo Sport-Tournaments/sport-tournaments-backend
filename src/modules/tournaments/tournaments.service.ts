@@ -692,10 +692,18 @@ export class TournamentsService {
       );
     }
 
-    // Cannot update completed or cancelled tournaments
+    const isAdmin = userRole === UserRole.ADMIN;
+    if (isAdmin && tournament.organizerId !== userId) {
+      this.logger.log(
+        `Admin ${userId} updating tournament ${id} (owner ${tournament.organizerId}): ${Object.keys(updateTournamentDto).join(', ')}`,
+      );
+    }
+
+    // Cannot update completed or cancelled tournaments (admins can, to fix data)
     if (
-      tournament.status === TournamentStatus.COMPLETED ||
-      tournament.status === TournamentStatus.CANCELLED
+      !isAdmin &&
+      (tournament.status === TournamentStatus.COMPLETED ||
+        tournament.status === TournamentStatus.CANCELLED)
     ) {
       throw new BadRequestException(
         'Cannot update a completed or cancelled tournament',
@@ -821,10 +829,11 @@ export class TournamentsService {
       );
     }
 
-    // Cannot update completed or cancelled tournaments
+    // Cannot update completed or cancelled tournaments (admins can, to fix data)
     if (
-      tournament.status === TournamentStatus.COMPLETED ||
-      tournament.status === TournamentStatus.CANCELLED
+      userRole !== UserRole.ADMIN &&
+      (tournament.status === TournamentStatus.COMPLETED ||
+        tournament.status === TournamentStatus.CANCELLED)
     ) {
       throw new BadRequestException(
         'Cannot update a completed or cancelled tournament',
@@ -937,6 +946,10 @@ export class TournamentsService {
   ): Promise<Tournament> {
     const tournament = await this.findByIdOrFail(id);
     const previousStatus = tournament.status;
+
+    this.logger.log(
+      `Admin update on tournament ${id}: ${Object.keys(adminUpdateTournamentDto).join(', ')}`,
+    );
 
     Object.assign(tournament, adminUpdateTournamentDto);
 
@@ -1153,6 +1166,37 @@ export class TournamentsService {
         {},
       ),
     };
+  }
+
+  /**
+   * Distinct countries of publicly listed tournaments, for the country filter.
+   */
+  async getAvailableCountries(): Promise<{ country: string; count: number }[]> {
+    const rows: { country: string; count: string }[] =
+      await this.tournamentsRepository
+        .createQueryBuilder('tournament')
+        .select('TRIM(tournament.country)', 'country')
+        .addSelect('COUNT(*)', 'count')
+        .where('tournament.isPublished = :isPublished', { isPublished: true })
+        .andWhere('tournament.isPrivate = :isPrivate', { isPrivate: false })
+        .andWhere('tournament.status IN (:...statuses)', {
+          statuses: [
+            TournamentStatus.PUBLISHED,
+            TournamentStatus.ONGOING,
+            TournamentStatus.COMPLETED,
+          ],
+        })
+        .andWhere(
+          "tournament.country IS NOT NULL AND TRIM(tournament.country) <> ''",
+        )
+        .groupBy('TRIM(tournament.country)')
+        .orderBy('country', 'ASC')
+        .getRawMany();
+
+    return rows.map((row) => ({
+      country: row.country,
+      count: parseInt(row.count, 10) || 0,
+    }));
   }
 
   async getFeaturedTournaments(limit: number = 6): Promise<Tournament[]> {

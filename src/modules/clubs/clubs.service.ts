@@ -273,4 +273,55 @@ export class ClubsService {
       .take(limit)
       .getMany();
   }
+
+  /**
+   * Teams of a club and the public tournaments it was approved in, for the
+   * public club page (two lightweight queries, no entity graphs).
+   */
+  async getPublicProfile(id: string): Promise<{
+    teams: {
+      id: string;
+      name: string;
+      ageCategory?: string;
+      birthyear?: number;
+    }[];
+    tournaments: {
+      id: string;
+      name: string;
+      urlSlug?: string;
+      status: string;
+      startDate?: string;
+      endDate?: string;
+      location?: string;
+    }[];
+  }> {
+    await this.findByIdOrFail(id);
+    const manager = this.clubsRepository.manager;
+
+    const [teams, tournaments] = await Promise.all([
+      manager.query(
+        `SELECT id, name, age_category AS "ageCategory", birthyear
+           FROM teams
+          WHERE club_id = $1
+          ORDER BY birthyear DESC NULLS LAST, name ASC`,
+        [id],
+      ),
+      manager.query(
+        `SELECT DISTINCT t.id, t.name, t.url_slug AS "urlSlug", t.status,
+                TO_CHAR(t.start_date, 'YYYY-MM-DD') AS "startDate",
+                TO_CHAR(t.end_date, 'YYYY-MM-DD') AS "endDate", t.location
+           FROM registrations r
+           JOIN tournaments t ON t.id = r.tournament_id
+          WHERE r.club_id = $1
+            AND r.status = 'APPROVED'
+            AND t.is_published = true
+            AND t.is_private = false
+          ORDER BY "startDate" DESC NULLS LAST
+          LIMIT 50`,
+        [id],
+      ),
+    ]);
+
+    return { teams, tournaments };
+  }
 }

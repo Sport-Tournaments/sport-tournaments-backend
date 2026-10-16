@@ -77,6 +77,14 @@ export class Tournament {
   @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
   longitude: number;
 
+  // Google place ID of the venue, when picked from a point of interest
+  @Column({ name: 'place_id', nullable: true })
+  placeId?: string;
+
+  // Venue name (stadium, sports complex) when the location is a POI
+  @Column({ name: 'venue_name', nullable: true })
+  venueName?: string;
+
   @Index()
   @Column({
     type: 'enum',

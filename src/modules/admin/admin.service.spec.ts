@@ -63,6 +63,15 @@ describe('AdminService', () => {
 
   const mockUsersRepo = {
     count: jest.fn().mockResolvedValue(100),
+    find: jest.fn().mockResolvedValue([
+      {
+        id: 'u1',
+        firstName: 'Ana',
+        lastName: 'Pop',
+        email: 'ana@example.com',
+        createdAt: new Date('2026-10-01T10:00:00Z'),
+      },
+    ]),
     findOne: jest.fn(),
     save: jest.fn(),
     createQueryBuilder: jest.fn(() => createMockQueryBuilder([mockUser], 1)),
@@ -70,6 +79,15 @@ describe('AdminService', () => {
 
   const mockTournamentsRepo = {
     count: jest.fn().mockResolvedValue(50),
+    find: jest.fn().mockResolvedValue([
+      {
+        id: 't1',
+        name: 'Cupa Toamnei',
+        status: 'PUBLISHED',
+        location: 'Cluj',
+        createdAt: new Date('2026-10-03T10:00:00Z'),
+      },
+    ]),
     findOne: jest.fn(),
     save: jest.fn(),
     createQueryBuilder: jest.fn(() =>
@@ -79,6 +97,15 @@ describe('AdminService', () => {
 
   const mockRegistrationsRepo = {
     count: jest.fn().mockResolvedValue(200),
+    find: jest.fn().mockResolvedValue([
+      {
+        tournamentId: 't1',
+        status: 'PENDING',
+        club: { name: 'FC Test' },
+        tournament: { name: 'Cupa Toamnei' },
+        createdAt: new Date('2026-10-02T10:00:00Z'),
+      },
+    ]),
     createQueryBuilder: jest.fn(() => createMockQueryBuilder([], 0)),
   };
 
@@ -151,6 +178,34 @@ describe('AdminService', () => {
       expect(result).toHaveProperty('distributions');
       expect(result).toHaveProperty('trends');
       expect(result).toHaveProperty('topCountries');
+      expect(result.overview).toHaveProperty('pendingRegistrations');
+      expect(result.overview).toHaveProperty('ongoingTournaments');
+    });
+
+    it('uses Postgres TO_CHAR (not MySQL DATE_FORMAT) for monthly trends', async () => {
+      const qb = createMockQueryBuilder([], 0);
+      mockRegistrationsRepo.createQueryBuilder.mockReturnValueOnce(qb);
+
+      await service.getPlatformStatistics();
+
+      const selectArg = (qb.select as jest.Mock).mock.calls[0][0] as string;
+      expect(selectArg).toContain('TO_CHAR');
+      expect(selectArg).not.toContain('DATE_FORMAT');
+    });
+
+    it('returns a merged recent activity feed, newest first', async () => {
+      const result = await service.getPlatformStatistics();
+
+      expect(result.recentActivity.map((a: any) => a.type)).toEqual([
+        'tournament',
+        'registration',
+        'user',
+      ]);
+      expect(result.recentActivity[1]).toMatchObject({
+        id: 't1',
+        title: 'FC Test',
+        subtitle: 'Cupa Toamnei',
+      });
     });
   });
 

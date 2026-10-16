@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Tournament } from '../tournaments/entities/tournament.entity';
+import { Club } from '../clubs/entities/club.entity';
 import { TournamentStatus } from '../../common/enums';
 import { SitemapService } from './sitemap.service';
 
@@ -57,6 +58,21 @@ describe('SitemapService', () => {
         {
           provide: getRepositoryToken(Tournament),
           useValue: { createQueryBuilder: jest.fn().mockReturnValue(qb) },
+        },
+        {
+          provide: getRepositoryToken(Club),
+          useValue: {
+            createQueryBuilder: jest.fn().mockReturnValue({
+              select: jest.fn().mockReturnThis(),
+              orderBy: jest.fn().mockReturnThis(),
+              take: jest.fn().mockReturnThis(),
+              getMany: jest
+                .fn()
+                .mockResolvedValue([
+                  { id: 'club-1', updatedAt: new Date('2026-07-01T00:00:00Z') },
+                ]),
+            }),
+          },
         },
         {
           provide: ConfigService,
@@ -148,5 +164,17 @@ describe('SitemapService', () => {
     const xml = service.buildStaticSitemap();
     expect(xml).toContain('<loc>https://api.tournamente.ro/</loc>');
     expect(xml).toContain('<loc>https://api.tournamente.ro/tournaments</loc>');
+  });
+  it('builds a club sitemap with public club page URLs', async () => {
+    const xml = await service.buildClubsSitemap();
+    expect(xml).toContain(
+      '<loc>https://api.tournamente.ro/main/clubs/club-1</loc>',
+    );
+    expect(xml).toContain('<lastmod>2026-07-01T00:00:00.000Z</lastmod>');
+  });
+
+  it('lists the clubs sitemap in the index', async () => {
+    const xml = await service.buildIndex();
+    expect(xml).toContain('/sitemap-clubs.xml</loc>');
   });
 });

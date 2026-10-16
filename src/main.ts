@@ -68,6 +68,7 @@ async function bootstrap() {
     exclude: [
       'sitemap.xml',
       'sitemap-static.xml',
+      'sitemap-clubs.xml',
       'sitemap-tournaments.xml',
       'robots.txt',
     ],

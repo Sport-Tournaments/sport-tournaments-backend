@@ -1361,7 +1361,7 @@ export class GroupsService {
     bracketType?: string;
     playoffRounds?: any[];
     placementBrackets?: PlacementBracket[];
-    teams: { id: string; name: string; clubName?: string }[];
+    teams: { id: string; name: string; clubName?: string; logo?: string }[];
     advancingTeamsPerGroup?: number;
   }> {
     const tournament = await this.tournamentsRepository.findOne({
@@ -1388,6 +1388,7 @@ export class GroupsService {
       id: r.id,
       name: this.getRegistrationDisplayName(r),
       clubName: r.club?.name,
+      logo: r.club?.logo || undefined,
     }));
 
     if (!tournament.bracketData) {

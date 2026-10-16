@@ -34,6 +34,12 @@ export class SitemapController {
     res.type(XML_TYPE).set('Cache-Control', ONE_HOUR).send(xml);
   }
 
+  @Get('sitemap-clubs.xml')
+  async clubs(@Res() res: Response): Promise<void> {
+    const xml = await this.sitemapService.buildClubsSitemap();
+    res.type(XML_TYPE).set('Cache-Control', ONE_HOUR).send(xml);
+  }
+
   @Get('sitemap-tournaments.xml')
   async tournaments(
     @Res() res: Response,

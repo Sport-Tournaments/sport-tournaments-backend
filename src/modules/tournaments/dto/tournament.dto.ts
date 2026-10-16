@@ -739,6 +739,24 @@ export class CreateTournamentDto {
   @Max(180)
   longitude?: number;
 
+  @ApiPropertyOptional({
+    example: 'ChIJ5TCOcRa7yhQRLlO1w2b9U_E',
+    description: 'Google place ID of the venue',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  placeId?: string;
+
+  @ApiPropertyOptional({
+    example: 'Arena Nationala',
+    description: 'Venue / point-of-interest name (stadium, sports complex)',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  venueName?: string;
+
   @ApiPropertyOptional({ enum: TournamentLevel })
   @IsOptional()
   @IsEnum(TournamentLevel)
@@ -1059,6 +1077,24 @@ export class UpdateTournamentDto {
   @Min(-180)
   @Max(180)
   longitude?: number;
+
+  @ApiPropertyOptional({
+    example: 'ChIJ5TCOcRa7yhQRLlO1w2b9U_E',
+    description: 'Google place ID of the venue',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  placeId?: string;
+
+  @ApiPropertyOptional({
+    example: 'Arena Nationala',
+    description: 'Venue / point-of-interest name (stadium, sports complex)',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  venueName?: string;
 
   @ApiPropertyOptional({ enum: TournamentLevel })
   @IsOptional()

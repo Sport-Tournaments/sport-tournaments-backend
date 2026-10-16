@@ -102,6 +102,8 @@ export class LocationsService {
   async getAutocompleteSuggestions(
     query: string,
     countryCode?: string,
+    limit = 5,
+    sessionToken?: string,
   ): Promise<LocationResultDto[]> {
     if (!query || query.length < 2) {
       return [];
@@ -117,11 +119,15 @@ export class LocationsService {
         input: query,
         key: apiKey,
         language: 'en',
-        types: 'geocode',
       });
+      // No `types` restriction: addresses AND points of interest (stadiums,
+      // sports complexes, schools) must both be selectable as venues.
 
       if (countryCode) {
         params.append('components', `country:${countryCode.toLowerCase()}`);
+      }
+      if (sessionToken) {
+        params.append('sessiontoken', sessionToken);
       }
 
       const response = await fetch(
@@ -140,8 +146,10 @@ export class LocationsService {
         ? payload.predictions
         : [];
 
+      // Each prediction costs a Place Details call, so cap it.
+      const maxDetails = Math.min(Math.max(limit, 1), 10);
       const detailsResults = await Promise.all(
-        predictions.slice(0, 10).map(async (prediction: any) => {
+        predictions.slice(0, maxDetails).map(async (prediction: any) => {
           if (!prediction?.place_id) {
             return null;
           }
@@ -151,8 +159,11 @@ export class LocationsService {
             key: apiKey,
             language: 'en',
             fields:
-              'place_id,formatted_address,name,address_component,geometry',
+              'place_id,formatted_address,name,address_component,geometry,types',
           });
+          if (sessionToken) {
+            detailsParams.append('sessiontoken', sessionToken);
+          }
 
           try {
             const detailsResponse = await fetch(
@@ -217,10 +228,20 @@ export class LocationsService {
     const addressData = this.parseGoogleAddressComponents(
       result?.address_components || [],
     );
+    const isPointOfInterest = this.isPointOfInterest(result);
+    const venueName = isPointOfInterest ? result.name : undefined;
+    const address = result.formatted_address || result.name || '';
+    // Prefix the venue name unless the address already starts with it.
+    const formattedAddress =
+      venueName && !address.startsWith(venueName)
+        ? `${venueName}, ${address}`
+        : address;
 
     return {
-      displayName: result.formatted_address || result.name || '',
-      formattedAddress: result.formatted_address || result.name || '',
+      displayName: formattedAddress,
+      formattedAddress,
+      venueName,
+      isPointOfInterest,
       city: addressData.city,
       region: addressData.region,
       country: addressData.country,
@@ -231,6 +252,13 @@ export class LocationsService {
       address: addressData.address,
       placeId: result.place_id,
     };
+  }
+
+  private isPointOfInterest(result: any): boolean {
+    const types: string[] = Array.isArray(result?.types) ? result.types : [];
+    return types.some((type) =>
+      ['establishment', 'point_of_interest', 'stadium', 'park'].includes(type),
+    );
   }
 
   private parseGoogleAddressComponents(components: any[]): {

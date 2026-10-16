@@ -87,6 +87,16 @@ export class ClubsController {
     return this.clubsService.getStatistics();
   }
 
+  @Get(':id/public-profile')
+  @Public()
+  @ApiOperation({
+    summary: 'Public club profile: teams and public tournaments played',
+  })
+  @ApiResponse({ status: 200, description: 'Club teams and tournaments' })
+  getPublicProfile(@Param('id', ParseUUIDPipe) id: string) {
+    return this.clubsService.getPublicProfile(id);
+  }
+
   @Get(':id')
   @Public()
   @ApiOperation({ summary: 'Get club by ID' })
