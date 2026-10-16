@@ -185,6 +185,21 @@ describe('TournamentsService', () => {
         'tournament',
       );
     });
+
+    it.each([
+      ['past', /^\(tournament\.status = :completedStatus/],
+      ['upcoming', /^NOT \(tournament\.status = :completedStatus/],
+    ] as const)('filters by period=%s', async (period, expected) => {
+      const qb = createMockQueryBuilder();
+      mockRepository.createQueryBuilder.mockReturnValueOnce(qb);
+
+      await service.findAll({ page: 1, pageSize: 12 }, { period });
+
+      const conditions = (qb.andWhere as jest.Mock).mock.calls.map(
+        (call) => call[0] as string,
+      );
+      expect(conditions.some((c) => expected.test(c))).toBe(true);
+    });
   });
 
   describe('findById', () => {

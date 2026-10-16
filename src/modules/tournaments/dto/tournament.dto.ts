@@ -1295,6 +1295,15 @@ export class TournamentFilterDto extends PaginationDto {
   @IsEnum(TournamentStatus)
   status?: TournamentStatus;
 
+  @ApiPropertyOptional({
+    enum: ['upcoming', 'past'],
+    description:
+      'past = completed or ended before today; upcoming = everything else (incl. ongoing/cancelled)',
+  })
+  @IsOptional()
+  @IsIn(['upcoming', 'past'])
+  period?: 'upcoming' | 'past';
+
   @ApiPropertyOptional({ enum: TournamentLevel })
   @IsOptional()
   @IsEnum(TournamentLevel)
