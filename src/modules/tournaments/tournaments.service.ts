@@ -303,6 +303,19 @@ export class TournamentsService {
       });
     }
 
+    // Past/upcoming split: lets the public list page fetch upcoming tournaments
+    // without first paging through every finished one (start-date ASC sort).
+    if (filters?.period) {
+      const pastCondition = `(tournament.status = :completedStatus OR (tournament.status <> :cancelledStatus AND tournament.end_date IS NOT NULL AND tournament.end_date < CURRENT_DATE))`;
+      queryBuilder.andWhere(
+        filters.period === 'past' ? pastCondition : `NOT ${pastCondition}`,
+        {
+          completedStatus: TournamentStatus.COMPLETED,
+          cancelledStatus: TournamentStatus.CANCELLED,
+        },
+      );
+    }
+
     if (filters?.level) {
       queryBuilder.andWhere('tournament.level = :level', {
         level: filters.level,
