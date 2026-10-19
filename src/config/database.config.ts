@@ -1,5 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { migrations } from '../migrations';
 
 export const getDatabaseConfig = (
   configService: ConfigService,
@@ -46,6 +47,9 @@ export const getDatabaseConfig = (
     url: databaseUrl,
     entities: [__dirname + '/../**/*.entity{.ts,.js}'],
     synchronize: true,
+    // Data migrations; run by MigrationsRunner once the app has synced the
+    // schema (TypeORM's migrationsRun would run them before synchronize).
+    migrations,
     logging: nodeEnv === 'development',
     autoLoadEntities: true,
     ssl: sslConfig,
