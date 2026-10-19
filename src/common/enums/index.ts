@@ -1,5 +1,7 @@
 export enum UserRole {
   ADMIN = 'ADMIN',
+  /** Internal staff with CRM access to all clubs and tournament organizers. */
+  MANAGER = 'MANAGER',
   ORGANIZER = 'ORGANIZER',
   PARTICIPANT = 'PARTICIPANT',
   USER = 'USER',
@@ -18,8 +20,32 @@ export enum LeadStatus {
   NEW = 'NEW',
   CONTACTED = 'CONTACTED',
   QUALIFIED = 'QUALIFIED',
+  NEGOTIATION = 'NEGOTIATION',
   WON = 'WON',
   LOST = 'LOST',
+}
+
+/** What kind of prospect a CRM lead represents. */
+export enum LeadType {
+  TOURNAMENT = 'TOURNAMENT',
+  CLUB = 'CLUB',
+  ORGANIZER = 'ORGANIZER',
+}
+
+export enum LeadPriority {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+}
+
+/** Entry kinds on a lead's activity timeline. */
+export enum LeadActivityType {
+  NOTE = 'NOTE',
+  CALL = 'CALL',
+  EMAIL = 'EMAIL',
+  MEETING = 'MEETING',
+  STATUS_CHANGE = 'STATUS_CHANGE',
+  ASSIGNMENT = 'ASSIGNMENT',
 }
 
 export enum TournamentLevel {
