@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
 import { Club } from '../clubs/entities/club.entity';
 import { Registration } from '../registrations/entities/registration.entity';
 import { Tournament } from '../tournaments/entities/tournament.entity';
@@ -19,23 +19,26 @@ export class DashboardService {
   ) {}
 
   async getSummary(user: JwtPayload) {
+    // Staff see the whole platform; everyone else sees what they own.
+    const owned = isStaff(user) ? {} : { organizerId: user.sub };
+
     const [recentTournaments, recentClubs] = await Promise.all([
       this.tournamentsRepository.find({
-        where: { organizerId: user.sub },
+        where: owned,
         relations: ['ageGroups'],
         order: { createdAt: 'DESC' },
         take: 5,
       }),
       this.clubsRepository.find({
-        where: { organizerId: user.sub },
+        where: owned,
         order: { createdAt: 'DESC' },
         take: 5,
       }),
     ]);
 
     const [tournamentsCount, clubsCount] = await Promise.all([
-      this.tournamentsRepository.count({ where: { organizerId: user.sub } }),
-      this.clubsRepository.count({ where: { organizerId: user.sub } }),
+      this.tournamentsRepository.count({ where: owned }),
+      this.clubsRepository.count({ where: owned }),
     ]);
 
     const recentRegistrations = await this.getRecentRegistrations(user);
@@ -67,7 +70,9 @@ export class DashboardService {
       .orderBy('registration.registrationDate', 'DESC')
       .take(5);
 
-    if (user.role === UserRole.ORGANIZER || user.role === UserRole.ADMIN) {
+    if (isStaff(user)) return queryBuilder.getMany();
+
+    if (user.role === UserRole.ORGANIZER) {
       queryBuilder.where('tournament.organizerId = :userId', {
         userId: user.sub,
       });
@@ -89,7 +94,11 @@ export class DashboardService {
       .addSelect('COUNT(*)', 'count')
       .groupBy('registration.status');
 
-    if (user.role === UserRole.ORGANIZER || user.role === UserRole.ADMIN) {
+    // Staff stats are platform-wide, so only other roles get filtered.
+    if (isStaff(user)) {
+      return this.countByStatus(queryBuilder);
+    }
+    if (user.role === UserRole.ORGANIZER) {
       queryBuilder
         .innerJoin('registration.tournament', 'tournament')
         .where('tournament.organizerId = :userId', { userId: user.sub });
@@ -101,6 +110,10 @@ export class DashboardService {
       queryBuilder.where('registration.clubId IN (:...clubIds)', { clubIds });
     }
 
+    return this.countByStatus(queryBuilder);
+  }
+
+  private async countByStatus(queryBuilder: SelectQueryBuilder<Registration>) {
     const rows = await queryBuilder.getRawMany<{
       status: RegistrationStatus;
       count: string;
@@ -131,4 +144,8 @@ export class DashboardService {
     });
     return clubs.map((club) => club.id);
   }
+}
+
+function isStaff(user: JwtPayload): boolean {
+  return user.role === UserRole.ADMIN || user.role === UserRole.MANAGER;
 }

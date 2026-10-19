@@ -91,4 +91,38 @@ describe('DashboardService', () => {
     );
     expect(registrationRepository.createQueryBuilder).toHaveBeenCalledTimes(2);
   });
+
+  it.each([UserRole.ADMIN, UserRole.MANAGER])(
+    'returns platform-wide stats for %s',
+    async (role) => {
+      const builders: ReturnType<typeof createRegistrationQueryBuilder>[] = [];
+      registrationRepository.createQueryBuilder.mockImplementation(() => {
+        const qb = createRegistrationQueryBuilder(recentRegistrations, statsRows);
+        builders.push(qb);
+        return qb;
+      });
+
+      const summary = await service.getSummary({
+        sub: 'staff-1',
+        email: 'staff@example.com',
+        role,
+      });
+
+      expect(summary.stats).toEqual({
+        tournaments: 7,
+        clubs: 4,
+        registrations: 6,
+        approved: 3,
+        pending: 3,
+      });
+      expect(tournamentRepository.find).toHaveBeenCalledWith(
+        expect.objectContaining({ where: {} }),
+      );
+      expect(clubRepository.count).toHaveBeenCalledWith({ where: {} });
+      for (const qb of builders) {
+        expect(qb.where).not.toHaveBeenCalled();
+        expect(qb.innerJoin).not.toHaveBeenCalled();
+      }
+    },
+  );
 });
