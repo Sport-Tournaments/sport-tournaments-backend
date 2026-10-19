@@ -251,6 +251,17 @@ describe('ClubsService', () => {
         order: { name: 'ASC' },
       });
     });
+
+    it('should return every club when no owner is given (admin)', async () => {
+      mockRepository.find.mockResolvedValue([mockClub]);
+
+      await service.findByOrganizer();
+
+      expect(mockRepository.find).toHaveBeenCalledWith({
+        where: {},
+        order: { name: 'ASC' },
+      });
+    });
   });
 
   describe('verify', () => {

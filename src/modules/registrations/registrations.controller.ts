@@ -119,6 +119,9 @@ export class RegistrationsController {
   @ApiOperation({ summary: 'Get all registrations for current user clubs' })
   @ApiResponse({ status: 200, description: 'List of registrations' })
   getMyRegistrations(@CurrentUser() user: JwtPayload) {
+    // Admins manage every registration, so "mine" is all of them.
+    if (user.role === UserRole.ADMIN)
+      return this.registrationsService.findByUser();
     return this.registrationsService.findByUser(user.sub);
   }
 

@@ -617,11 +617,12 @@ export class TournamentsService {
     return this.enrichTournamentDetails(normalized);
   }
 
-  async findByOrganizer(organizerId: string): Promise<Tournament[]> {
+  /** Tournaments of one organizer, or every tournament when omitted. */
+  async findByOrganizer(organizerId?: string): Promise<Tournament[]> {
     await this.syncPastTournamentsAsCompleted();
 
     const tournaments = await this.tournamentsRepository.find({
-      where: { organizerId },
+      where: organizerId ? { organizerId } : {},
       relations: ['ageGroups'],
       order: { startDate: 'DESC' },
     });

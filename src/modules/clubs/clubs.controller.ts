@@ -68,6 +68,9 @@ export class ClubsController {
   @ApiOperation({ summary: 'Get clubs owned by current user' })
   @ApiResponse({ status: 200, description: 'List of user clubs' })
   getMyClubs(@CurrentUser() user: JwtPayload) {
+    // Admins manage every club, so "mine" is all of them.
+    if (user.role === UserRole.ADMIN)
+      return this.clubsService.findByOrganizer();
     return this.clubsService.findByOrganizer(user.sub);
   }
 

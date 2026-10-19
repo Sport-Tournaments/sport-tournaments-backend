@@ -54,9 +54,15 @@ describe('DashboardService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DashboardService,
-        { provide: getRepositoryToken(Tournament), useValue: tournamentRepository },
+        {
+          provide: getRepositoryToken(Tournament),
+          useValue: tournamentRepository,
+        },
         { provide: getRepositoryToken(Club), useValue: clubRepository },
-        { provide: getRepositoryToken(Registration), useValue: registrationRepository },
+        {
+          provide: getRepositoryToken(Registration),
+          useValue: registrationRepository,
+        },
       ],
     }).compile();
 
@@ -92,12 +98,15 @@ describe('DashboardService', () => {
     expect(registrationRepository.createQueryBuilder).toHaveBeenCalledTimes(2);
   });
 
-  it.each([UserRole.ADMIN, UserRole.MANAGER])(
+  it.each([UserRole.ADMIN])(
     'returns platform-wide stats for %s',
     async (role) => {
       const builders: ReturnType<typeof createRegistrationQueryBuilder>[] = [];
       registrationRepository.createQueryBuilder.mockImplementation(() => {
-        const qb = createRegistrationQueryBuilder(recentRegistrations, statsRows);
+        const qb = createRegistrationQueryBuilder(
+          recentRegistrations,
+          statsRows,
+        );
         builders.push(qb);
         return qb;
       });

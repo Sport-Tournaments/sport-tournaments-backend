@@ -414,18 +414,12 @@ export class RegistrationsService {
     });
   }
 
-  async findByUser(userId: string): Promise<Registration[]> {
-    const clubs = await this.clubsRepository.find({
-      where: { organizerId: userId },
-    });
-
-    const clubIds = clubs.map((club) => club.id);
-
-    if (clubIds.length === 0) {
-      return [];
-    }
-
-    return this.registrationsRepository
+  /**
+   * Registrations of the user's clubs, or every registration when no user is
+   * given (admin view).
+   */
+  async findByUser(userId?: string): Promise<Registration[]> {
+    const qb = this.registrationsRepository
       .createQueryBuilder('registration')
       .leftJoinAndSelect('registration.club', 'club')
       .leftJoinAndSelect('club.organizer', 'clubOrganizer')
@@ -433,9 +427,20 @@ export class RegistrationsService {
       .leftJoinAndSelect('team.players', 'teamPlayers')
       .leftJoinAndSelect('registration.tournament', 'tournament')
       .leftJoinAndSelect('registration.ageGroup', 'ageGroup')
-      .where('registration.clubId IN (:...clubIds)', { clubIds })
-      .orderBy('registration.registrationDate', 'DESC')
-      .getMany();
+      .orderBy('registration.registrationDate', 'DESC');
+
+    if (userId) {
+      const clubs = await this.clubsRepository.find({
+        where: { organizerId: userId },
+      });
+      const clubIds = clubs.map((club) => club.id);
+      if (clubIds.length === 0) {
+        return [];
+      }
+      qb.where('registration.clubId IN (:...clubIds)', { clubIds });
+    }
+
+    return qb.getMany();
   }
 
   async update(
