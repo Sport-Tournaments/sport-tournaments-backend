@@ -682,6 +682,13 @@ export class LeadsService {
         filter.assignedToId === 'me' ? actor?.sub : filter.assignedToId;
       qb.andWhere('lead.assignedToId = :assignee', { assignee });
     }
+    if (filter.hasPhone !== undefined) {
+      qb.andWhere(
+        filter.hasPhone
+          ? "COALESCE(TRIM(lead.contactPhone), '') <> ''"
+          : "COALESCE(TRIM(lead.contactPhone), '') = ''",
+      );
+    }
     if (filter.source) {
       qb.andWhere('lead.source = :source', { source: filter.source });
     }
@@ -711,15 +718,24 @@ export class LeadsService {
       }
     }
     if (filter.search) {
+      // Phone numbers are stored in any format ("+40 722 …", "0722…"), so
+      // compare digits only; a national leading 0 is dropped to also match
+      // the international form.
+      const digits = filter.search.replace(/\D/g, '').replace(/^0+/, '');
       qb.andWhere(
-        new Brackets((w) =>
-          w
-            .where('lead.name ILIKE :q')
+        new Brackets((w) => {
+          w.where('lead.name ILIKE :q')
             .orWhere('lead.organiser ILIKE :q')
             .orWhere('lead.contactName ILIKE :q')
             .orWhere('lead.contactEmail ILIKE :q')
-            .orWhere('lead.location ILIKE :q'),
-        ),
+            .orWhere('lead.location ILIKE :q');
+          if (digits.length >= 4) {
+            w.orWhere(
+              "regexp_replace(lead.contactPhone, '\\D', '', 'g') LIKE :phoneDigits",
+              { phoneDigits: `%${digits}%` },
+            );
+          }
+        }),
         { q: `%${filter.search}%` },
       );
     }

@@ -55,6 +55,21 @@ export class LeadFilterDto extends PaginationDto {
   @IsBoolean()
   unassigned?: boolean;
 
+  @ApiPropertyOptional({
+    description: 'true: only leads with a phone number; false: only without',
+  })
+  @IsOptional()
+  // Read the raw value: implicit conversion would turn 'false' into true.
+  @Transform(({ obj, key }) =>
+    obj[key] === true || obj[key] === 'true'
+      ? true
+      : obj[key] === false || obj[key] === 'false'
+        ? false
+        : undefined,
+  )
+  @IsBoolean()
+  hasPhone?: boolean;
+
   @ApiPropertyOptional({ description: 'Filter by origin source' })
   @IsOptional()
   @IsString()
