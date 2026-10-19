@@ -28,6 +28,7 @@ import {
   UserRole,
 } from '../../common/enums';
 import { JwtPayload, PaginatedResponse } from '../../common/interfaces';
+import { IMPORTER_EMAIL_PATTERN } from './crm.constants';
 
 /** Roles that work the CRM; they are assignable and never leads themselves. */
 const CRM_STAFF_ROLES = [UserRole.ADMIN, UserRole.MANAGER];
@@ -481,7 +482,11 @@ export class LeadsService {
             ),
         ),
       )
-      .andWhere('u.role NOT IN (:...staff)', { staff: CRM_STAFF_ROLES });
+      .andWhere('u.role NOT IN (:...staff)', { staff: CRM_STAFF_ROLES })
+      // The scrapers' system accounts own imported tournaments; not prospects.
+      .andWhere('u.email NOT LIKE :importer', {
+        importer: IMPORTER_EMAIL_PATTERN,
+      });
 
     if (filter.search) {
       qb.andWhere(
@@ -871,6 +876,10 @@ export class LeadsService {
         ),
       )
       .andWhere('u.role NOT IN (:...staff)', { staff: CRM_STAFF_ROLES })
+      // The scrapers' system accounts own imported tournaments; not prospects.
+      .andWhere('u.email NOT LIKE :importer', {
+        importer: IMPORTER_EMAIL_PATTERN,
+      })
       .getMany();
     return organizers.map((u) => this.leadFromOrganizer(u));
   }
