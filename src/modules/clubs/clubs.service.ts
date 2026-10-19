@@ -122,9 +122,10 @@ export class ClubsService {
     return club;
   }
 
-  async findByOrganizer(organizerId: string): Promise<Club[]> {
+  /** Clubs of one owner, or every club when omitted. */
+  async findByOrganizer(organizerId?: string): Promise<Club[]> {
     return this.clubsRepository.find({
-      where: { organizerId },
+      where: organizerId ? { organizerId } : {},
       order: { name: 'ASC' },
     });
   }

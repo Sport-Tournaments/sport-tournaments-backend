@@ -220,6 +220,17 @@ describe('LeadsService', () => {
       );
     });
 
+    it('filters leads with / without a phone number', async () => {
+      await service.findAll({ hasPhone: true });
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        "COALESCE(TRIM(lead.contactPhone), '') <> ''",
+      );
+      await service.findAll({ hasPhone: false });
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        "COALESCE(TRIM(lead.contactPhone), '') = ''",
+      );
+    });
+
     it('filters overdue follow-ups', async () => {
       await service.findAll({ followUp: 'overdue' });
       expect(qb.andWhere).toHaveBeenCalledWith(

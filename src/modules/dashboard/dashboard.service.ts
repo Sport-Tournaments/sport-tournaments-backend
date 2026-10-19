@@ -19,8 +19,8 @@ export class DashboardService {
   ) {}
 
   async getSummary(user: JwtPayload) {
-    // Staff see the whole platform; everyone else sees what they own.
-    const owned = isStaff(user) ? {} : { organizerId: user.sub };
+    // Admins see the whole platform; everyone else sees what they own.
+    const owned = isAdmin(user) ? {} : { organizerId: user.sub };
 
     const [recentTournaments, recentClubs] = await Promise.all([
       this.tournamentsRepository.find({
@@ -70,7 +70,7 @@ export class DashboardService {
       .orderBy('registration.registrationDate', 'DESC')
       .take(5);
 
-    if (isStaff(user)) return queryBuilder.getMany();
+    if (isAdmin(user)) return queryBuilder.getMany();
 
     if (user.role === UserRole.ORGANIZER) {
       queryBuilder.where('tournament.organizerId = :userId', {
@@ -94,8 +94,8 @@ export class DashboardService {
       .addSelect('COUNT(*)', 'count')
       .groupBy('registration.status');
 
-    // Staff stats are platform-wide, so only other roles get filtered.
-    if (isStaff(user)) {
+    // Admin stats are platform-wide, so only other roles get filtered.
+    if (isAdmin(user)) {
       return this.countByStatus(queryBuilder);
     }
     if (user.role === UserRole.ORGANIZER) {
@@ -146,6 +146,10 @@ export class DashboardService {
   }
 }
 
-function isStaff(user: JwtPayload): boolean {
-  return user.role === UserRole.ADMIN || user.role === UserRole.MANAGER;
+/**
+ * Admins manage everything, so their dashboard is platform-wide and matches
+ * the all-records lists its cards link to.
+ */
+function isAdmin(user: JwtPayload): boolean {
+  return user.role === UserRole.ADMIN;
 }

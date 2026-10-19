@@ -112,6 +112,9 @@ export class TournamentsController {
   @ApiOperation({ summary: 'Get tournaments created by current user' })
   @ApiResponse({ status: 200, description: 'List of user tournaments' })
   getMyTournaments(@CurrentUser() user: JwtPayload) {
+    // Admins manage every tournament, so "mine" is all of them.
+    if (user.role === UserRole.ADMIN)
+      return this.tournamentsService.findByOrganizer();
     return this.tournamentsService.findByOrganizer(user.sub);
   }
 

@@ -382,6 +382,16 @@ describe('TournamentsService', () => {
         order: { startDate: 'DESC' },
       });
     });
+
+    it('should return every tournament when no organizer is given (admin)', async () => {
+      mockRepository.find.mockResolvedValue([mockTournament]);
+
+      await service.findByOrganizer();
+
+      expect(mockRepository.find).toHaveBeenCalledWith(
+        expect.objectContaining({ where: {} }),
+      );
+    });
   });
 
   describe('getAvailableSpots', () => {
