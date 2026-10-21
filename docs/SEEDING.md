@@ -309,6 +309,29 @@ pnpm cleanup:dummy -- --apply --delete-test-users  # also delete the test user a
 
 Always run the dry-run first and eyeball the matched list before `--apply`.
 
+## Tournament geocoding
+
+`src/seeds/geocode-tournaments.ts` fills in `tournaments.latitude` /
+`longitude` from the stored venue / address / country, so tournaments show
+up on the map. Imported tournaments usually only have a town and country, so
+they are placed at the town.
+
+- **Provider:** Google Geocoding API when `GOOGLE_MAPS_API_KEY` is set (needs
+  the *Geocoding API* enabled on that key), otherwise OpenStreetMap Nominatim
+  (no key, throttled to 1 request/second).
+- **Idempotent:** only tournaments without coordinates (or at 0,0) are
+  processed; identical places are geocoded once per run. Importer upserts
+  don't clear coordinates.
+- **On deploy:** `scripts/start-prod.sh` runs it in the background after the
+  imports finish. Opt out with `GEOCODE_TOURNAMENTS_ON_DEPLOY=false`.
+
+```bash
+pnpm geocode:tournaments                 # fill missing coordinates
+pnpm geocode:tournaments -- --dry-run    # resolve + report, no writes
+pnpm geocode:tournaments -- --limit=20   # only first N tournaments
+pnpm geocode:tournaments -- --force      # re-geocode every tournament
+```
+
 ## Related Documentation
 
 - [Getting Started](./GETTING_STARTED.md)
