@@ -86,8 +86,8 @@ async function connect(): Promise<DataSource> {
 }
 
 async function main(options: CliOptions): Promise<void> {
-  const googleApiKey = process.env.GOOGLE_MAPS_API_KEY || undefined;
-  const delay = googleApiKey ? GOOGLE_DELAY_MS : NOMINATIM_DELAY_MS;
+  let googleApiKey = process.env.GOOGLE_MAPS_API_KEY || undefined;
+  let delay = googleApiKey ? GOOGLE_DELAY_MS : NOMINATIM_DELAY_MS;
   console.log('🗺️  Geocoding tournaments');
   console.log(
     `   provider: ${googleApiKey ? 'Google Geocoding API' : 'OpenStreetMap Nominatim (no API key)'}` +
@@ -130,7 +130,8 @@ async function main(options: CliOptions): Promise<void> {
     let failed = 0;
     let requests = 0;
 
-    for (const [i, t] of rows.entries()) {
+    for (let i = 0; i < rows.length; i++) {
+      const t = rows[i];
       const countryCode = toCountryCode(t.country);
       const queries = buildGeocodeQueries({
         location: t.location,
@@ -155,14 +156,23 @@ async function main(options: CliOptions): Promise<void> {
         console.warn(
           `  ⚠ [${i + 1}/${rows.length}] ${t.name}: ${(error as Error).message}`,
         );
-        // A rejected key or quota error will fail every request: stop early.
-        if (
-          /REQUEST_DENIED|OVER_QUERY_LIMIT|HTTP 403|HTTP 429/.test(
-            String(error),
-          )
-        ) {
-          throw error;
+        const fatal = /REQUEST_DENIED|OVER_QUERY_LIMIT|HTTP 403|HTTP 429/.test(
+          String(error),
+        );
+        if (fatal && googleApiKey) {
+          // e.g. the key is only enabled for Places, not the Geocoding API.
+          console.warn(
+            '  ↪ Google rejected the request; continuing with OpenStreetMap Nominatim',
+          );
+          googleApiKey = undefined;
+          delay = NOMINATIM_DELAY_MS;
+          failed--;
+          cache.clear();
+          i--; // retry this tournament with the new provider
+          continue;
         }
+        // Rejected or rate-limited by Nominatim: every request would fail.
+        if (fatal) throw error;
         continue;
       }
 
