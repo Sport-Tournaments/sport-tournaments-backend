@@ -317,6 +317,29 @@ describe('RegistrationsService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
+    it('should allow an admin to register a club they do not own', async () => {
+      mockTournamentsRepo.findOne.mockResolvedValue(mockTournament);
+      mockClubsRepo.findOne.mockResolvedValue({
+        ...mockClub,
+        organizerId: 'other-user',
+      });
+      mockTeamsRepo.findOne.mockResolvedValue(mockTeam);
+      mockRegistrationsRepo.findOne.mockResolvedValue(null);
+      mockRegistrationsRepo.create.mockReturnValue(mockRegistration);
+      mockRegistrationsRepo.save.mockResolvedValue(mockRegistration);
+      mockTournamentsRepo.increment.mockResolvedValue({ affected: 1 });
+
+      const result = await service.create(
+        'tournament-1',
+        'admin-1',
+        createDto,
+        UserRole.ADMIN,
+      );
+
+      expect(result).toBeDefined();
+      expect(mockRegistrationsRepo.save).toHaveBeenCalled();
+    });
+
     it('should throw ConflictException if club is already registered', async () => {
       mockTournamentsRepo.findOne.mockResolvedValue(mockTournament);
       mockClubsRepo.findOne.mockResolvedValue(mockClub);
