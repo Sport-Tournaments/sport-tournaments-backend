@@ -420,7 +420,7 @@ export class RegistrationsService {
    * Registrations of the user's clubs, or every registration when no user is
    * given (admin view).
    */
-  async findByUser(userId?: string): Promise<Registration[]> {
+  async findByUser(userId?: string, clubId?: string): Promise<Registration[]> {
     const qb = this.registrationsRepository
       .createQueryBuilder('registration')
       .leftJoinAndSelect('registration.club', 'club')
@@ -440,6 +440,10 @@ export class RegistrationsService {
         return [];
       }
       qb.where('registration.clubId IN (:...clubIds)', { clubIds });
+    }
+
+    if (clubId) {
+      qb.andWhere('registration.clubId = :clubId', { clubId });
     }
 
     return qb.getMany();
