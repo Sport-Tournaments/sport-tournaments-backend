@@ -126,6 +126,7 @@ export class RegistrationsService {
     tournamentId: string,
     userId: string,
     createRegistrationDto: CreateRegistrationDto,
+    userRole?: string,
   ): Promise<Registration> {
     // Get tournament with age groups
     const tournament = await this.tournamentsRepository.findOne({
@@ -236,7 +237,8 @@ export class RegistrationsService {
       throw new NotFoundException('Club not found');
     }
 
-    if (club.organizerId !== userId) {
+    // Admins can register any club
+    if (club.organizerId !== userId && userRole !== UserRole.ADMIN) {
       throw new ForbiddenException('You can only register your own clubs');
     }
 

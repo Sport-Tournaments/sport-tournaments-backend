@@ -57,6 +57,7 @@ export class RegistrationsController {
       tournamentId,
       user.sub,
       createRegistrationDto,
+      user.role,
     );
   }
 
