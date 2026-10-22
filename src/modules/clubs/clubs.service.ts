@@ -123,9 +123,16 @@ export class ClubsService {
   }
 
   /** Clubs of one owner, or every club when omitted. */
-  async findByOrganizer(organizerId?: string): Promise<Club[]> {
+  async findByOrganizer(
+    organizerId?: string,
+    birthYear?: number,
+  ): Promise<Club[]> {
     return this.clubsRepository.find({
-      where: organizerId ? { organizerId } : {},
+      where: {
+        ...(organizerId ? { organizerId } : {}),
+        // Only clubs with at least one team eligible for this birth year.
+        ...(birthYear ? { teams: { birthyear: birthYear } } : {}),
+      },
       order: { name: 'ASC' },
     });
   }

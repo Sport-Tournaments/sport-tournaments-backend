@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
   ParseUUIDPipe,
+  ParseIntPipe,
   UseInterceptors,
   UploadedFile,
 } from '@nestjs/common';
@@ -20,6 +21,7 @@ import {
   ApiBearerAuth,
   ApiConsumes,
   ApiBody,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { ClubsService } from './clubs.service';
 import {
@@ -66,12 +68,22 @@ export class ClubsController {
   @Get('my-clubs')
   @Roles(UserRole.ORGANIZER, UserRole.PARTICIPANT, UserRole.USER)
   @ApiOperation({ summary: 'Get clubs owned by current user' })
+  @ApiQuery({
+    name: 'birthYear',
+    required: false,
+    type: Number,
+    description: 'Only return clubs with a team of this birth year',
+  })
   @ApiResponse({ status: 200, description: 'List of user clubs' })
-  getMyClubs(@CurrentUser() user: JwtPayload) {
+  getMyClubs(
+    @CurrentUser() user: JwtPayload,
+    @Query('birthYear', new ParseIntPipe({ optional: true }))
+    birthYear?: number,
+  ) {
     // Admins manage every club, so "mine" is all of them.
     if (user.role === UserRole.ADMIN)
-      return this.clubsService.findByOrganizer();
-    return this.clubsService.findByOrganizer(user.sub);
+      return this.clubsService.findByOrganizer(undefined, birthYear);
+    return this.clubsService.findByOrganizer(user.sub, birthYear);
   }
 
   @Get('search')

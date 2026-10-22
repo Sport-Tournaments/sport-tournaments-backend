@@ -262,6 +262,17 @@ describe('ClubsService', () => {
         order: { name: 'ASC' },
       });
     });
+
+    it('should only return clubs with a team of the given birth year', async () => {
+      mockRepository.find.mockResolvedValue([mockClub]);
+
+      await service.findByOrganizer('owner-1', 2015);
+
+      expect(mockRepository.find).toHaveBeenCalledWith({
+        where: { organizerId: 'owner-1', teams: { birthyear: 2015 } },
+        order: { name: 'ASC' },
+      });
+    });
   });
 
   describe('verify', () => {
