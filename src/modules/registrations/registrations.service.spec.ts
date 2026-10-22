@@ -413,6 +413,47 @@ describe('RegistrationsService', () => {
     });
   });
 
+  describe('findByUser', () => {
+    const mockQb = () => ({
+      ...createMockQueryBuilder(),
+      getMany: jest.fn().mockResolvedValue([mockRegistration]),
+    });
+
+    it('should scope to owned clubs and the requested club', async () => {
+      const qb = mockQb();
+      mockRegistrationsRepo.createQueryBuilder.mockReturnValueOnce(qb);
+      mockClubsRepo.find.mockResolvedValue([
+        { id: 'club-1' },
+        { id: 'club-2' },
+      ]);
+
+      const result = await service.findByUser('user-1', 'club-1');
+
+      expect(result).toHaveLength(1);
+      expect(qb.where).toHaveBeenCalledWith(
+        'registration.clubId IN (:...clubIds)',
+        { clubIds: ['club-1', 'club-2'] },
+      );
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'registration.clubId = :clubId',
+        { clubId: 'club-1' },
+      );
+    });
+
+    it('should filter by club for admins without owner scoping', async () => {
+      const qb = mockQb();
+      mockRegistrationsRepo.createQueryBuilder.mockReturnValueOnce(qb);
+
+      await service.findByUser(undefined, 'club-9');
+
+      expect(qb.where).not.toHaveBeenCalled();
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'registration.clubId = :clubId',
+        { clubId: 'club-9' },
+      );
+    });
+  });
+
   describe('findByIdOrFail', () => {
     it('should return a registration by id', async () => {
       mockRegistrationsRepo.findOne.mockResolvedValue(mockRegistration);

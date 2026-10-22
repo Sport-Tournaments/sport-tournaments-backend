@@ -18,6 +18,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { RegistrationsService } from './registrations.service';
 import {
@@ -118,12 +119,20 @@ export class RegistrationsController {
 
   @Get('registrations/my-registrations')
   @ApiOperation({ summary: 'Get all registrations for current user clubs' })
+  @ApiQuery({
+    name: 'clubId',
+    required: false,
+    description: 'Only return registrations of this club',
+  })
   @ApiResponse({ status: 200, description: 'List of registrations' })
-  getMyRegistrations(@CurrentUser() user: JwtPayload) {
+  getMyRegistrations(
+    @CurrentUser() user: JwtPayload,
+    @Query('clubId', new ParseUUIDPipe({ optional: true })) clubId?: string,
+  ) {
     // Admins manage every registration, so "mine" is all of them.
     if (user.role === UserRole.ADMIN)
-      return this.registrationsService.findByUser();
-    return this.registrationsService.findByUser(user.sub);
+      return this.registrationsService.findByUser(undefined, clubId);
+    return this.registrationsService.findByUser(user.sub, clubId);
   }
 
   @Get('registrations/:id')
