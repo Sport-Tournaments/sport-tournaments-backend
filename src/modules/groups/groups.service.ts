@@ -349,6 +349,46 @@ export class GroupsService {
     }
   }
 
+  private hasStartedKnockoutMatch(bracketData: any): boolean {
+    const started = (matches: Match[] = []) =>
+      matches.some((match) => match.status !== 'PENDING');
+    const placementStarted = (bracket?: PlacementBracket): boolean =>
+      !!bracket &&
+      (bracket.playoffRounds.some((round) => started(round.matches)) ||
+        placementStarted(bracket.children?.winners) ||
+        placementStarted(bracket.children?.losers));
+
+    return (
+      (bracketData.playoffRounds ?? []).some(
+        (round: { matches?: Match[] }) => started(round.matches),
+      ) || (bracketData.placementBrackets ?? []).some(placementStarted)
+    );
+  }
+
+  /**
+   * The age group's "qualifying teams per group" can be changed after the
+   * draw, but the bracket stores its own copy. Sync it and drop the knockout
+   * and placement trees so they are rebuilt, as long as none of their matches
+   * has started.
+   */
+  private syncAdvancingTeamsPerGroup(
+    bracketData: any,
+    qualifyingTeamsPerGroup?: number | null,
+  ): boolean {
+    if (
+      !qualifyingTeamsPerGroup ||
+      qualifyingTeamsPerGroup === (bracketData.advancingTeamsPerGroup ?? 2) ||
+      this.hasStartedKnockoutMatch(bracketData)
+    ) {
+      return false;
+    }
+
+    bracketData.advancingTeamsPerGroup = qualifyingTeamsPerGroup;
+    bracketData.playoffRounds = [];
+    bracketData.placementBrackets = [];
+    return true;
+  }
+
   private async ensureGroupsPlusKnockoutPlanningData(
     tournament: Tournament,
     tournamentId: string,
@@ -371,7 +411,13 @@ export class GroupsService {
     });
     if (groups.length === 0) return false;
 
-    let changed = false;
+    const ageGroup = ageGroupId
+      ? tournament.ageGroups?.find((ag) => ag.id === ageGroupId)
+      : undefined;
+    let changed = this.syncAdvancingTeamsPerGroup(
+      bracketData,
+      ageGroup?.qualifyingTeamsPerGroup,
+    );
     let createdPlayoff = false;
     let createdPlacement = false;
 
@@ -2439,6 +2485,10 @@ export class GroupsService {
       throw new BadRequestException('No groups found for this tournament');
     }
 
+    this.syncAdvancingTeamsPerGroup(
+      bracketData,
+      ageGroup?.qualifyingTeamsPerGroup,
+    );
     const advancingPerGroup = bracketData.advancingTeamsPerGroup ?? 2;
 
     if (!bracketData.playoffRounds || bracketData.playoffRounds.length === 0) {
