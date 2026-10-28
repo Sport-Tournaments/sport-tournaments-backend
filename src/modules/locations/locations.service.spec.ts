@@ -96,4 +96,32 @@ describe('LocationsService.getAutocompleteSuggestions', () => {
     // 1 autocomplete + 3 details
     expect(fetchMock).toHaveBeenCalledTimes(4);
   });
+  it('ignores queries shorter than 3 characters without calling Google', async () => {
+    await expect(service.getAutocompleteSuggestions('ab')).resolves.toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('serves a repeated identical query from cache (no second Google call)', async () => {
+    fetchMock
+      .mockResolvedValueOnce(okJson({ predictions: [{ place_id: 'p9' }] }))
+      .mockResolvedValueOnce(
+        okJson({
+          result: {
+            place_id: 'p9',
+            name: 'Cache Arena',
+            formatted_address: 'Cache Arena, Brasov, Romania',
+            types: ['stadium'],
+            geometry: { location: { lat: 45.6, lng: 25.6 } },
+            address_components: [],
+          },
+        }),
+      );
+
+    const first = await service.getAutocompleteSuggestions('Cache Arena');
+    const second = await service.getAutocompleteSuggestions('cache arena ');
+
+    expect(second).toEqual(first);
+    // 1 autocomplete + 1 details, and nothing for the second call
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 });

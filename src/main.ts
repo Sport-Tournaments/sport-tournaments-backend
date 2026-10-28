@@ -13,6 +13,10 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule);
 
+  // Behind the Coolify/Traefik reverse proxy: trust one hop so request.ip (used
+  // by the rate limiter) is the real client IP, not the proxy's.
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+
   const configService = app.get(ConfigService);
   const nodeEnv = configService.get<string>('nodeEnv') || 'development';
   const isDevelopment = nodeEnv === 'development';

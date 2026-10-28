@@ -5,6 +5,7 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { LocationsService } from './locations.service';
 import { LocationSearchDto, LocationResultDto, ReverseGeocodeDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards';
@@ -12,13 +13,16 @@ import { Public } from '../../common/decorators';
 
 @ApiTags('Locations')
 @Controller('locations')
-@UseGuards(JwtAuthGuard)
+// These endpoints are public and every call is billed by Google Maps Platform,
+// so they get their own (much stricter than global) per-IP rate limit.
+@UseGuards(JwtAuthGuard, ThrottlerGuard)
 @ApiBearerAuth()
 export class LocationsController {
   constructor(private readonly locationsService: LocationsService) {}
 
   @Get('search')
   @Public()
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @ApiOperation({
     summary: 'Search locations by query',
     description:
@@ -37,6 +41,7 @@ export class LocationsController {
 
   @Get('autocomplete')
   @Public()
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @ApiOperation({
     summary: 'Get location autocomplete suggestions',
     description:
@@ -64,6 +69,7 @@ export class LocationsController {
 
   @Get('reverse')
   @Public()
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @ApiOperation({
     summary: 'Reverse geocode coordinates',
     description: 'Get location details from latitude/longitude coordinates.',

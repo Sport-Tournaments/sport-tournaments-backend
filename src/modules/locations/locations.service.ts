@@ -7,7 +7,35 @@ export class LocationsService {
   private readonly logger = new Logger(LocationsService.name);
   private readonly googleMapsBaseUrl = 'https://maps.googleapis.com/maps/api';
 
+  // Short-lived in-memory cache so repeated identical lookups (users retyping,
+  // several users searching the same venue) don't each cost a Google call.
+  private static readonly CACHE_TTL_MS = 60_000;
+  private static readonly CACHE_MAX_ENTRIES = 500;
+  private readonly cache = new Map<string, { expires: number; value: any }>();
+
   constructor(private configService: ConfigService) {}
+
+  private cacheGet<T>(key: string): T | undefined {
+    const hit = this.cache.get(key);
+    if (!hit) return undefined;
+    if (hit.expires < Date.now()) {
+      this.cache.delete(key);
+      return undefined;
+    }
+    return hit.value as T;
+  }
+
+  private cacheSet(key: string, value: unknown): void {
+    if (this.cache.size >= LocationsService.CACHE_MAX_ENTRIES) {
+      // Map keeps insertion order: drop the oldest entry.
+      const oldest = this.cache.keys().next().value;
+      if (oldest !== undefined) this.cache.delete(oldest);
+    }
+    this.cache.set(key, {
+      expires: Date.now() + LocationsService.CACHE_TTL_MS,
+      value,
+    });
+  }
 
   /**
    * Search for locations using Google Geocoding API
@@ -19,6 +47,10 @@ export class LocationsService {
     if (!apiKey) {
       return [];
     }
+
+    const cacheKey = `search:${query.trim().toLowerCase()}|${(countryCode || '').toLowerCase()}|${limit}`;
+    const cached = this.cacheGet<LocationResultDto[]>(cacheKey);
+    if (cached) return cached;
 
     try {
       const params = new URLSearchParams({
@@ -43,9 +75,11 @@ export class LocationsService {
       const payload = await response.json();
       const results = Array.isArray(payload.results) ? payload.results : [];
 
-      return results
+      const mapped = results
         .slice(0, limit)
         .map((result: any) => this.mapGoogleGeocodeResult(result));
+      this.cacheSet(cacheKey, mapped);
+      return mapped;
     } catch (error) {
       this.logger.error('Error searching locations:', error);
       return [];
@@ -105,7 +139,8 @@ export class LocationsService {
     limit = 5,
     sessionToken?: string,
   ): Promise<LocationResultDto[]> {
-    if (!query || query.length < 2) {
+    // 3+ characters: 2-letter prefixes match almost everything and just burn quota.
+    if (!query || query.trim().length < 3) {
       return [];
     }
 
@@ -113,6 +148,10 @@ export class LocationsService {
     if (!apiKey) {
       return [];
     }
+
+    const cacheKey = `ac:${query.trim().toLowerCase()}|${(countryCode || '').toLowerCase()}|${limit}`;
+    const cached = this.cacheGet<LocationResultDto[]>(cacheKey);
+    if (cached) return cached;
 
     try {
       const params = new URLSearchParams({
@@ -147,7 +186,7 @@ export class LocationsService {
         : [];
 
       // Each prediction costs a Place Details call, so cap it.
-      const maxDetails = Math.min(Math.max(limit, 1), 10);
+      const maxDetails = Math.min(Math.max(limit, 1), 5);
       const detailsResults = await Promise.all(
         predictions.slice(0, maxDetails).map(async (prediction: any) => {
           if (!prediction?.place_id) {
@@ -186,9 +225,11 @@ export class LocationsService {
         }),
       );
 
-      return detailsResults
+      const mapped = detailsResults
         .filter((result): result is any => !!result)
         .map((result) => this.mapGooglePlaceResult(result));
+      if (mapped.length > 0) this.cacheSet(cacheKey, mapped);
+      return mapped;
     } catch (error) {
       this.logger.error('Error fetching autocomplete suggestions:', error);
       return [];
