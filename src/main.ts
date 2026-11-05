@@ -7,6 +7,7 @@ import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { corsDelegate } from './common/cors';
+import { requestContextMiddleware } from './modules/conversions/request-context';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -31,6 +32,9 @@ async function bootstrap() {
     .map((origin) => origin.trim()) || ['http://localhost:3000'];
 
   app.enableCors(corsDelegate(allowedOrigins, isDevelopment));
+
+  // Per-request context (visitor's GA client id) for server-side conversion events
+  app.use(requestContextMiddleware);
 
   // API prefix — SEO artifacts must live at the host root, so exclude them.
   app.setGlobalPrefix('api', {

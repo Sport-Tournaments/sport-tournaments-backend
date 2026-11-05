@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   BadRequestException,
   ConflictException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In } from 'typeorm';
@@ -38,6 +39,7 @@ import {
   PaymentStatus,
 } from '../../common/enums';
 import { MailService } from '../mail/mail.service';
+import { ConversionsService } from '../conversions/conversions.service';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -68,6 +70,7 @@ export class RegistrationsService {
     @InjectRepository(TournamentPot)
     private tournamentPotsRepository: Repository<TournamentPot>,
     private mailService: MailService,
+    @Optional() private readonly conversions?: ConversionsService,
   ) {
     // Ensure uploads directory exists
     if (!fs.existsSync(this.uploadsPath)) {
@@ -324,7 +327,34 @@ export class RegistrationsService {
       );
     }
 
+    this.conversions?.track('tournament_registration', {
+      userId,
+      params: {
+        tournament_id: tournamentId,
+        tournament_name: tournament.name,
+        age_group:
+          selectedAgeGroup?.displayLabel || selectedAgeGroup?.birthYear,
+        value: Number(effectiveParticipationFee) || 0,
+        currency: tournament.currency,
+      },
+      summary: `${team.name} (${club.name}) applied to "${tournament.name}"`,
+    });
+
     return savedRegistration;
+  }
+
+  private trackApproval(registration: Registration, tournamentName?: string) {
+    this.conversions?.track('registration_approved', {
+      // The converting user is the club owner, not the organizer approving.
+      userId: registration.club?.organizerId,
+      attributeToRequest: false,
+      params: {
+        tournament_id: registration.tournamentId,
+        tournament_name: tournamentName,
+        status: registration.status,
+      },
+      summary: `${registration.team?.name || registration.club?.name || 'Team'} approved for "${tournamentName ?? 'tournament'}"`,
+    });
   }
 
   async findByTournament(
@@ -539,7 +569,9 @@ export class RegistrationsService {
       registration.reviewNotes = dto.reviewNotes;
     }
 
-    return this.registrationsRepository.save(registration);
+    const saved = await this.registrationsRepository.save(registration);
+    this.trackApproval(saved, tournament?.name);
+    return saved;
   }
 
   async approve(
@@ -1189,6 +1221,7 @@ export class RegistrationsService {
       try {
         const registration = await this.registrationsRepository.findOne({
           where: { id: registrationId, tournamentId },
+          relations: ['club', 'team'],
         });
 
         if (!registration) {
@@ -1209,6 +1242,7 @@ export class RegistrationsService {
         }
 
         await this.registrationsRepository.save(registration);
+        this.trackApproval(registration, tournament.name);
         results.approved++;
       } catch {
         results.failed.push(`${registrationId}: Processing error`);

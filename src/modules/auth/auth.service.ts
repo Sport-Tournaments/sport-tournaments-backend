@@ -4,6 +4,7 @@ import {
   ConflictException,
   BadRequestException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -23,6 +24,7 @@ import {
 } from './dto';
 import { UserRole } from '../../common/enums';
 import { MailService } from '../mail/mail.service';
+import { ConversionsService } from '../conversions/conversions.service';
 
 @Injectable()
 export class AuthService {
@@ -36,6 +38,7 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private mailService: MailService,
+    @Optional() private readonly conversions?: ConversionsService,
   ) {}
 
   async register(
@@ -104,6 +107,16 @@ export class AuthService {
         `User registered and auto-verified: ${email} (email verification disabled)`,
       );
     }
+
+    this.conversions?.track('sign_up', {
+      userId: user.id,
+      params: {
+        method: 'email',
+        role: user.role,
+        country: country || undefined,
+      },
+      summary: `${firstName} ${lastName} (${email}) signed up as ${user.role}`,
+    });
 
     // Return user without sensitive data
 

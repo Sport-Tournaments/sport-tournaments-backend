@@ -55,6 +55,11 @@ export default () => ({
   googleMaps: {
     apiKey: process.env.GOOGLE_MAPS_API_KEY,
   },
+  conversions: {
+    discordWebhookUrl: process.env.DISCORD_WEBHOOK_URL,
+    gaMeasurementId: process.env.GA_MEASUREMENT_ID,
+    gaApiSecret: process.env.GA_API_SECRET,
+  },
 
   // Email verification toggle (set to 'true' to require email verification on registration)
   requireEmailVerification:
