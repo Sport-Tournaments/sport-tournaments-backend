@@ -73,6 +73,27 @@ export class LocationResultDto {
   address?: string;
 }
 
+/** Autocomplete prediction without coordinates (no Place Details call). */
+export class LocationPredictionDto {
+  @ApiProperty({ example: 'ChIJ5TCOcRa7yhQRLlO1w2b9U_E' })
+  placeId: string;
+
+  @ApiProperty({ example: 'Camp Nou, Barcelona, Spain' })
+  formattedAddress: string;
+
+  @ApiPropertyOptional({ example: 'Camp Nou' })
+  mainText?: string;
+
+  @ApiPropertyOptional({ example: 'Barcelona, Spain' })
+  secondaryText?: string;
+
+  @ApiPropertyOptional({ example: 'Camp Nou' })
+  venueName?: string;
+
+  @ApiPropertyOptional()
+  isPointOfInterest?: boolean;
+}
+
 export class ReverseGeocodeDto {
   @ApiProperty({ example: 41.3851, description: 'Latitude coordinate' })
   @Type(() => Number)

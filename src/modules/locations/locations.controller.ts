@@ -7,7 +7,12 @@ import {
 } from '@nestjs/swagger';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { LocationsService } from './locations.service';
-import { LocationSearchDto, LocationResultDto, ReverseGeocodeDto } from './dto';
+import {
+  LocationSearchDto,
+  LocationResultDto,
+  LocationPredictionDto,
+  ReverseGeocodeDto,
+} from './dto';
 import { JwtAuthGuard } from '../auth/guards';
 import { Public } from '../../common/decorators';
 
@@ -45,7 +50,8 @@ export class LocationsController {
   @ApiOperation({
     summary: 'Get location autocomplete suggestions',
     description:
-      'Get autocomplete suggestions for location input. Minimum 2 characters required.',
+      'Get autocomplete suggestions for location input. Minimum 3 characters required. ' +
+      'With details=false only predictions are returned (no coordinates); fetch the chosen one with GET /locations/place.',
   })
   @ApiResponse({
     status: 200,
@@ -57,14 +63,36 @@ export class LocationsController {
     @Query('countryCode') countryCode?: string,
     @Query('limit') limit?: string,
     @Query('sessionToken') sessionToken?: string,
-  ): Promise<LocationResultDto[]> {
+    @Query('details') details?: string,
+  ): Promise<LocationResultDto[] | LocationPredictionDto[]> {
     const parsedLimit = limit ? parseInt(limit, 10) : undefined;
     return this.locationsService.getAutocompleteSuggestions(
       query,
       countryCode,
       Number.isFinite(parsedLimit) ? parsedLimit : undefined,
       sessionToken,
+      details !== 'false',
     );
+  }
+
+  @Get('place')
+  @Public()
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @ApiOperation({
+    summary: 'Get details of an autocomplete prediction',
+    description:
+      'Coordinates and address of the place the user picked. Pass the same sessionToken as the autocomplete calls.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Location details',
+    type: LocationResultDto,
+  })
+  async getPlaceDetails(
+    @Query('placeId') placeId: string,
+    @Query('sessionToken') sessionToken?: string,
+  ): Promise<LocationResultDto | null> {
+    return this.locationsService.getPlaceDetails(placeId, sessionToken);
   }
 
   @Get('reverse')
