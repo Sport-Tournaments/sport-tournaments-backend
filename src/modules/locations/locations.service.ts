@@ -1,6 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { LocationSearchDto, LocationResultDto, ReverseGeocodeDto } from './dto';
+import {
+  LocationSearchDto,
+  LocationResultDto,
+  LocationPredictionDto,
+  ReverseGeocodeDto,
+} from './dto';
 
 @Injectable()
 export class LocationsService {
@@ -138,7 +143,8 @@ export class LocationsService {
     countryCode?: string,
     limit = 5,
     sessionToken?: string,
-  ): Promise<LocationResultDto[]> {
+    withDetails = true,
+  ): Promise<LocationResultDto[] | LocationPredictionDto[]> {
     // 3+ characters: 2-letter prefixes match almost everything and just burn quota.
     if (!query || query.trim().length < 3) {
       return [];
@@ -149,8 +155,10 @@ export class LocationsService {
       return [];
     }
 
-    const cacheKey = `ac:${query.trim().toLowerCase()}|${(countryCode || '').toLowerCase()}|${limit}`;
-    const cached = this.cacheGet<LocationResultDto[]>(cacheKey);
+    const cacheKey = `ac:${withDetails ? 'd' : 'p'}:${query.trim().toLowerCase()}|${(countryCode || '').toLowerCase()}|${limit}`;
+    const cached = this.cacheGet<LocationResultDto[] | LocationPredictionDto[]>(
+      cacheKey,
+    );
     if (cached) return cached;
 
     try {
@@ -185,44 +193,34 @@ export class LocationsService {
         ? payload.predictions
         : [];
 
-      // Each prediction costs a Place Details call, so cap it.
-      const maxDetails = Math.min(Math.max(limit, 1), 5);
+      const max = Math.min(Math.max(limit, 1), 5);
+
+      // Predictions only: the client fetches details for the one it picks
+      // (getPlaceDetails), instead of paying a Place Details call per prediction.
+      if (!withDetails) {
+        const mappedPredictions = predictions
+          .slice(0, max)
+          .filter((prediction: any) => !!prediction?.place_id)
+          .map((prediction: any) => this.mapGooglePrediction(prediction));
+        if (mappedPredictions.length > 0) {
+          this.cacheSet(cacheKey, mappedPredictions);
+        }
+        return mappedPredictions;
+      }
+
+      // Legacy: each prediction costs a Place Details call, so cap it.
       const detailsResults = await Promise.all(
-        predictions.slice(0, maxDetails).map(async (prediction: any) => {
-          if (!prediction?.place_id) {
-            return null;
-          }
-
-          const detailsParams = new URLSearchParams({
-            place_id: prediction.place_id,
-            key: apiKey,
-            language: 'en',
-            fields:
-              'place_id,formatted_address,name,address_component,geometry,types',
-          });
-          if (sessionToken) {
-            detailsParams.append('sessiontoken', sessionToken);
-          }
-
-          try {
-            const detailsResponse = await fetch(
-              `${this.googleMapsBaseUrl}/place/details/json?${detailsParams.toString()}`,
-            );
-
-            if (!detailsResponse.ok) {
-              this.logger.warn(
-                `Google Places Details error: ${detailsResponse.status}`,
-              );
-              return null;
-            }
-
-            const detailsPayload = await detailsResponse.json();
-            return detailsPayload.result || null;
-          } catch (error) {
-            this.logger.warn('Error fetching place details:', error);
-            return null;
-          }
-        }),
+        predictions
+          .slice(0, max)
+          .map((prediction: any) =>
+            prediction?.place_id
+              ? this.fetchPlaceDetails(
+                  prediction.place_id,
+                  apiKey,
+                  sessionToken,
+                )
+              : null,
+          ),
       );
 
       const mapped = detailsResults
@@ -234,6 +232,77 @@ export class LocationsService {
       this.logger.error('Error fetching autocomplete suggestions:', error);
       return [];
     }
+  }
+
+  /**
+   * Details for the suggestion the user picked. Passing the same session token
+   * as the autocomplete requests lets Google bill the whole search as one session.
+   */
+  async getPlaceDetails(
+    placeId: string,
+    sessionToken?: string,
+  ): Promise<LocationResultDto | null> {
+    if (!placeId) return null;
+
+    const apiKey = this.getGoogleMapsApiKey();
+    if (!apiKey) return null;
+
+    const cacheKey = `pd:${placeId}`;
+    const cached = this.cacheGet<LocationResultDto>(cacheKey);
+    if (cached) return cached;
+
+    const result = await this.fetchPlaceDetails(placeId, apiKey, sessionToken);
+    if (!result) return null;
+
+    const mapped = this.mapGooglePlaceResult(result);
+    this.cacheSet(cacheKey, mapped);
+    return mapped;
+  }
+
+  private async fetchPlaceDetails(
+    placeId: string,
+    apiKey: string,
+    sessionToken?: string,
+  ): Promise<any> {
+    const params = new URLSearchParams({
+      place_id: placeId,
+      key: apiKey,
+      language: 'en',
+      fields:
+        'place_id,formatted_address,name,address_component,geometry,types',
+    });
+    if (sessionToken) {
+      params.append('sessiontoken', sessionToken);
+    }
+
+    try {
+      const response = await fetch(
+        `${this.googleMapsBaseUrl}/place/details/json?${params.toString()}`,
+      );
+      if (!response.ok) {
+        this.logger.warn(`Google Places Details error: ${response.status}`);
+        return null;
+      }
+      const payload = await response.json();
+      return payload.result || null;
+    } catch (error) {
+      this.logger.warn('Error fetching place details:', error);
+      return null;
+    }
+  }
+
+  private mapGooglePrediction(prediction: any): LocationPredictionDto {
+    const isPointOfInterest = this.isPointOfInterest(prediction);
+    return {
+      placeId: prediction.place_id,
+      formattedAddress: prediction.description || '',
+      mainText: prediction.structured_formatting?.main_text,
+      secondaryText: prediction.structured_formatting?.secondary_text,
+      venueName: isPointOfInterest
+        ? prediction.structured_formatting?.main_text
+        : undefined,
+      isPointOfInterest,
+    };
   }
 
   private getGoogleMapsApiKey(): string | null {

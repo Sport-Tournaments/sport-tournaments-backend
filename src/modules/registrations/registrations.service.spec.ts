@@ -23,8 +23,11 @@ import {
   UserRole,
   PaymentStatus,
 } from '../../common/enums';
+import { ConversionsService } from '../conversions/conversions.service';
 
 describe('RegistrationsService', () => {
+  const mockConversions = { track: jest.fn() };
+
   let service: RegistrationsService;
 
   const mockTournament: Partial<Tournament> = {
@@ -172,6 +175,10 @@ describe('RegistrationsService', () => {
           provide: MailService,
           useValue: mockMailService,
         },
+        {
+          provide: ConversionsService,
+          useValue: mockConversions,
+        },
       ],
     }).compile();
 
@@ -180,6 +187,59 @@ describe('RegistrationsService', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+  });
+
+  describe('conversion events', () => {
+    it('reports a tournament registration', async () => {
+      mockTournamentsRepo.findOne.mockResolvedValue(mockTournament);
+      mockClubsRepo.findOne.mockResolvedValue(mockClub);
+      mockTeamsRepo.findOne.mockResolvedValue(mockTeam);
+      mockRegistrationsRepo.findOne.mockResolvedValue(null);
+      mockRegistrationsRepo.create.mockReturnValue(mockRegistration);
+      mockRegistrationsRepo.save.mockResolvedValue(mockRegistration);
+      mockTournamentsRepo.increment.mockResolvedValue({ affected: 1 });
+
+      await service.create('tournament-1', 'user-1', {
+        clubId: 'club-1',
+        teamId: 'team-1',
+      } as CreateRegistrationDto);
+
+      expect(mockConversions.track).toHaveBeenCalledWith(
+        'tournament_registration',
+        expect.objectContaining({
+          userId: 'user-1',
+          params: expect.objectContaining({
+            tournament_id: 'tournament-1',
+            tournament_name: 'Test Tournament',
+            value: 200,
+          }),
+        }),
+      );
+    });
+
+    it('reports a rejection, attributed to the club owner', async () => {
+      const pending = {
+        ...mockRegistration,
+        status: RegistrationStatus.PENDING,
+        club: { ...mockClub, organizerId: 'club-owner' },
+      };
+      mockRegistrationsRepo.findOne.mockResolvedValue(pending);
+      mockTournamentsRepo.findOne.mockResolvedValue(mockTournament);
+      mockRegistrationsRepo.save.mockImplementation((r: unknown) =>
+        Promise.resolve(r),
+      );
+      mockTournamentsRepo.decrement.mockResolvedValue({ affected: 1 });
+
+      await service.reject('registration-1', 'organizer-1', UserRole.ORGANIZER);
+
+      expect(mockConversions.track).toHaveBeenCalledWith(
+        'registration_rejected',
+        expect.objectContaining({
+          userId: 'club-owner',
+          attributeToRequest: false,
+        }),
+      );
+    });
   });
 
   describe('create', () => {

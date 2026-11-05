@@ -26,6 +26,7 @@ import { writeFileSync } from 'fs';
 import { config } from 'dotenv';
 import * as bcrypt from 'bcrypt';
 import { TournamentStatus, Currency, UserRole } from '../common/enums';
+import { IMPORTED_TOURNAMENT_CONTACT_EMAIL } from '../modules/leads/crm.constants';
 
 config();
 
@@ -493,7 +494,7 @@ async function seedTournament(
       ...(isGirls ? ['girls'] : []),
       ...(country ? [country.toLowerCase()] : []),
     ],
-    contactEmail: undefined as string | undefined,
+    contactEmail: IMPORTED_TOURNAMENT_CONTACT_EMAIL,
     country,
     brochureUrl: t.imageUrl,
     urlSlug,

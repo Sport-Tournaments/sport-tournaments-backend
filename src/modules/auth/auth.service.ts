@@ -4,6 +4,7 @@ import {
   ConflictException,
   BadRequestException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -23,6 +24,7 @@ import {
 } from './dto';
 import { UserRole } from '../../common/enums';
 import { MailService } from '../mail/mail.service';
+import { ConversionsService } from '../conversions/conversions.service';
 
 @Injectable()
 export class AuthService {
@@ -36,6 +38,7 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private mailService: MailService,
+    @Optional() private readonly conversions?: ConversionsService,
   ) {}
 
   async register(
@@ -104,6 +107,16 @@ export class AuthService {
         `User registered and auto-verified: ${email} (email verification disabled)`,
       );
     }
+
+    this.conversions?.track('sign_up', {
+      userId: user.id,
+      params: {
+        method: 'email',
+        role: user.role,
+        country: country || undefined,
+      },
+      summary: `${firstName} ${lastName} (${email}) signed up as ${user.role}`,
+    });
 
     // Return user without sensitive data
 
@@ -248,9 +261,16 @@ export class AuthService {
       throw new BadRequestException('Invalid verification token');
     }
 
-    user.isVerified = true;
-    user.emailVerificationToken = undefined;
-    await this.usersRepository.save(user);
+    // null, not undefined: TypeORM skips undefined, which left the token usable.
+    await this.usersRepository.update(user.id, {
+      isVerified: true,
+      emailVerificationToken: null,
+    });
+    this.conversions?.track('email_verified', {
+      userId: user.id,
+      params: { role: user.role },
+      summary: `${user.firstName} ${user.lastName} (${user.email}) verified their email`,
+    });
 
     return { message: 'Email verified successfully' };
   }
@@ -317,10 +337,12 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(newPassword, 12);
 
-    user.password = hashedPassword;
-    user.passwordResetToken = undefined;
-    user.passwordResetExpires = undefined;
-    await this.usersRepository.save(user);
+    // null, not undefined: TypeORM skips undefined, which left the link reusable.
+    await this.usersRepository.update(user.id, {
+      password: hashedPassword,
+      passwordResetToken: null,
+      passwordResetExpires: null,
+    });
 
     // Revoke all refresh tokens for this user
     await this.refreshTokenRepository.update(

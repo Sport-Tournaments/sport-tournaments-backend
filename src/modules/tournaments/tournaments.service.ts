@@ -6,6 +6,7 @@ import {
   Inject,
   forwardRef,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThanOrEqual, DeepPartial } from 'typeorm';
@@ -25,6 +26,7 @@ import {
   RegistrationStatus,
 } from '../../common/enums';
 import { FilesService } from '../files/files.service';
+import { ConversionsService } from '../conversions/conversions.service';
 
 @Injectable()
 export class TournamentsService {
@@ -37,6 +39,7 @@ export class TournamentsService {
     private filesService: FilesService,
     @InjectRepository(TournamentAgeGroup)
     private ageGroupsRepository: Repository<TournamentAgeGroup>,
+    @Optional() private readonly conversions?: ConversionsService,
   ) {}
 
   private slugify(value: string): string {
@@ -273,6 +276,15 @@ export class TournamentsService {
       }
     }
 
+    this.conversions?.track('create_tournament', {
+      userId: organizerId,
+      params: {
+        tournament_id: savedTournament.id,
+        tournament_name: savedTournament.name,
+        country: savedTournament.country,
+      },
+      summary: `"${savedTournament.name}" (${savedTournament.location || savedTournament.country || 'no location'})`,
+    });
     return savedTournament;
   }
 
@@ -1005,11 +1017,24 @@ export class TournamentsService {
       );
     }
 
+    const wasPublished = tournament.isPublished;
     tournament.status = TournamentStatus.PUBLISHED;
     tournament.isPublished = true;
     tournament.isRegistrationClosed = false;
 
-    return this.tournamentsRepository.save(tournament);
+    const saved = await this.tournamentsRepository.save(tournament);
+    if (!wasPublished) {
+      this.conversions?.track('publish_tournament', {
+        userId: tournament.organizerId,
+        params: {
+          tournament_id: saved.id,
+          tournament_name: saved.name,
+          country: saved.country,
+        },
+        summary: `"${saved.name}" is now public`,
+      });
+    }
+    return saved;
   }
 
   async cancel(

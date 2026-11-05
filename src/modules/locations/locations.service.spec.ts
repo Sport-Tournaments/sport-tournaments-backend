@@ -125,3 +125,97 @@ describe('LocationsService.getAutocompleteSuggestions', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('LocationsService predictions and place details', () => {
+  const fetchMock = jest.fn();
+  let service: LocationsService;
+
+  beforeEach(() => {
+    fetchMock.mockReset();
+    global.fetch = fetchMock as unknown as typeof fetch;
+    service = new LocationsService({
+      get: () => 'test-key',
+    } as unknown as ConfigService);
+  });
+
+  const okJson = (body: unknown) => ({ ok: true, json: () => body });
+
+  it('returns predictions without any Place Details call when details are off', async () => {
+    fetchMock.mockResolvedValueOnce(
+      okJson({
+        predictions: [
+          {
+            place_id: 'p1',
+            description: 'Arena Nationala, Bucuresti, Romania',
+            structured_formatting: {
+              main_text: 'Arena Nationala',
+              secondary_text: 'Bucuresti, Romania',
+            },
+            types: ['stadium', 'establishment'],
+          },
+          { place_id: 'p2', description: 'Arad, Romania', types: ['locality'] },
+        ],
+      }),
+    );
+
+    const results = await service.getAutocompleteSuggestions(
+      'Ara',
+      undefined,
+      5,
+      'session-1',
+      false,
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(results).toEqual([
+      {
+        placeId: 'p1',
+        formattedAddress: 'Arena Nationala, Bucuresti, Romania',
+        mainText: 'Arena Nationala',
+        secondaryText: 'Bucuresti, Romania',
+        venueName: 'Arena Nationala',
+        isPointOfInterest: true,
+      },
+      {
+        placeId: 'p2',
+        formattedAddress: 'Arad, Romania',
+        mainText: undefined,
+        secondaryText: undefined,
+        venueName: undefined,
+        isPointOfInterest: false,
+      },
+    ]);
+  });
+
+  it('fetches details for the picked place with the session token, then caches them', async () => {
+    fetchMock.mockResolvedValueOnce(
+      okJson({
+        result: {
+          place_id: 'p1',
+          formatted_address: 'Arad, Romania',
+          types: ['locality'],
+          geometry: { location: { lat: 46.18, lng: 21.31 } },
+          address_components: [
+            { long_name: 'Arad', types: ['locality'] },
+            { long_name: 'Romania', short_name: 'RO', types: ['country'] },
+          ],
+        },
+      }),
+    );
+
+    const first = await service.getPlaceDetails('p1', 'session-1');
+    const second = await service.getPlaceDetails('p1', 'session-2');
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const url = new URL(fetchMock.mock.calls[0][0]);
+    expect(url.pathname).toContain('/place/details/json');
+    expect(url.searchParams.get('place_id')).toBe('p1');
+    expect(url.searchParams.get('sessiontoken')).toBe('session-1');
+    expect(first).toMatchObject({
+      city: 'Arad',
+      latitude: 46.18,
+      countryCode: 'RO',
+    });
+    expect(second).toBe(first);
+  });
+});

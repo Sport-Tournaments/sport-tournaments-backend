@@ -23,6 +23,7 @@ import {
   ApiBody,
 } from '@nestjs/swagger';
 import { TournamentsService } from './tournaments.service';
+import { withPublicContactEmail } from './public-contact';
 import {
   CreateTournamentDto,
   UpdateTournamentDto,
@@ -131,8 +132,10 @@ export class TournamentsController {
   @ApiOperation({ summary: 'Get tournament by slug' })
   @ApiResponse({ status: 200, description: 'Tournament details' })
   @ApiResponse({ status: 404, description: 'Tournament not found' })
-  findBySlug(@Param('slug') slug: string) {
-    return this.tournamentsService.findBySlugOrFail(slug);
+  async findBySlug(@Param('slug') slug: string) {
+    return withPublicContactEmail(
+      await this.tournamentsService.findBySlugOrFail(slug),
+    );
   }
 
   @Get(':id')
@@ -140,8 +143,10 @@ export class TournamentsController {
   @ApiOperation({ summary: 'Get tournament by ID' })
   @ApiResponse({ status: 200, description: 'Tournament details' })
   @ApiResponse({ status: 404, description: 'Tournament not found' })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.tournamentsService.findDetailsByIdOrFail(id);
+  async findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return withPublicContactEmail(
+      await this.tournamentsService.findDetailsByIdOrFail(id),
+    );
   }
 
   @Patch(':id')

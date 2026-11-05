@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -12,6 +13,7 @@ import { Payment } from './entities/payment.entity';
 import { Registration } from '../registrations/entities/registration.entity';
 import { Tournament } from '../tournaments/entities/tournament.entity';
 import { PaymentStatus, Currency } from '../../common/enums';
+import { ConversionsService } from '../conversions/conversions.service';
 
 @Injectable()
 export class PaymentsService {
@@ -26,6 +28,7 @@ export class PaymentsService {
     @InjectRepository(Tournament)
     private tournamentsRepository: Repository<Tournament>,
     private configService: ConfigService,
+    @Optional() private readonly conversions?: ConversionsService,
   ) {
     const stripeKey = this.configService.get<string>('stripe.secretKey');
     if (stripeKey) {
@@ -193,6 +196,18 @@ export class PaymentsService {
     this.logger.log(
       `Payment completed for registration: ${payment.registrationId}`,
     );
+
+    this.conversions?.track('purchase', {
+      userId: payment.userId,
+      attributeToRequest: false,
+      params: {
+        transaction_id: payment.id,
+        value: Number(payment.amount) || 0,
+        currency: payment.currency,
+        tournament_id: payment.tournamentId,
+      },
+      summary: `${Number(payment.amount) || 0} ${payment.currency} paid for registration ${payment.registrationId}`,
+    });
   }
 
   private async handlePaymentFailure(

@@ -4,6 +4,7 @@ import {
   ConflictException,
   ForbiddenException,
   BadRequestException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -18,6 +19,7 @@ import { PaginationDto } from '../../common/dto';
 import { PaginatedResponse } from '../../common/interfaces';
 import { UserRole } from '../../common/enums';
 import { FilesService } from '../files/files.service';
+import { ConversionsService } from '../conversions/conversions.service';
 
 @Injectable()
 export class ClubsService {
@@ -25,6 +27,7 @@ export class ClubsService {
     @InjectRepository(Club)
     private clubsRepository: Repository<Club>,
     private readonly filesService: FilesService,
+    @Optional() private readonly conversions?: ConversionsService,
   ) {}
 
   async create(
@@ -45,7 +48,17 @@ export class ClubsService {
       organizerId,
     });
 
-    return this.clubsRepository.save(club);
+    const savedClub = await this.clubsRepository.save(club);
+    this.conversions?.track('create_club', {
+      userId: organizerId,
+      params: {
+        club_id: savedClub.id,
+        club_name: savedClub.name,
+        country: savedClub.country,
+      },
+      summary: `Club "${savedClub.name}" (${[savedClub.city, savedClub.country].filter(Boolean).join(', ')})`,
+    });
+    return savedClub;
   }
 
   async findAll(

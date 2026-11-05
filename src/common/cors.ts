@@ -6,7 +6,12 @@ import type { Request } from 'express';
 
 const CORS_BASE: CorsOptions = {
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept-Language'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'Accept-Language',
+    'X-GA-Client-Id',
+  ],
   credentials: true,
 };
 

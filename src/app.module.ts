@@ -26,6 +26,7 @@ import { PlayersModule } from './modules/players/players.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { SitemapModule } from './modules/sitemap/sitemap.module';
 import { LeadsModule } from './modules/leads/leads.module';
+import { ConversionsModule } from './modules/conversions/conversions.module';
 import { MigrationsRunner } from './migrations/migrations.runner';
 
 @Module({
@@ -77,6 +78,7 @@ import { MigrationsRunner } from './migrations/migrations.runner';
     DashboardModule,
     SitemapModule,
     LeadsModule,
+    ConversionsModule,
   ],
   controllers: [],
   providers: [MigrationsRunner],
