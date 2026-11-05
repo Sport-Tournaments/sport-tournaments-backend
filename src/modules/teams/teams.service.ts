@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   ConflictException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Not, Repository } from 'typeorm';
@@ -12,6 +13,7 @@ import { CreateTeamDto, TeamFilterDto, UpdateTeamDto } from './dto/team.dto';
 import { JwtPayload } from '../../common/interfaces';
 import { UserRole } from '../../common/enums';
 import { Player } from '../players/entities';
+import { ConversionsService } from '../conversions/conversions.service';
 
 @Injectable()
 export class TeamsService {
@@ -22,6 +24,7 @@ export class TeamsService {
     private clubsRepository: Repository<Club>,
     @InjectRepository(Player)
     private playersRepository: Repository<Player>,
+    @Optional() private readonly conversions?: ConversionsService,
   ) {}
 
   private async verifyClubAccess(clubId: string, user: JwtPayload) {
@@ -142,7 +145,17 @@ export class TeamsService {
       team.players = await this.resolvePlayers(dto.playerIds);
     }
 
-    return this.teamsRepository.save(team);
+    const savedTeam = await this.teamsRepository.save(team);
+    this.conversions?.track('create_team', {
+      userId: user.sub,
+      params: {
+        team_id: savedTeam.id,
+        club_id: savedTeam.clubId,
+        birth_year: savedTeam.birthyear,
+      },
+      summary: `Team "${savedTeam.name}"${savedTeam.birthyear ? ` (${savedTeam.birthyear})` : ''}`,
+    });
+    return savedTeam;
   }
 
   async update(

@@ -36,6 +36,7 @@ describe('AuthService', () => {
     findOne: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
+    update: jest.fn(),
   };
 
   const mockRefreshTokenRepository = {
@@ -296,6 +297,35 @@ describe('AuthService', () => {
       );
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('one-time tokens are cleared after use', () => {
+    it('verifyEmail nulls the verification token', async () => {
+      mockUserRepository.findOne.mockResolvedValue({ ...mockUser });
+
+      await service.verifyEmail('verify-token');
+
+      expect(mockUserRepository.update).toHaveBeenCalledWith(mockUser.id, {
+        isVerified: true,
+        emailVerificationToken: null,
+      });
+    });
+
+    it('resetPassword nulls the reset token so the link cannot be reused', async () => {
+      mockUserRepository.findOne.mockResolvedValue({ ...mockUser });
+      (bcrypt.hash as jest.Mock).mockResolvedValue('new-hash');
+
+      await service.resetPassword({
+        token: 'reset-token',
+        newPassword: 'N3w!passw0rd',
+      });
+
+      expect(mockUserRepository.update).toHaveBeenCalledWith(mockUser.id, {
+        password: 'new-hash',
+        passwordResetToken: null,
+        passwordResetExpires: null,
+      });
     });
   });
 });

@@ -16,8 +16,11 @@ import {
   Currency,
 } from '../../common/enums';
 import { FilesService } from '../files/files.service';
+import { ConversionsService } from '../conversions/conversions.service';
 
 describe('TournamentsService', () => {
+  const mockConversions = { track: jest.fn() };
+
   let service: TournamentsService;
 
   const mockTournament: Partial<Tournament> = {
@@ -105,6 +108,10 @@ describe('TournamentsService', () => {
           provide: FilesService,
           useValue: mockFilesService,
         },
+        {
+          provide: ConversionsService,
+          useValue: mockConversions,
+        },
       ],
     }).compile();
 
@@ -147,6 +154,10 @@ describe('TournamentsService', () => {
       expect(result).toEqual(mockTournament);
       expect(mockRepository.create).toHaveBeenCalled();
       expect(mockRepository.save).toHaveBeenCalled();
+      expect(mockConversions.track).toHaveBeenCalledWith(
+        'create_tournament',
+        expect.objectContaining({ userId: 'organizer-1' }),
+      );
     });
 
     it('should throw BadRequestException if end date is before start date', async () => {

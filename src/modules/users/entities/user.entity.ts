@@ -50,14 +50,31 @@ export class User {
   @Column({ name: 'is_verified', default: false })
   isVerified: boolean;
 
-  @Column({ name: 'email_verification_token', nullable: true })
-  emailVerificationToken?: string;
+  // Secrets: never loaded unless selected explicitly, so they can't leak
+  // through relations (e.g. a tournament's organizer on public endpoints).
+  @Column({
+    name: 'email_verification_token',
+    type: 'varchar',
+    nullable: true,
+    select: false,
+  })
+  emailVerificationToken?: string | null;
 
-  @Column({ name: 'password_reset_token', nullable: true })
-  passwordResetToken?: string;
+  @Column({
+    name: 'password_reset_token',
+    type: 'varchar',
+    nullable: true,
+    select: false,
+  })
+  passwordResetToken?: string | null;
 
-  @Column({ name: 'password_reset_expires', type: 'timestamp', nullable: true })
-  passwordResetExpires?: Date;
+  @Column({
+    name: 'password_reset_expires',
+    type: 'timestamp',
+    nullable: true,
+    select: false,
+  })
+  passwordResetExpires?: Date | null;
 
   @Column({ name: 'profile_image_url', nullable: true })
   profileImageUrl?: string;

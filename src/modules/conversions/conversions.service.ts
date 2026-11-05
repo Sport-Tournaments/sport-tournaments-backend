@@ -6,11 +6,15 @@ import { getRequestContext } from './request-context';
 /** GA4 event names (recommended names where one exists). */
 export type ConversionEvent =
   | 'sign_up'
+  | 'email_verified'
   | 'create_club'
+  | 'create_team'
   | 'create_tournament'
   | 'publish_tournament'
   | 'tournament_registration'
   | 'registration_approved'
+  | 'registration_rejected'
+  | 'registration_withdrawn'
   | 'purchase';
 
 type ParamValue = string | number | boolean | undefined | null;
@@ -30,11 +34,15 @@ export interface ConversionDetails {
 
 const DISCORD_TITLES: Record<ConversionEvent, string> = {
   sign_up: '🆕 New sign-up',
+  email_verified: '📧 Email verified',
   create_club: '🏟️ Club created',
+  create_team: '👕 Team created',
   create_tournament: '🏆 Tournament created',
   publish_tournament: '📣 Tournament published',
   tournament_registration: '📝 Team registered for a tournament',
   registration_approved: '✅ Registration approved',
+  registration_rejected: '❌ Registration rejected',
+  registration_withdrawn: '↩️ Registration withdrawn',
   purchase: '💶 Payment completed',
 };
 

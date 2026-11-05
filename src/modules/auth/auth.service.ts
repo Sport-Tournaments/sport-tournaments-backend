@@ -261,9 +261,16 @@ export class AuthService {
       throw new BadRequestException('Invalid verification token');
     }
 
-    user.isVerified = true;
-    user.emailVerificationToken = undefined;
-    await this.usersRepository.save(user);
+    // null, not undefined: TypeORM skips undefined, which left the token usable.
+    await this.usersRepository.update(user.id, {
+      isVerified: true,
+      emailVerificationToken: null,
+    });
+    this.conversions?.track('email_verified', {
+      userId: user.id,
+      params: { role: user.role },
+      summary: `${user.firstName} ${user.lastName} (${user.email}) verified their email`,
+    });
 
     return { message: 'Email verified successfully' };
   }
@@ -330,10 +337,12 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(newPassword, 12);
 
-    user.password = hashedPassword;
-    user.passwordResetToken = undefined;
-    user.passwordResetExpires = undefined;
-    await this.usersRepository.save(user);
+    // null, not undefined: TypeORM skips undefined, which left the link reusable.
+    await this.usersRepository.update(user.id, {
+      password: hashedPassword,
+      passwordResetToken: null,
+      passwordResetExpires: null,
+    });
 
     // Revoke all refresh tokens for this user
     await this.refreshTokenRepository.update(

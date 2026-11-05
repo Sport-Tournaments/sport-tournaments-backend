@@ -344,16 +344,38 @@ export class RegistrationsService {
   }
 
   private trackApproval(registration: Registration, tournamentName?: string) {
-    this.conversions?.track('registration_approved', {
-      // The converting user is the club owner, not the organizer approving.
+    this.trackRegistrationStatus(
+      'registration_approved',
+      registration,
+      tournamentName,
+    );
+  }
+
+  private trackRegistrationStatus(
+    event:
+      | 'registration_approved'
+      | 'registration_rejected'
+      | 'registration_withdrawn',
+    registration: Registration,
+    tournamentName?: string,
+    byClubOwner = false,
+  ) {
+    const verb = {
+      registration_approved: 'approved for',
+      registration_rejected: 'rejected from',
+      registration_withdrawn: 'withdrawn from',
+    }[event];
+    this.conversions?.track(event, {
+      // Attributed to the club owner; only they act from their own browser
+      // when withdrawing (approve/reject is the organizer's action).
       userId: registration.club?.organizerId,
-      attributeToRequest: false,
+      attributeToRequest: byClubOwner,
       params: {
         tournament_id: registration.tournamentId,
         tournament_name: tournamentName,
         status: registration.status,
       },
-      summary: `${registration.team?.name || registration.club?.name || 'Team'} approved for "${tournamentName ?? 'tournament'}"`,
+      summary: `${registration.team?.name || registration.club?.name || 'Team'} ${verb} "${tournamentName ?? 'tournament'}"${registration.rejectionReason && event === 'registration_rejected' ? `: ${registration.rejectionReason}` : ''}`,
     });
   }
 
@@ -659,6 +681,7 @@ export class RegistrationsService {
       );
     }
 
+    const wasPaid = registration.paymentStatus === PaymentStatus.COMPLETED;
     registration.status = RegistrationStatus.APPROVED;
     registration.paymentStatus = PaymentStatus.COMPLETED;
     registration.paid = true;
@@ -668,7 +691,23 @@ export class RegistrationsService {
       registration.reviewNotes = dto.reviewNotes;
     }
 
-    return this.registrationsRepository.save(registration);
+    const saved = await this.registrationsRepository.save(registration);
+    if (!wasPaid) {
+      this.conversions?.track('purchase', {
+        userId: registration.club?.organizerId,
+        attributeToRequest: false,
+        params: {
+          transaction_id: `manual-${registration.id}`,
+          payment_type: 'manual',
+          value: Number(saved.paidAmount) || 0,
+          currency: saved.priceCurrency,
+          tournament_id: registration.tournamentId,
+          tournament_name: tournament?.name,
+        },
+        summary: `${Number(saved.paidAmount) || 0} ${saved.priceCurrency ?? ''} marked as paid by the organizer for ${registration.team?.name || registration.club?.name || 'a team'} ("${tournament?.name}")`,
+      });
+    }
+    return saved;
   }
 
   async reject(
@@ -719,7 +758,13 @@ export class RegistrationsService {
       );
     }
 
-    return this.registrationsRepository.save(registration);
+    const saved = await this.registrationsRepository.save(registration);
+    this.trackRegistrationStatus(
+      'registration_rejected',
+      saved,
+      tournament?.name,
+    );
+    return saved;
   }
 
   async withdraw(
@@ -764,7 +809,14 @@ export class RegistrationsService {
       }
     }
 
-    return this.registrationsRepository.save(registration);
+    const saved = await this.registrationsRepository.save(registration);
+    this.trackRegistrationStatus(
+      'registration_withdrawn',
+      saved,
+      registration.tournament?.name,
+      true,
+    );
+    return saved;
   }
 
   async remove(
@@ -1282,6 +1334,7 @@ export class RegistrationsService {
       try {
         const registration = await this.registrationsRepository.findOne({
           where: { id: registrationId, tournamentId },
+          relations: ['club', 'team'],
         });
 
         if (!registration) {
@@ -1303,6 +1356,11 @@ export class RegistrationsService {
         }
 
         await this.registrationsRepository.save(registration);
+        this.trackRegistrationStatus(
+          'registration_rejected',
+          registration,
+          tournament.name,
+        );
 
         // Decrease tournament team count
         await this.tournamentsRepository.decrement(

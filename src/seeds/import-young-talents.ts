@@ -27,6 +27,7 @@ import { randomUUID } from 'crypto';
 import { config } from 'dotenv';
 import * as bcrypt from 'bcrypt';
 import { TournamentStatus, Currency, UserRole } from '../common/enums';
+import { IMPORTED_TOURNAMENT_CONTACT_EMAIL } from '../modules/leads/crm.constants';
 
 config();
 
@@ -250,6 +251,7 @@ async function importTournament(
   const tournamentValues = {
     name,
     organizer: { id: organizerId },
+    contactEmail: IMPORTED_TOURNAMENT_CONTACT_EMAIL,
     description: buildDescription(t),
     status,
     startDate: t.startDate || undefined,
